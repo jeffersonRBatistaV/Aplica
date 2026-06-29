@@ -58,6 +58,8 @@ interface ChatContextValue {
   isStreaming: boolean
   streamingContent: string
   error: string | null
+  showArchived: boolean
+  setShowArchived: (v: boolean) => void
   newConversation: () => void
   selectConversation: (id: string) => Promise<void>
   sendMessage: (content: string) => Promise<void>
@@ -79,6 +81,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamingContent, setStreamingContent] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [showArchived, setShowArchived] = useState(false)
 
   const abortRef = useRef<AbortController | null>(null)
   const streamContentRef = useRef('')
@@ -93,7 +96,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (window.api) {
       window.api.getConversations().then((chats) => {
-        setConversations(chats.filter((c) => !c.archived))
+        setConversations(chats)
       })
     }
   }, [])
@@ -246,7 +249,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const archiveConversation = useCallback(
     async (id: string) => {
       if (window.api) await window.api.archiveConversation(id)
-      setConversations((prev) => prev.filter((c) => c.id !== id))
+      setConversations((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, archived: true } : c)),
+      )
       if (activeConversationId === id) {
         setActiveConversationId(null)
       }
@@ -314,24 +319,26 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   ])
 
   return (
-    <ChatContext.Provider
-      value={{
-        conversations,
-        activeConversationId,
-        activeConversation,
-        isStreaming,
-        streamingContent,
-        error,
-        newConversation,
-        selectConversation,
-        sendMessage,
-        abortStream,
-        deleteConversation,
-        renameConversation,
-        archiveConversation,
-        regenerateLastMessage,
-      }}
-    >
+      <ChatContext.Provider
+        value={{
+          conversations,
+          activeConversationId,
+          activeConversation,
+          isStreaming,
+          streamingContent,
+          error,
+          showArchived,
+          setShowArchived,
+          newConversation,
+          selectConversation,
+          sendMessage,
+          abortStream,
+          deleteConversation,
+          renameConversation,
+          archiveConversation,
+          regenerateLastMessage,
+        }}
+      >
       {children}
     </ChatContext.Provider>
   )

@@ -1,5 +1,9 @@
 import type { Message, Profile } from '../../shared/types'
 
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4)
+}
+
 interface LLMConfig {
   baseUrl: string
   apiKey: string
@@ -84,6 +88,7 @@ export async function streamChatCompletion(
     const decoder = new TextDecoder()
     let buffer = ''
     let usageData: { prompt_tokens?: number; completion_tokens?: number } | null = null
+    let fullOutput = ''
 
     while (true) {
       const { done, value } = await reader.read()
@@ -100,23 +105,26 @@ export async function streamChatCompletion(
           const parsed = JSON.parse(data)
           if (parsed.usage) usageData = parsed.usage
           const token = parsed.choices?.[0]?.delta?.content || ''
-          if (token) callbacks.onToken(token)
+          if (token) {
+            fullOutput += token
+            callbacks.onToken(token)
+          }
         } catch { /* skip */ }
       }
     }
 
-    if (usageData) {
-      try {
-        const { addUsage, calculateCost } = await import('./usage-service')
-        await addUsage({
-          promptTokens: usageData.prompt_tokens || 0,
-          completionTokens: usageData.completion_tokens || 0,
-          model: config.model,
-          estimatedCost: calculateCost(config.model, usageData.prompt_tokens || 0, usageData.completion_tokens || 0),
-          timestamp: Date.now(),
-        })
-      } catch { /* usage tracking failure is non-critical */ }
-    }
+    try {
+      const { addUsage, calculateCost } = await import('./usage-service')
+      const promptTokens = usageData?.prompt_tokens ?? estimateTokens(systemMessage.content + messages.map(m => m.content).join(' '))
+      const completionTokens = usageData?.completion_tokens ?? estimateTokens(fullOutput)
+      await addUsage({
+        promptTokens,
+        completionTokens,
+        model: config.model,
+        estimatedCost: calculateCost(config.model, promptTokens, completionTokens),
+        timestamp: Date.now(),
+      })
+    } catch { /* usage tracking failure is non-critical */ }
 
     callbacks.onDone()
   } catch (err: unknown) {
@@ -166,18 +174,18 @@ export async function completeChatCompletion(
     }
   }
 
-  if (usageData) {
-    try {
-      const { addUsage, calculateCost } = await import('./usage-service')
-      await addUsage({
-        promptTokens: usageData.prompt_tokens || 0,
-        completionTokens: usageData.completion_tokens || 0,
-        model: config.model,
-        estimatedCost: calculateCost(config.model, usageData.prompt_tokens || 0, usageData.completion_tokens || 0),
-        timestamp: Date.now(),
-      })
-    } catch { /* usage tracking failure is non-critical */ }
-  }
+  try {
+    const { addUsage, calculateCost } = await import('./usage-service')
+    const promptTokens = usageData?.prompt_tokens ?? estimateTokens(messages.map(m => m.content).join(' '))
+    const completionTokens = usageData?.completion_tokens ?? estimateTokens(result)
+    await addUsage({
+      promptTokens,
+      completionTokens,
+      model: config.model,
+      estimatedCost: calculateCost(config.model, promptTokens, completionTokens),
+      timestamp: Date.now(),
+    })
+  } catch { /* usage tracking failure is non-critical */ }
 
   return result
 }

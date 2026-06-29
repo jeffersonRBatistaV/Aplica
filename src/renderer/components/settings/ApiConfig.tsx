@@ -210,13 +210,18 @@ export function ApiConfig({ baseUrl, apiKey, model, onChange }: ApiConfigProps) 
 function ConsumptionSection() {
   const [usage, setUsage] = useState<UsageStats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [dopRate, setDopRate] = useState<number | null>(null)
 
   const loadUsage = useCallback(async () => {
     if (!window.api) return
     setLoading(true)
     try {
-      const data = await window.api.getUsage()
+      const [data, rate] = await Promise.all([
+        window.api.getUsage(),
+        window.api.getExchangeRate('USD', 'DOP').catch(() => null),
+      ])
       setUsage(data)
+      setDopRate(rate)
     } catch {
       setUsage(null)
     } finally {
@@ -282,9 +287,20 @@ function ConsumptionSection() {
               Costo estimado
             </span>
             <span className="font-mono text-gray-800 dark:text-gray-200">
-              ${usage.totalCost.toFixed(4)}
+              ${usage.totalCost.toFixed(4)} USD
             </span>
           </div>
+          {dopRate !== null && (
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                <DollarSign className="w-3 h-3" />
+                En RD$
+              </span>
+              <span className="font-mono text-gray-800 dark:text-gray-200">
+                RD$ {(usage.totalCost * dopRate).toFixed(2)}
+              </span>
+            </div>
+          )}
         </div>
       )}
     </div>

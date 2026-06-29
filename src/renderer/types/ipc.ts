@@ -80,13 +80,17 @@ export interface ElectronAPI {
   getUsage: () => Promise<UsageStats>
   resetUsage: () => Promise<void>
 
-  // Data Export
+  // Data Export / Import
   exportAll: () => Promise<unknown>
   saveExportFile: (data: unknown, format: 'json' | 'xlsx') => Promise<string | null>
+  importFromFile: () => Promise<string | null>
 
   // Clipboard
   copyToClipboard: (text: string) => Promise<void>
   readClipboardImage: () => Promise<string | null>
+
+  // Currency Exchange
+  getExchangeRate: (from: string, to: string) => Promise<number>
 }
 
 declare global {

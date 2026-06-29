@@ -79,13 +79,17 @@ const api = {
   resetCvTemplates: () => ipcRenderer.invoke('cv:resetTemplates'),
   generateSampleCv: (prompt) => ipcRenderer.invoke('cv:generateSample', prompt),
 
-  // ── Data Export ──
+  // ── Data Export / Import ──
   exportAll: () => ipcRenderer.invoke('data:exportAll'),
   saveExportFile: (data, format) => ipcRenderer.invoke('data:saveExportFile', data, format),
+  importFromFile: () => ipcRenderer.invoke('data:importFromFile'),
 
   // ── Usage ──
   getUsage: () => ipcRenderer.invoke('usage:get'),
   resetUsage: () => ipcRenderer.invoke('usage:reset'),
+
+  // ── Currency Exchange ──
+  getExchangeRate: (from, to) => ipcRenderer.invoke('currency:getRate', from, to),
 
   // ── Clipboard ──
   copyToClipboard: (text) => ipcRenderer.invoke('clipboard:copy', text),

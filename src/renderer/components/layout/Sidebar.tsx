@@ -34,6 +34,8 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
     deleteConversation,
     renameConversation,
     archiveConversation,
+    showArchived,
+    setShowArchived,
   } = useChat()
 
   const [search, setSearch] = useState('')
@@ -54,13 +56,15 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
     return () => window.removeEventListener('keydown', handler)
   }, [newConversation])
 
+  const visible = showArchived ? conversations : conversations.filter((c) => !c.archived)
+
   const filtered = search
-    ? conversations.filter(
+    ? visible.filter(
         (c) =>
           c.title.toLowerCase().includes(search.toLowerCase()) ||
           c.messages.some((m) => m.content.toLowerCase().includes(search.toLowerCase())),
       )
-    : conversations
+    : visible
 
   const grouped = groupConversations(filtered)
 
@@ -157,6 +161,17 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
                 </button>
               )}
             </div>
+            <button
+              onClick={() => setShowArchived(!showArchived)}
+              className={`mt-2 w-full flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                showArchived
+                  ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300'
+                  : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+              }`}
+            >
+              <Archive className="w-3.5 h-3.5" />
+              {showArchived ? 'Mostrando archivadas' : 'Ver archivadas'}
+            </button>
             {search && (
               <p className="text-xs text-gray-400 mt-1.5 px-1">
                 {filtered.length} resultado{filtered.length !== 1 ? 's' : ''}

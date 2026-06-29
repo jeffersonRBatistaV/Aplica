@@ -24,7 +24,7 @@
     ],
     "win": {
       "target": [
-        "nsis"
+        "portable"
       ],
       "icon": null
     },

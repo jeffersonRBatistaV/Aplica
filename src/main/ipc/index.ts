@@ -10,6 +10,7 @@ import { generateCV, regenerateCV, generateSummaryOptions, generateSampleCv } fr
 import { getUsage, resetUsage } from '../services/usage-service'
 import { getSeedTemplates, wrapHtml } from '../services/cv-templates-seed'
 import { extractTextFromImage } from '../services/ocr-service'
+import { getExchangeRate } from '../services/currency-service'
 
 export function registerAllHandlers(mainWindow: BrowserWindow): void {
   // ── File System ──
@@ -364,6 +365,170 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
     return null
   })
 
+  // ── Data Import ──
+  ipcMain.handle('data:importFromFile', async (): Promise<string | null> => {
+    const { dialog, shell } = await import('electron')
+    const fs = await import('fs/promises')
+    const pathModule = await import('path')
+
+    const { filePath, canceled } = await dialog.showOpenDialog({
+      title: 'Importar datos',
+      filters: [
+        { name: 'JSON o Excel', extensions: ['json', 'xlsx'] },
+      ],
+      properties: ['openFile'],
+    })
+    if (canceled || !filePath || !filePath[0]) return null
+
+    const ext = pathModule.extname(filePath[0]).toLowerCase()
+    let data: Record<string, unknown>
+
+    if (ext === '.json') {
+      const content = await fs.readFile(filePath[0], 'utf-8')
+      try {
+        data = JSON.parse(content)
+      } catch {
+        return 'error:invalid'
+      }
+      if (!data.exportedAt) return 'error:invalid'
+    } else if (ext === '.xlsx') {
+      const XLSX = await import('xlsx')
+      const buf = await fs.readFile(filePath[0])
+      const wb = XLSX.read(buf, { type: 'buffer' })
+
+      data = {}
+
+      // Perfil sheet
+      if (wb.SheetNames.includes('Perfil')) {
+        const rows = XLSX.utils.sheet_to_json<{ Campo: string; Valor: string }>(wb.Sheets['Perfil'])
+        const profile: Record<string, unknown> = {}
+        for (const row of rows) {
+          const val = row.Valor ?? ''
+          // Try parsing JSON arrays/objects back
+          if (val.startsWith('[') || val.startsWith('{')) {
+            try { profile[row.Campo] = JSON.parse(val) } catch { profile[row.Campo] = val }
+          } else {
+            profile[row.Campo] = val
+          }
+        }
+        if (Object.keys(profile).length > 0) data.profile = profile
+      }
+
+      // Postulaciones sheet
+      if (wb.SheetNames.includes('Postulaciones')) {
+        const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets['Postulaciones'])
+        const jobs = rows.map((r) => ({
+          id: r.id || crypto.randomUUID(),
+          company: r.Empresa ?? '',
+          position: r.Puesto ?? '',
+          status: r.Estado ?? 'draft',
+          category: r.Categoría ?? '',
+          recipientEmail: r['Email reclutador'] ?? '',
+          atsReport: r['Match %'] ? { matchScore: r['Match %'] } : null,
+          createdAt: r.Creado ? new Date(r.Creado as string).getTime() : Date.now(),
+          updatedAt: r.Actualizado ? new Date(r.Actualizado as string).getTime() : Date.now(),
+          coverLetterA: '',
+          coverLetterB: '',
+          cvContent: '',
+          cvStyle: null,
+          emailSubject: '',
+          vacancyText: '',
+          interviewQuestions: [],
+        }))
+        if (jobs.length > 0) data.jobs = jobs
+      }
+
+      // Conversaciones sheet
+      if (wb.SheetNames.includes('Conversaciones')) {
+        const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets['Conversaciones'])
+        const conversations = rows.map((r) => ({
+          id: r.id || crypto.randomUUID(),
+          title: r.Título ?? 'Sin título',
+          messages: [],
+          archived: r.Archivada === 'Sí',
+          createdAt: r.Creado ? new Date(r.Creado as string).getTime() : Date.now(),
+          updatedAt: r.Actualizado ? new Date(r.Actualizado as string).getTime() : Date.now(),
+        }))
+        if (conversations.length > 0) data.conversations = conversations
+      }
+
+      // Plantillas CV sheet
+      if (wb.SheetNames.includes('Plantillas CV')) {
+        const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets['Plantillas CV'])
+        const templates = rows.map((r) => ({
+          id: r.id || crypto.randomUUID(),
+          name: r.Nombre ?? '',
+          prompt: r.Prompt ?? '',
+          sampleHtml: '',
+          createdAt: r.Creado ? new Date(r.Creado as string).getTime() : Date.now(),
+          updatedAt: r.Actualizado ? new Date(r.Actualizado as string).getTime() : Date.now(),
+        }))
+        if (templates.length > 0) data.cvTemplates = templates
+      }
+
+      if (Object.keys(data).length === 0) return 'error:invalid'
+    } else {
+      return 'error:invalid'
+    }
+
+    await ensureDir(DATA_DIR)
+
+    if (data.conversations) {
+      const existing = (await readJSON<unknown[]>(CHATS_FILE)) ?? []
+      const incoming = data.conversations as unknown[]
+      const merged = [...incoming, ...existing]
+      const seen = new Set<string>()
+      const deduped = merged.filter((item: any) => {
+        if (!item.id) return true
+        if (seen.has(item.id)) return false
+        seen.add(item.id)
+        return true
+      })
+      await writeJSON(CHATS_FILE, deduped)
+    }
+
+    if (data.jobs) {
+      const existing = (await readJSON<unknown[]>(JOBS_FILE)) ?? []
+      const incoming = data.jobs as unknown[]
+      const merged = [...incoming, ...existing]
+      const seen = new Set<string>()
+      const deduped = merged.filter((item: any) => {
+        if (!item.id) return true
+        if (seen.has(item.id)) return false
+        seen.add(item.id)
+        return true
+      })
+      await writeJSON(JOBS_FILE, deduped)
+    }
+
+    if (data.profile && typeof data.profile === 'object') {
+      await writeJSON(USER_PROFILE_PATH, data.profile)
+    }
+
+    if (data.settings && typeof data.settings === 'object') {
+      const current = await readJSON<Record<string, unknown>>(SETTINGS_FILE)
+      await writeJSON(SETTINGS_FILE, { ...current, ...data.settings })
+    }
+
+    if (data.cvTemplates) {
+      const existing = (await readJSON<unknown[]>(CV_TEMPLATES_FILE)) ?? []
+      const incoming = (data.cvTemplates as unknown[]).filter(
+        (t: any) => typeof t.id !== 'string' || !t.id.startsWith('seed-'),
+      )
+      const merged = [...incoming, ...existing]
+      const seen = new Set<string>()
+      const deduped = merged.filter((item: any) => {
+        if (!item.id) return true
+        if (seen.has(item.id)) return false
+        seen.add(item.id)
+        return true
+      })
+      await writeJSON(CV_TEMPLATES_FILE, deduped)
+    }
+
+    return filePath[0]
+  })
+
   // ── Clipboard ──
   ipcMain.handle('clipboard:copy', async (_event, text: string) => {
     clipboard.writeText(text)
@@ -384,6 +549,11 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
   // ── Usage ──
   ipcMain.handle('usage:get', async () => getUsage())
   ipcMain.handle('usage:reset', async () => resetUsage())
+
+  // ── Currency Exchange ──
+  ipcMain.handle('currency:getRate', async (_event, from: string, to: string): Promise<number> => {
+    return getExchangeRate(from, to)
+  })
 
   // ── System Theme ──
   ipcMain.handle('system:getTheme', () => nativeTheme.shouldUseDarkColors)
