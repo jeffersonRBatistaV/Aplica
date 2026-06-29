@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Pencil, Check, X, User, Briefcase, BookOpen, Award, Globe, Mail, Phone, MapPin, Code2, Link, Loader2 } from 'lucide-react'
-import type { Profile } from '../../../shared/types'
+import type { Profile, Project } from '../../../shared/types'
 
 interface ProfileViewProps {
   profile: Profile
@@ -10,7 +10,7 @@ interface ProfileViewProps {
 
 export function ProfileView({ profile, onSave, onEdit }: ProfileViewProps) {
   const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(profile)
+  const [draft, setDraft] = useState({ ...profile, projects: profile.projects ?? [] })
   const [saving, setSaving] = useState(false)
 
   const handleSave = async () => {
@@ -24,7 +24,7 @@ export function ProfileView({ profile, onSave, onEdit }: ProfileViewProps) {
   }
 
   const handleCancel = () => {
-    setDraft(profile)
+    setDraft({ ...profile, projects: profile.projects ?? [] })
     setEditing(false)
   }
 
@@ -72,6 +72,7 @@ export function ProfileView({ profile, onSave, onEdit }: ProfileViewProps) {
           <Field label="Ubicación" icon={MapPin} value={draft.location} onChange={(v) => setDraft({ ...draft, location: v })} />
           <Field label="GitHub" icon={Code2} value={draft.github} onChange={(v) => setDraft({ ...draft, github: v })} />
           <Field label="LinkedIn" icon={Link} value={draft.linkedin} onChange={(v) => setDraft({ ...draft, linkedin: v })} />
+          <Field label="Portafolio" icon={Link} value={draft.portfolio} onChange={(v) => setDraft({ ...draft, portfolio: v })} />
           <Field label="Título / Rol" icon={Briefcase} value={draft.title} onChange={(v) => setDraft({ ...draft, title: v })} />
           <div>
             <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Resumen</label>
@@ -85,6 +86,52 @@ export function ProfileView({ profile, onSave, onEdit }: ProfileViewProps) {
           <TagsField label="Habilidades" icon={Award} values={draft.skills} onChange={(v) => setDraft({ ...draft, skills: v })} />
           <TagsField label="Certificaciones" icon={BookOpen} values={draft.certifications} onChange={(v) => setDraft({ ...draft, certifications: v })} />
           <TagsField label="Idiomas" icon={Globe} values={draft.languages} onChange={(v) => setDraft({ ...draft, languages: v })} />
+
+          {/* Projects */}
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+            <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-3">Proyectos</h4>
+            <div className="space-y-3">
+              {(draft.projects ?? []).map((p, i) => (
+                <div key={i} className="p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-gray-500">Proyecto {i + 1}</span>
+                    <button onClick={() => setDraft({ ...draft, projects: (draft.projects ?? []).filter((_, j) => j !== i) })} className="text-red-400 hover:text-red-600">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={p.name}
+                    onChange={(e) => {
+                      const next = [...(draft.projects ?? [])]
+                      next[i] = { ...next[i], name: e.target.value }
+                      setDraft({ ...draft, projects: next })
+                    }}
+                    placeholder="Nombre del proyecto"
+                    className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                  />
+                  <textarea
+                    value={p.description}
+                    onChange={(e) => {
+                      const next = [...(draft.projects ?? [])]
+                      next[i] = { ...next[i], description: e.target.value }
+                      setDraft({ ...draft, projects: next })
+                    }}
+                    rows={2}
+                    placeholder="Descripción breve del proyecto"
+                    className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 resize-y"
+                  />
+                </div>
+              ))}
+              <button
+                onClick={() => setDraft({ ...draft, projects: [...(draft.projects ?? []), { name: '', description: '' }] })}
+                className="flex items-center gap-1.5 text-sm text-blue-500 hover:text-blue-600 font-medium"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                Agregar proyecto
+              </button>
+            </div>
+          </div>
 
           {/* Education */}
           <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
@@ -136,6 +183,7 @@ export function ProfileView({ profile, onSave, onEdit }: ProfileViewProps) {
         {profile.location && <InfoRow icon={MapPin} label="Ubicación" value={profile.location} />}
         {profile.github && <InfoRow icon={Code2} label="GitHub" value={profile.github} />}
         {profile.linkedin && <InfoRow icon={Link} label="LinkedIn" value={profile.linkedin} />}
+        {profile.portfolio && <InfoRow icon={Link} label="Portafolio" value={profile.portfolio} />}
         {profile.title && <InfoRow icon={Briefcase} label="Rol" value={profile.title} />}
         {profile.summary && (
           <div>
@@ -177,6 +225,19 @@ export function ProfileView({ profile, onSave, onEdit }: ProfileViewProps) {
                 {exp.description && <p className="text-xs text-gray-500 mt-0.5">{exp.description}</p>}
               </div>
             ))}
+          </div>
+        )}
+        {(profile.projects ?? []).length > 0 && (
+          <div>
+            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1.5">Proyectos</span>
+            <div className="space-y-2">
+              {(profile.projects ?? []).map((p, i) => (
+                <div key={i} className="text-sm">
+                  <span className="font-medium text-gray-700 dark:text-gray-300">{p.name}</span>
+                  {p.description && <p className="text-xs text-gray-500 mt-0.5">{p.description}</p>}
+                </div>
+              ))}
+            </div>
           </div>
         )}
         {profile.education.length > 0 && profile.education[0].degree && (

@@ -83,6 +83,7 @@ export async function streamChatCompletion(
 
     const decoder = new TextDecoder()
     let buffer = ''
+    let usageData: { prompt_tokens?: number; completion_tokens?: number } | null = null
 
     while (true) {
       const { done, value } = await reader.read()
@@ -94,14 +95,29 @@ export async function streamChatCompletion(
         const trimmed = line.trim()
         if (!trimmed || !trimmed.startsWith('data: ')) continue
         const data = trimmed.slice(6)
-        if (data === '[DONE]') { callbacks.onDone(); return }
+        if (data === '[DONE]') break
         try {
           const parsed = JSON.parse(data)
+          if (parsed.usage) usageData = parsed.usage
           const token = parsed.choices?.[0]?.delta?.content || ''
           if (token) callbacks.onToken(token)
         } catch { /* skip */ }
       }
     }
+
+    if (usageData) {
+      try {
+        const { addUsage, calculateCost } = await import('./usage-service')
+        await addUsage({
+          promptTokens: usageData.prompt_tokens || 0,
+          completionTokens: usageData.completion_tokens || 0,
+          model: config.model,
+          estimatedCost: calculateCost(config.model, usageData.prompt_tokens || 0, usageData.completion_tokens || 0),
+          timestamp: Date.now(),
+        })
+      } catch { /* usage tracking failure is non-critical */ }
+    }
+
     callbacks.onDone()
   } catch (err: unknown) {
     if (err instanceof Error && err.name === 'AbortError') { callbacks.onDone(); return }
@@ -128,6 +144,7 @@ export async function completeChatCompletion(
   const decoder = new TextDecoder()
   let buffer = ''
   let result = ''
+  let usageData: { prompt_tokens?: number; completion_tokens?: number } | null = null
 
   while (true) {
     const { done, value } = await reader.read()
@@ -139,14 +156,29 @@ export async function completeChatCompletion(
       const trimmed = line.trim()
       if (!trimmed || !trimmed.startsWith('data: ')) continue
       const data = trimmed.slice(6)
-      if (data === '[DONE]') return result
+      if (data === '[DONE]') break
       try {
         const parsed = JSON.parse(data)
+        if (parsed.usage) usageData = parsed.usage
         const token = parsed.choices?.[0]?.delta?.content || ''
         result += token
       } catch { /* skip */ }
     }
   }
+
+  if (usageData) {
+    try {
+      const { addUsage, calculateCost } = await import('./usage-service')
+      await addUsage({
+        promptTokens: usageData.prompt_tokens || 0,
+        completionTokens: usageData.completion_tokens || 0,
+        model: config.model,
+        estimatedCost: calculateCost(config.model, usageData.prompt_tokens || 0, usageData.completion_tokens || 0),
+        timestamp: Date.now(),
+      })
+    } catch { /* usage tracking failure is non-critical */ }
+  }
+
   return result
 }
 

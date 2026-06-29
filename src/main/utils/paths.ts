@@ -11,3 +11,4 @@ export const PROFILE_PATH = path.join(
 )
 export const USER_PROFILE_PATH = path.join(DATA_DIR, 'profile.json')
 export const CV_TEMPLATES_FILE = path.join(DATA_DIR, 'cv-templates.json')
+export const USAGE_FILE = path.join(DATA_DIR, 'usage.json')

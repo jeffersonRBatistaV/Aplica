@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
-import { X, ChevronRight, ChevronLeft, Check, Loader2, AlertCircle } from 'lucide-react'
+import { X, ChevronRight, ChevronLeft, Check, Loader2, AlertCircle, Plus } from 'lucide-react'
 import { areas, questions as commonQuestions } from '../../data/questions'
-import type { Profile } from '../../../shared/types'
+import type { Profile, Project } from '../../../shared/types'
 
 interface ProfileWizardProps {
   onClose: () => void
@@ -18,6 +18,7 @@ export function ProfileWizard({ onClose, onComplete }: ProfileWizardProps) {
   const [step, setStep] = useState(0)
   const [areaId, setAreaId] = useState<string | null>(null)
   const [answers, setAnswers] = useState<Record<string, string | string[]>>({})
+  const [projectList, setProjectList] = useState<Project[]>([])
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
@@ -114,14 +115,12 @@ export function ProfileWizard({ onClose, onComplete }: ProfileWizardProps) {
       }
       return q
     })
-    if (hasZeroYears) {
-      filtered.push({
-        id: '_projects',
-        text: 'Cuéntanos sobre tus proyectos personales o académicos (incluye tecnologías, logros y enlaces si los tienes):',
-        type: 'text',
-        field: 'projects',
-      })
-    }
+    filtered.push({
+      id: '_projects',
+      text: 'Agrega tus proyectos personales, académicos o profesionales:',
+      type: 'text',
+      field: 'projects',
+    })
     return filtered
   }, [areaQuestions, certsAnswerNo, hasZeroYears, answers])
 
@@ -152,7 +151,7 @@ export function ProfileWizard({ onClose, onComplete }: ProfileWizardProps) {
   const canNext = () => {
     if (step === 0) return areaId !== null
     if (step === 1) return contactFields.every((q) => {
-      if (q.id === 'github' || q.id === 'linkedin' || q.id === 'photo') return true
+      if (q.id === 'github' || q.id === 'linkedin' || q.id === 'portfolio' || q.id === 'photo') return true
       const val = answers[q.id]
       return val && (typeof val === 'string' ? val.trim().length > 0 : val.length > 0)
     })
@@ -265,6 +264,7 @@ export function ProfileWizard({ onClose, onComplete }: ProfileWizardProps) {
       location: (answers['location'] as string) ?? '',
       github: (answers['github'] as string) ?? '',
       linkedin: (answers['linkedin'] as string) ?? '',
+      portfolio: (answers['portfolio'] as string) ?? '',
       photo: (answers['photo'] as string) ?? '',
       title: roleAnswer,
       summary,
@@ -286,6 +286,7 @@ export function ProfileWizard({ onClose, onComplete }: ProfileWizardProps) {
       }],
       certifications,
       languages,
+      projects: projectList,
     }
     return profile
   }
@@ -383,7 +384,8 @@ export function ProfileWizard({ onClose, onComplete }: ProfileWizardProps) {
               q.id === 'phone' ? '+56 9 1234 5678' :
               q.id === 'location' ? 'Ciudad, País' :
               q.id === 'github' ? 'https://github.com/usuario' :
-              q.id === 'linkedin' ? 'https://linkedin.com/in/usuario' : ''
+              q.id === 'linkedin' ? 'https://linkedin.com/in/usuario' :
+              q.id === 'portfolio' ? 'https://midominio.com' : ''
             }
           />
         </div>
@@ -410,16 +412,49 @@ export function ProfileWizard({ onClose, onComplete }: ProfileWizardProps) {
     const val = answers[q.id]
 
     if (q.id === '_projects') {
+      const addProject = () => {
+        setProjectList(prev => [...prev, { name: '', description: '' }])
+      }
+      const updateProject = (i: number, field: 'name' | 'description', value: string) => {
+        setProjectList(prev => prev.map((p, j) => j === i ? { ...p, [field]: value } : p))
+      }
+      const removeProject = (i: number) => {
+        setProjectList(prev => prev.filter((_, j) => j !== i))
+      }
       return (
-        <div key={q.id}>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">{q.text}</label>
-          <textarea
-            value={(val as string) ?? ''}
-            onChange={(e) => setAnswer(q.id, e.target.value)}
-            rows={5}
-            className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 resize-y"
-            placeholder="Ej: Desarrollé una app web con React y Node.js para gestionar tareas..."
-          />
+        <div key={q.id} className="space-y-3">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{q.text}</label>
+          {projectList.map((p, i) => (
+            <div key={i} className="p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-gray-500">Proyecto {i + 1}</span>
+                <button onClick={() => removeProject(i)} className="text-red-400 hover:text-red-600">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <input
+                type="text"
+                value={p.name}
+                onChange={(e) => updateProject(i, 'name', e.target.value)}
+                placeholder="Nombre del proyecto"
+                className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+              />
+              <textarea
+                value={p.description}
+                onChange={(e) => updateProject(i, 'description', e.target.value)}
+                rows={2}
+                placeholder="Descripción breve del proyecto"
+                className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 resize-y"
+              />
+            </div>
+          ))}
+          <button
+            onClick={addProject}
+            className="flex items-center gap-1.5 text-sm text-blue-500 hover:text-blue-600 font-medium"
+          >
+            <Plus className="w-4 h-4" />
+            Agregar proyecto
+          </button>
         </div>
       )
     }

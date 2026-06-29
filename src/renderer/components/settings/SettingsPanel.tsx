@@ -39,7 +39,7 @@ export function SettingsPanel({ onClose, initialTab = 'profile' }: SettingsPanel
   useEffect(() => {
     if (window.api) {
       window.api.getProfile().then((p) => {
-        setProfile(p)
+        setProfile(p ? { ...p, projects: p.projects ?? [], portfolio: p.portfolio ?? '' } : null)
         setProfileLoaded(true)
       })
     } else {

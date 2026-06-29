@@ -265,6 +265,7 @@ export const questions: Question[] = [
   { id: 'location', text: '¿En qué ciudad/país te encuentras?', type: 'text', field: 'location' },
   { id: 'github', text: '¿Cuál es la URL de tu perfil de GitHub?', type: 'text', field: 'github' },
   { id: 'linkedin', text: '¿Cuál es la URL de tu perfil de LinkedIn?', type: 'text', field: 'linkedin' },
+  { id: 'portfolio', text: '¿Cuál es la URL de tu portafolio o sitio web personal?', type: 'text', field: 'portfolio' },
   { id: 'education_institution', text: '¿Cuál es tu institución educativa?', type: 'text', field: 'education_institution' },
   { id: 'education_field', text: '¿Cuál es tu campo de estudio?', type: 'text', field: 'education_field' },
   { id: 'education_start', text: '¿Año de inicio?', type: 'text', field: 'education_start' },

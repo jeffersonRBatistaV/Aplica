@@ -1,4 +1,4 @@
-import type { Conversation, AppSettings, StreamParams, Profile, JobApplication, ATSReport, CvTemplate, InterviewQuestion } from '../../shared/types'
+import type { Conversation, AppSettings, StreamParams, Profile, JobApplication, ATSReport, CvTemplate, InterviewQuestion, UsageStats } from '../../shared/types'
 
 export interface ModelInfo {
   id: string
@@ -75,6 +75,10 @@ export interface ElectronAPI {
   deleteCvTemplate: (id: string) => Promise<void>
   resetCvTemplates: () => Promise<void>
   generateSampleCv: (prompt: string) => Promise<string>
+
+  // Usage
+  getUsage: () => Promise<UsageStats>
+  resetUsage: () => Promise<void>
 
   // Data Export
   exportAll: () => Promise<unknown>

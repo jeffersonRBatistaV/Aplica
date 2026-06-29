@@ -7,6 +7,7 @@ import { streamChatCompletion, abortCurrentStream, listModels } from '../service
 import { ThrottledStream } from '../utils/throttled-stream'
 import { analyzeVacancy, generateCoverLetters, correctVacancyText, generateInterviewQuestions } from '../services/job-service'
 import { generateCV, regenerateCV, generateSummaryOptions, generateSampleCv } from '../services/cv-generator'
+import { getUsage, resetUsage } from '../services/usage-service'
 import { getSeedTemplates, wrapHtml } from '../services/cv-templates-seed'
 import { extractTextFromImage } from '../services/ocr-service'
 
@@ -379,6 +380,10 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
     const buffer = Buffer.from(raw, 'base64')
     return extractTextFromImage(buffer)
   })
+
+  // ── Usage ──
+  ipcMain.handle('usage:get', async () => getUsage())
+  ipcMain.handle('usage:reset', async () => resetUsage())
 
   // ── System Theme ──
   ipcMain.handle('system:getTheme', () => nativeTheme.shouldUseDarkColors)

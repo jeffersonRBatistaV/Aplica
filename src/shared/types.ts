@@ -39,6 +39,26 @@ export interface PrivacyConfig {
   excludeFromTraining: boolean
 }
 
+export interface Project {
+  name: string
+  description: string
+}
+
+export interface UsageRecord {
+  promptTokens: number
+  completionTokens: number
+  model: string
+  estimatedCost: number
+  timestamp: number
+}
+
+export interface UsageStats {
+  totalPromptTokens: number
+  totalCompletionTokens: number
+  totalCost: number
+  records: UsageRecord[]
+}
+
 export interface Profile {
   name: string
   email: string
@@ -46,6 +66,7 @@ export interface Profile {
   location: string
   github: string
   linkedin: string
+  portfolio: string
   photo: string
   title: string
   summary: string
@@ -54,6 +75,7 @@ export interface Profile {
   education: Education[]
   certifications: string[]
   languages: string[]
+  projects: Project[]
 }
 
 export interface Experience {

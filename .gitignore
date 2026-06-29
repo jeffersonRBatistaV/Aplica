@@ -2,4 +2,14 @@ node_modules/
 dist/
 dist-electron/
 .vite/
+release/
+out/
 *.local
+*.log
+*.tsbuildinfo
+.env
+.env.*
+cv-*.html
+cv-*.pdf
+*.tar.gz
+*.traineddata

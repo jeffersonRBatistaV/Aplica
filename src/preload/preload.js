@@ -83,6 +83,10 @@ const api = {
   exportAll: () => ipcRenderer.invoke('data:exportAll'),
   saveExportFile: (data, format) => ipcRenderer.invoke('data:saveExportFile', data, format),
 
+  // ── Usage ──
+  getUsage: () => ipcRenderer.invoke('usage:get'),
+  resetUsage: () => ipcRenderer.invoke('usage:reset'),
+
   // ── Clipboard ──
   copyToClipboard: (text) => ipcRenderer.invoke('clipboard:copy', text),
   readClipboardImage: () => ipcRenderer.invoke('clipboard:readImage'),
