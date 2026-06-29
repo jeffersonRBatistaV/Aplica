@@ -1,0 +1,69 @@
+import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react'
+import type { AppSettings, ThemeMode } from '../../shared/types'
+
+const DEFAULT_SETTINGS: AppSettings = {
+  api: { baseUrl: 'http://localhost:11434/v1', apiKey: '', model: 'llama3', configured: false },
+  appearance: { mode: 'system' },
+  privacy: { storeHistory: true, excludeFromTraining: false },
+  systemPrompt: '',
+  locale: 'es',
+  ttsVoice: '',
+}
+
+interface SettingsContextValue {
+  settings: AppSettings
+  updateSettings: (partial: Partial<AppSettings>) => Promise<void>
+  setThemeMode: (mode: ThemeMode) => Promise<void>
+  loaded: boolean
+}
+
+const SettingsContext = createContext<SettingsContextValue | null>(null)
+
+export function SettingsProvider({ children }: { children: ReactNode }) {
+  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS)
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    if (window.api) {
+      window.api.getSettings().then((saved) => {
+        if (saved) setSettings(saved)
+        setLoaded(true)
+      })
+    } else {
+      setLoaded(true)
+    }
+  }, [])
+
+  const persist = useCallback(async (next: AppSettings) => {
+    setSettings(next)
+    if (window.api) {
+      await window.api.setSettings(next)
+    }
+  }, [])
+
+  const updateSettings = useCallback(
+    async (partial: Partial<AppSettings>) => {
+      await persist({ ...settings, ...partial })
+    },
+    [settings, persist],
+  )
+
+  const setThemeMode = useCallback(
+    async (mode: ThemeMode) => {
+      await updateSettings({ appearance: { mode } })
+    },
+    [updateSettings],
+  )
+
+  return (
+    <SettingsContext.Provider value={{ settings, updateSettings, setThemeMode, loaded }}>
+      {children}
+    </SettingsContext.Provider>
+  )
+}
+
+export function useSettings(): SettingsContextValue {
+  const ctx = useContext(SettingsContext)
+  if (!ctx) throw new Error('useSettings must be used within SettingsProvider')
+  return ctx
+}
