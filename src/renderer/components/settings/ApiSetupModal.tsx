@@ -2,12 +2,14 @@ import { useState } from 'react'
 import { Cloud, Loader2, Check } from 'lucide-react'
 import { ApiConfig } from './ApiConfig'
 import { useSettings } from '../../contexts/SettingsContext'
+import { useTranslation } from 'react-i18next'
 
 interface ApiSetupModalProps {
   onComplete: () => void
 }
 
 export function ApiSetupModal({ onComplete }: ApiSetupModalProps) {
+  const { t } = useTranslation()
   const { settings, updateSettings } = useSettings()
   const [baseUrl, setBaseUrl] = useState(settings.api.baseUrl)
   const [apiKey, setApiKey] = useState(settings.api.apiKey)
@@ -42,8 +44,8 @@ export function ApiSetupModal({ onComplete }: ApiSetupModalProps) {
       <div className="bg-white dark:bg-gray-950 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col mx-4">
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <div>
-            <h2 className="text-lg font-semibold">Configurar API</h2>
-            <p className="text-xs text-gray-400">Conecta un modelo de lenguaje para usar Aplica</p>
+            <h2 className="text-lg font-semibold">{t('apiSetupModal.title')}</h2>
+            <p className="text-xs text-gray-400">{t('apiSetupModal.subtitle')}</p>
           </div>
         </div>
 
@@ -55,8 +57,8 @@ export function ApiSetupModal({ onComplete }: ApiSetupModalProps) {
           )}
 
           <div className="mb-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-sm text-blue-700 dark:text-blue-300">
-            <p className="font-medium mb-1">Antes de empezar necesitas configurar un modelo de IA</p>
-            <p>Ingresa la URL de una API compatible con OpenAI (como Ollama, OpenAI, Groq) y selecciona un modelo.</p>
+            <p className="font-medium mb-1">{t('apiSetupModal.beforeStart')}</p>
+            <p>{t('apiSetupModal.instruction')}</p>
           </div>
 
           <ApiConfig
@@ -78,7 +80,7 @@ export function ApiSetupModal({ onComplete }: ApiSetupModalProps) {
             ) : (
               <Check className="w-4 h-4" />
             )}
-            {saving ? 'Guardando...' : 'Guardar configuración'}
+            {saving ? t('apiSetupModal.saving') : t('apiSetupModal.save')}
           </button>
         </div>
       </div>

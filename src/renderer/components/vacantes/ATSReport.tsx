@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Button } from '../ui/Button'
 import type { ATSReport } from '../../../shared/types'
+import { useTranslation } from 'react-i18next'
 
 interface ATSReportViewProps {
   report: ATSReport
@@ -12,6 +13,7 @@ interface ATSReportViewProps {
 }
 
 function ScoreBadge({ score }: { score: number }) {
+  const { t } = useTranslation()
   const color =
     score >= 80 ? 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30' :
     score >= 60 ? 'text-yellow-600 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/30' :
@@ -21,7 +23,7 @@ function ScoreBadge({ score }: { score: number }) {
     <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl ${color}`}>
       <TrendingUp className="w-5 h-5" />
       <span className="text-2xl font-bold">{score}%</span>
-      <span className="text-sm font-medium">Match</span>
+      <span className="text-sm font-medium">{t('atsReport.match')}</span>
     </div>
   )
 }
@@ -35,7 +37,8 @@ function MissingKeywordList({
   selected: Set<string>
   onToggle: (keyword: string) => void
 }) {
-  if (items.length === 0) return <p className="text-sm text-gray-400">Ninguno</p>
+  const { t } = useTranslation()
+  if (items.length === 0) return <p className="text-sm text-gray-400">{t('atsReport.none')}</p>
   return (
     <div className="space-y-1">
       {items.map((item) => {
@@ -64,6 +67,7 @@ function MissingKeywordList({
 }
 
 export function ATSReportView({ report, onRefresh, onAddKeywords }: ATSReportViewProps) {
+  const { t } = useTranslation()
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
 
@@ -90,10 +94,10 @@ export function ATSReportView({ report, onRefresh, onAddKeywords }: ATSReportVie
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-base font-semibold">Reporte ATS</h3>
+        <h3 className="text-base font-semibold">{t('atsReport.title')}</h3>
         <Button variant="ghost" size="sm" onClick={onRefresh}>
           <RefreshCw className="w-3.5 h-3.5" />
-          Re-analizar
+          {t('atsReport.reAnalyze')}
         </Button>
       </div>
 
@@ -107,11 +111,11 @@ export function ATSReportView({ report, onRefresh, onAddKeywords }: ATSReportVie
         <div className="p-3 rounded-xl border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/10">
           <p className="text-xs font-medium text-green-700 dark:text-green-400 mb-2 flex items-center gap-1">
             <CheckCircle2 className="w-3.5 h-3.5" />
-            Keywords Presentes
+            {t('atsReport.keywordsPresent')}
           </p>
           <div className="flex flex-wrap gap-1.5">
             {report.keywordsPresent.length === 0 ? (
-              <p className="text-sm text-gray-400">Ninguno</p>
+              <p className="text-sm text-gray-400">{t('atsReport.none')}</p>
             ) : report.keywordsPresent.map((item) => (
               <span key={item} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-green-200/60 dark:bg-green-800/40 text-green-800 dark:text-green-300">
                 <CheckCircle2 className="w-3 h-3" />
@@ -124,7 +128,7 @@ export function ATSReportView({ report, onRefresh, onAddKeywords }: ATSReportVie
         <div className="p-3 rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/10">
           <p className="text-xs font-medium text-red-700 dark:text-red-400 mb-2 flex items-center gap-1">
             <XCircle className="w-3.5 h-3.5" />
-            Keywords Faltantes
+            {t('atsReport.keywordsMissing')}
           </p>
           <MissingKeywordList
             items={report.keywordsMissing}
@@ -142,7 +146,7 @@ export function ATSReportView({ report, onRefresh, onAddKeywords }: ATSReportVie
               ) : (
                 <CheckCircle2 className="w-3.5 h-3.5" />
               )}
-              {saving ? 'Agregando...' : `Agregar seleccionados (${selected.size})`}
+              {saving ? t('atsReport.adding') : t('atsReport.addSelected', { count: selected.size })}
             </button>
           )}
         </div>
@@ -152,7 +156,7 @@ export function ATSReportView({ report, onRefresh, onAddKeywords }: ATSReportVie
       <div className="p-3 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/10">
         <p className="text-xs font-medium text-blue-700 dark:text-blue-400 mb-2 flex items-center gap-1">
           <TrendingUp className="w-3.5 h-3.5" />
-          Fortalezas
+          {t('atsReport.strengths')}
         </p>
         <ul className="space-y-1">
           {report.strengths.map((s, i) => (
@@ -168,7 +172,7 @@ export function ATSReportView({ report, onRefresh, onAddKeywords }: ATSReportVie
       <div className="p-3 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/10">
         <p className="text-xs font-medium text-amber-700 dark:text-amber-400 mb-2 flex items-center gap-1">
           <AlertTriangle className="w-3.5 h-3.5" />
-          Brechas
+          {t('atsReport.gaps')}
         </p>
         <ul className="space-y-1">
           {report.gaps.map((g, i) => (
@@ -184,7 +188,7 @@ export function ATSReportView({ report, onRefresh, onAddKeywords }: ATSReportVie
       <div className="p-3 rounded-xl border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/10">
         <p className="text-xs font-medium text-purple-700 dark:text-purple-400 mb-2 flex items-center gap-1">
           <Lightbulb className="w-3.5 h-3.5" />
-          Quick Fixes
+          {t('atsReport.quickFixes')}
         </p>
         <ul className="space-y-1">
           {report.quickFixes.map((q, i) => (
@@ -200,7 +204,7 @@ export function ATSReportView({ report, onRefresh, onAddKeywords }: ATSReportVie
       {report.analysis && (
         <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-700">
           <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-3 uppercase tracking-wider">
-            Análisis Detallado
+            {t('atsReport.detailedAnalysis')}
           </p>
           <div className="prose prose-sm dark:prose-invert max-w-none">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>

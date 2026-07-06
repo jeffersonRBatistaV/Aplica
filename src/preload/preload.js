@@ -79,10 +79,15 @@ const api = {
   resetCvTemplates: () => ipcRenderer.invoke('cv:resetTemplates'),
   generateSampleCv: (prompt) => ipcRenderer.invoke('cv:generateSample', prompt),
 
+  // ── Career Advice ──
+  getCareerAdvice: () => ipcRenderer.invoke('getCareerAdvice'),
+  refreshCareerAdvice: () => ipcRenderer.invoke('refreshCareerAdvice'),
+
   // ── Data Export / Import ──
   exportAll: () => ipcRenderer.invoke('data:exportAll'),
   saveExportFile: (data, format) => ipcRenderer.invoke('data:saveExportFile', data, format),
-  importFromFile: () => ipcRenderer.invoke('data:importFromFile'),
+  importFromFile: () => ipcRenderer.invoke('data:importFromFile'), // returns ImportResult
+  processImportData: (fileName, content) => ipcRenderer.invoke('data:processImportData', fileName, content), // returns ImportResult
 
   // ── Usage ──
   getUsage: () => ipcRenderer.invoke('usage:get'),

@@ -1,12 +1,13 @@
 import { ipcMain, nativeTheme, clipboard, BrowserWindow } from 'electron'
 import { readJSON, writeJSON, ensureDir } from '../services/storage'
 import { readProfile } from '../services/profile-reader'
-import { CHATS_FILE, SETTINGS_FILE, JOBS_FILE, PROFILE_PATH, USER_PROFILE_PATH, DATA_DIR, CV_TEMPLATES_FILE } from '../utils/paths'
-import type { Conversation, AppSettings, StreamParams, JobApplication, Profile, ATSReport, CvTemplate, InterviewQuestion } from '../../shared/types'
+import { CHATS_FILE, SETTINGS_FILE, JOBS_FILE, PROFILE_PATH, USER_PROFILE_PATH, DATA_DIR, CV_TEMPLATES_FILE, CAREER_ADVICE_FILE } from '../utils/paths'
+import type { Conversation, AppSettings, StreamParams, JobApplication, Profile, ATSReport, CvTemplate, InterviewQuestion, ImportResult } from '../../shared/types'
 import { streamChatCompletion, abortCurrentStream, listModels } from '../services/llm-service'
 import { ThrottledStream } from '../utils/throttled-stream'
 import { analyzeVacancy, generateCoverLetters, correctVacancyText, generateInterviewQuestions } from '../services/job-service'
 import { generateCV, regenerateCV, generateSummaryOptions, generateSampleCv } from '../services/cv-generator'
+import { loadCareerAdvice, refreshCareerAdvice } from '../services/career-advice'
 import { getUsage, resetUsage } from '../services/usage-service'
 import { getSeedTemplates, wrapHtml } from '../services/cv-templates-seed'
 import { extractTextFromImage } from '../services/ocr-service'
@@ -366,112 +367,10 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
   })
 
   // ── Data Import ──
-  ipcMain.handle('data:importFromFile', async (): Promise<string | null> => {
-    const { dialog, shell } = await import('electron')
-    const fs = await import('fs/promises')
-    const pathModule = await import('path')
 
-    const { filePath, canceled } = await dialog.showOpenDialog({
-      title: 'Importar datos',
-      filters: [
-        { name: 'JSON o Excel', extensions: ['json', 'xlsx'] },
-      ],
-      properties: ['openFile'],
-    })
-    if (canceled || !filePath || !filePath[0]) return null
-
-    const ext = pathModule.extname(filePath[0]).toLowerCase()
-    let data: Record<string, unknown>
-
-    if (ext === '.json') {
-      const content = await fs.readFile(filePath[0], 'utf-8')
-      try {
-        data = JSON.parse(content)
-      } catch {
-        return 'error:invalid'
-      }
-      if (!data.exportedAt) return 'error:invalid'
-    } else if (ext === '.xlsx') {
-      const XLSX = await import('xlsx')
-      const buf = await fs.readFile(filePath[0])
-      const wb = XLSX.read(buf, { type: 'buffer' })
-
-      data = {}
-
-      // Perfil sheet
-      if (wb.SheetNames.includes('Perfil')) {
-        const rows = XLSX.utils.sheet_to_json<{ Campo: string; Valor: string }>(wb.Sheets['Perfil'])
-        const profile: Record<string, unknown> = {}
-        for (const row of rows) {
-          const val = row.Valor ?? ''
-          // Try parsing JSON arrays/objects back
-          if (val.startsWith('[') || val.startsWith('{')) {
-            try { profile[row.Campo] = JSON.parse(val) } catch { profile[row.Campo] = val }
-          } else {
-            profile[row.Campo] = val
-          }
-        }
-        if (Object.keys(profile).length > 0) data.profile = profile
-      }
-
-      // Postulaciones sheet
-      if (wb.SheetNames.includes('Postulaciones')) {
-        const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets['Postulaciones'])
-        const jobs = rows.map((r) => ({
-          id: r.id || crypto.randomUUID(),
-          company: r.Empresa ?? '',
-          position: r.Puesto ?? '',
-          status: r.Estado ?? 'draft',
-          category: r.Categoría ?? '',
-          recipientEmail: r['Email reclutador'] ?? '',
-          atsReport: r['Match %'] ? { matchScore: r['Match %'] } : null,
-          createdAt: r.Creado ? new Date(r.Creado as string).getTime() : Date.now(),
-          updatedAt: r.Actualizado ? new Date(r.Actualizado as string).getTime() : Date.now(),
-          coverLetterA: '',
-          coverLetterB: '',
-          cvContent: '',
-          cvStyle: null,
-          emailSubject: '',
-          vacancyText: '',
-          interviewQuestions: [],
-        }))
-        if (jobs.length > 0) data.jobs = jobs
-      }
-
-      // Conversaciones sheet
-      if (wb.SheetNames.includes('Conversaciones')) {
-        const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets['Conversaciones'])
-        const conversations = rows.map((r) => ({
-          id: r.id || crypto.randomUUID(),
-          title: r.Título ?? 'Sin título',
-          messages: [],
-          archived: r.Archivada === 'Sí',
-          createdAt: r.Creado ? new Date(r.Creado as string).getTime() : Date.now(),
-          updatedAt: r.Actualizado ? new Date(r.Actualizado as string).getTime() : Date.now(),
-        }))
-        if (conversations.length > 0) data.conversations = conversations
-      }
-
-      // Plantillas CV sheet
-      if (wb.SheetNames.includes('Plantillas CV')) {
-        const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets['Plantillas CV'])
-        const templates = rows.map((r) => ({
-          id: r.id || crypto.randomUUID(),
-          name: r.Nombre ?? '',
-          prompt: r.Prompt ?? '',
-          sampleHtml: '',
-          createdAt: r.Creado ? new Date(r.Creado as string).getTime() : Date.now(),
-          updatedAt: r.Actualizado ? new Date(r.Actualizado as string).getTime() : Date.now(),
-        }))
-        if (templates.length > 0) data.cvTemplates = templates
-      }
-
-      if (Object.keys(data).length === 0) return 'error:invalid'
-    } else {
-      return 'error:invalid'
-    }
-
+  async function writeImportData(data: Record<string, unknown>): Promise<ImportStats> {
     await ensureDir(DATA_DIR)
+    const stats = { conversations: 0, jobs: 0, profile: false, settings: false, cvTemplates: 0 }
 
     if (data.conversations) {
       const existing = (await readJSON<unknown[]>(CHATS_FILE)) ?? []
@@ -485,6 +384,7 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
         return true
       })
       await writeJSON(CHATS_FILE, deduped)
+      stats.conversations = incoming.length
     }
 
     if (data.jobs) {
@@ -499,15 +399,18 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
         return true
       })
       await writeJSON(JOBS_FILE, deduped)
+      stats.jobs = incoming.length
     }
 
     if (data.profile && typeof data.profile === 'object') {
       await writeJSON(USER_PROFILE_PATH, data.profile)
+      stats.profile = true
     }
 
     if (data.settings && typeof data.settings === 'object') {
       const current = await readJSON<Record<string, unknown>>(SETTINGS_FILE)
       await writeJSON(SETTINGS_FILE, { ...current, ...data.settings })
+      stats.settings = true
     }
 
     if (data.cvTemplates) {
@@ -524,9 +427,147 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
         return true
       })
       await writeJSON(CV_TEMPLATES_FILE, deduped)
+      stats.cvTemplates = incoming.length
     }
 
-    return filePath[0]
+    return stats
+  }
+
+  async function parseImportXLSX(buf: Buffer): Promise<Record<string, unknown> | ImportResult> {
+    const XLSX = await import('xlsx')
+    const wb = XLSX.read(buf, { type: 'buffer' })
+
+    const data: Record<string, unknown> = {}
+
+    if (wb.SheetNames.includes('Perfil')) {
+      const rows = XLSX.utils.sheet_to_json<{ Campo: string; Valor: string }>(wb.Sheets['Perfil'])
+      const profile: Record<string, unknown> = {}
+      for (const row of rows) {
+        const val = row.Valor ?? ''
+        if (val.startsWith('[') || val.startsWith('{')) {
+          try { profile[row.Campo] = JSON.parse(val) } catch { profile[row.Campo] = val }
+        } else {
+          profile[row.Campo] = val
+        }
+      }
+      if (Object.keys(profile).length > 0) data.profile = profile
+    }
+
+    if (wb.SheetNames.includes('Postulaciones')) {
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets['Postulaciones'])
+      const jobs = rows.map((r) => ({
+        id: r.id || crypto.randomUUID(),
+        company: r.Empresa ?? '',
+        position: r.Puesto ?? '',
+        status: r.Estado ?? 'draft',
+        category: r.Categoría ?? '',
+        recipientEmail: r['Email reclutador'] ?? '',
+        atsReport: r['Match %'] ? { matchScore: r['Match %'] } : null,
+        createdAt: r.Creado ? new Date(r.Creado as string).getTime() : Date.now(),
+        updatedAt: r.Actualizado ? new Date(r.Actualizado as string).getTime() : Date.now(),
+        coverLetterA: '',
+        coverLetterB: '',
+        cvContent: '',
+        cvStyle: null,
+        emailSubject: '',
+        vacancyText: '',
+        interviewQuestions: [],
+      }))
+      if (jobs.length > 0) data.jobs = jobs
+    }
+
+    if (wb.SheetNames.includes('Conversaciones')) {
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets['Conversaciones'])
+      const conversations = rows.map((r) => ({
+        id: r.id || crypto.randomUUID(),
+        title: r.Título ?? 'Sin título',
+        messages: [],
+        archived: r.Archivada === 'Sí',
+        createdAt: r.Creado ? new Date(r.Creado as string).getTime() : Date.now(),
+        updatedAt: r.Actualizado ? new Date(r.Actualizado as string).getTime() : Date.now(),
+      }))
+      if (conversations.length > 0) data.conversations = conversations
+    }
+
+    if (wb.SheetNames.includes('Plantillas CV')) {
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets['Plantillas CV'])
+      const templates = rows.map((r) => ({
+        id: r.id || crypto.randomUUID(),
+        name: r.Nombre ?? '',
+        prompt: r.Prompt ?? '',
+        sampleHtml: '',
+        createdAt: r.Creado ? new Date(r.Creado as string).getTime() : Date.now(),
+        updatedAt: r.Actualizado ? new Date(r.Actualizado as string).getTime() : Date.now(),
+      }))
+      if (templates.length > 0) data.cvTemplates = templates
+    }
+
+    if (Object.keys(data).length === 0) return { ok: false, error: 'El archivo Excel no contiene datos reconocibles de Aplica' }
+    return data
+  }
+
+  ipcMain.handle('data:importFromFile', async (): Promise<ImportResult> => {
+    const { dialog } = await import('electron')
+    const fs = await import('fs/promises')
+    const pathModule = await import('path')
+
+    const { filePath, canceled } = await dialog.showOpenDialog(mainWindow, {
+      title: 'Importar datos',
+      filters: [
+        { name: 'JSON o Excel', extensions: ['json', 'xlsx'] },
+        { name: 'Todos los archivos', extensions: ['*'] },
+      ],
+      properties: ['openFile'],
+    })
+    if (canceled || !filePath || !filePath[0]) return null
+
+    const ext = pathModule.extname(filePath[0]).toLowerCase()
+    let data: Record<string, unknown>
+
+    if (ext === '.json') {
+      const content = await fs.readFile(filePath[0], 'utf-8')
+      try {
+        data = JSON.parse(content)
+      } catch {
+        return { ok: false, error: 'El archivo no contiene JSON válido' }
+      }
+      if (!data.exportedAt) return { ok: false, error: 'El archivo no es una exportación válida de Aplica (falta exportedAt)' }
+    } else if (ext === '.xlsx') {
+      const buf = await fs.readFile(filePath[0])
+      const result = await parseImportXLSX(buf)
+      if (result && typeof result === 'object' && 'ok' in result && result.ok === false) return result
+      data = result as Record<string, unknown>
+    } else {
+      return { ok: false, error: 'Formato de archivo no soportado. Usa .json o .xlsx' }
+    }
+
+    const stats = await writeImportData(data)
+    return { ok: true, filePath: filePath[0], stats }
+  })
+
+  ipcMain.handle('data:processImportData', async (_event, fileName: string, content: string): Promise<ImportResult> => {
+    const pathModule = await import('path')
+    const ext = pathModule.extname(fileName).toLowerCase()
+    let data: Record<string, unknown>
+
+    if (ext === '.json') {
+      try {
+        data = JSON.parse(content)
+      } catch {
+        return { ok: false, error: 'El archivo no contiene JSON válido' }
+      }
+      if (!data.exportedAt) return { ok: false, error: 'El archivo no es una exportación válida de Aplica (falta exportedAt)' }
+    } else if (ext === '.xlsx') {
+      const buf = Buffer.from(content, 'base64')
+      const result = await parseImportXLSX(buf)
+      if (result && typeof result === 'object' && 'ok' in result && result.ok === false) return result
+      data = result as Record<string, unknown>
+    } else {
+      return { ok: false, error: 'Formato de archivo no soportado. Usa .json o .xlsx' }
+    }
+
+    const stats = await writeImportData(data)
+    return { ok: true, filePath: fileName, stats }
   })
 
   // ── Clipboard ──
@@ -564,6 +605,16 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
     return generateSummaryOptions(vacancyText, profile, atsReport as ATSReport | null)
   })
 
+  // ── Career Advice ──
+  ipcMain.handle('getCareerAdvice', async (): Promise<unknown> => {
+    return loadCareerAdvice()
+  })
+
+  ipcMain.handle('refreshCareerAdvice', async (): Promise<unknown> => {
+    const profile = await loadProfile()
+    return refreshCareerAdvice(profile)
+  })
+
   // ── CV Download as PDF ──
   ipcMain.handle('cv:downloadPdf', async (_event, htmlContent: string, styleName: string): Promise<string | null> => {
     const { dialog, shell } = await import('electron')
@@ -576,7 +627,7 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
       await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
       const pdfBuffer = await pdfWindow.webContents.printToPDF({
         printBackground: true,
-        margin: { top: '20mm', bottom: '20mm', left: '15mm', right: '15mm' },
+        margin: { top: '10mm', bottom: '10mm', left: '12mm', right: '12mm' },
         pageSize: 'A4',
       })
       const { filePath, canceled } = await dialog.showSaveDialog(pdfWindow, {
@@ -602,9 +653,11 @@ function buildCvHtml(bodyHtml: string, styleName: string): string {
 <meta charset="utf-8">
 <title>CV - ${labels[styleName] || styleName}</title>
 <style>
-  @page { margin: 0; }
+  @page { margin: 0; size: A4; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
+  html, body {
+    width: 210mm;
+    height: 297mm;
     font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
     font-size: 11pt;
     line-height: 1.5;

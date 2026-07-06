@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import './types/ipc'
 import { AppProvider, useNavigation, useSettings } from './contexts/AppContext'
 import { MainLayout } from './components/layout/MainLayout'
@@ -8,6 +8,7 @@ import { Analytics } from './components/analytics/Analytics'
 import { NotificationContainer } from './components/ui/NotificationContainer'
 import { ProfileWizard } from './components/profile/ProfileWizard'
 import { ApiSetupModal } from './components/settings/ApiSetupModal'
+import { useTutorial } from './components/layout/TutorialGuide'
 import type { Profile } from '../shared/types'
 
 function AppContent() {
@@ -17,6 +18,8 @@ function AppContent() {
   const [showWizard, setShowWizard] = useState(false)
   const [showApiSetup, setShowApiSetup] = useState(false)
   const [profileJustCreated, setProfileJustCreated] = useState(false)
+  const startTutorial = useTutorial()
+  const tutorialShown = useRef(false)
 
   useEffect(() => {
     if (window.api) {
@@ -38,6 +41,16 @@ function AppContent() {
     }
   }, [profileJustCreated, settingsLoaded, settings.api.configured])
 
+  useEffect(() => {
+    const handler = () => {
+      if (window.api) {
+        window.api.getProfile().then((p) => setProfile(p))
+      }
+    }
+    window.addEventListener('profile:imported', handler)
+    return () => window.removeEventListener('profile:imported', handler)
+  }, [])
+
   const handleWizardComplete = (p: Profile) => {
     setProfile(p)
     setProfileJustCreated(true)
@@ -47,6 +60,19 @@ function AppContent() {
   const handleApiSetupComplete = () => {
     setShowApiSetup(false)
   }
+
+  useEffect(() => {
+    if (tutorialShown.current) return
+    const hasSeenTutorial = localStorage.getItem('aplica:tutorialSeen')
+    if (hasSeenTutorial) return
+    if (profileJustCreated && !showApiSetup && !showWizard && settings.api.configured) {
+      tutorialShown.current = true
+      localStorage.setItem('aplica:tutorialSeen', 'true')
+      setTimeout(() => startTutorial(), 500)
+    }
+  }, [profileJustCreated, showApiSetup, showWizard, settings.api.configured, startTutorial])
+
+
 
   return (
     <MainLayout>

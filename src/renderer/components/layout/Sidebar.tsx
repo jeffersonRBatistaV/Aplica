@@ -12,12 +12,15 @@ import {
   MessageCircle,
   User,
   BarChart3,
+  GraduationCap,
 } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { ApiConnectionIndicator } from './ApiConnectionIndicator'
 import { useChat, useNavigation } from '../../contexts/AppContext'
+import { useTutorial } from './TutorialGuide'
 import { groupConversations, formatTime } from '../../lib/time'
+import { useTranslation } from 'react-i18next'
 
 interface SidebarProps {
   onOpenSettings: () => void
@@ -25,6 +28,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
+  const { t } = useTranslation()
   const { currentView, setCurrentView } = useNavigation()
   const {
     conversations,
@@ -43,6 +47,7 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
   const [editTitle, setEditTitle] = useState('')
   const [contextMenuId, setContextMenuId] = useState<string | null>(null)
   const [confirmDeleteConversation, setConfirmDeleteConversation] = useState<string | null>(null)
+  const startTutorial = useTutorial()
 
   // Keyboard shortcut: Cmd+N / Ctrl+N
   useEffect(() => {
@@ -95,6 +100,7 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
         {/* Navigation */}
         <div className="flex gap-1 mb-3">
           <button
+            id="nav-chat"
             onClick={() => setCurrentView('chat')}
             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex-1 justify-center ${
               currentView === 'chat'
@@ -106,6 +112,7 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
             Chat
           </button>
           <button
+            id="nav-jobs"
             onClick={() => setCurrentView('jobs')}
             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex-1 justify-center ${
               currentView === 'jobs'
@@ -117,6 +124,7 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
             Jobs
           </button>
           <button
+            id="nav-stats"
             onClick={() => setCurrentView('analytics')}
             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex-1 justify-center ${
               currentView === 'analytics'
@@ -133,12 +141,12 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
         {currentView === 'chat' && (
           <>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium text-gray-500">Conversaciones</span>
+              <span className="text-xs font-medium text-gray-500">{t('sidebar.conversations')}</span>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={newConversation}
-                title="Nuevo chat (Ctrl+N)"
+                title={t('sidebar.newChat')}
               >
                 <Plus className="w-4 h-4" />
               </Button>
@@ -149,7 +157,7 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar conversaciones..."
+                placeholder={t('sidebar.searchConversations')}
                 className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition-shadow"
               />
               {search && (
@@ -170,11 +178,11 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
               }`}
             >
               <Archive className="w-3.5 h-3.5" />
-              {showArchived ? 'Mostrando archivadas' : 'Ver archivadas'}
+              {showArchived ? t('sidebar.showingArchived') : t('sidebar.viewArchived')}
             </button>
             {search && (
               <p className="text-xs text-gray-400 mt-1.5 px-1">
-                {filtered.length} resultado{filtered.length !== 1 ? 's' : ''}
+                {t('sidebar.resultCount', { count: filtered.length })}
               </p>
             )}
           </>
@@ -188,7 +196,7 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
           <div className="flex flex-col items-center justify-center h-full px-6 text-center">
             <MessageSquare className="w-8 h-8 text-gray-300 dark:text-gray-600 mb-2" />
             <p className="text-xs text-gray-400">
-              {search ? 'Sin resultados para esta búsqueda' : 'No hay conversaciones aún'}
+              {search ? t('sidebar.noSearchResults') : t('sidebar.noConversationsYet')}
             </p>
             {!search && (
               <Button
@@ -198,7 +206,7 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
                 className="mt-3 text-blue-500"
               >
                 <Plus className="w-3.5 h-3.5" />
-                Crear primera conversación
+                {t('sidebar.createFirstConversation')}
               </Button>
             )}
           </div>
@@ -263,7 +271,7 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
                           )
                         }}
                         className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-gray-300 dark:hover:bg-gray-700 transition-opacity flex-shrink-0 mt-0.5"
-                        aria-label="Opciones"
+                        aria-label={t('sidebar.options')}
                       >
                         <span className="text-xs font-bold tracking-wider">···</span>
                       </button>
@@ -285,7 +293,7 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
                           className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
                         >
                           <Pencil className="w-3.5 h-3.5" />
-                          Renombrar
+                          {t('sidebar.rename')}
                         </button>
                         <button
                           onClick={async () => {
@@ -295,7 +303,7 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
                           className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
                         >
                           <Archive className="w-3.5 h-3.5" />
-                          Archivar
+                          {t('sidebar.archive')}
                         </button>
                         <hr className="border-gray-200 dark:border-gray-700 my-1" />
                         <button
@@ -306,7 +314,7 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
                           className="w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
-                          Eliminar
+                          {t('sidebar.delete')}
                         </button>
                       </div>
                     </>
@@ -320,23 +328,27 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
       </nav>
 
       {/* Footer */}
-      <div className="p-2 border-t space-y-1">
-        <Button variant="ghost" size="md" className="w-full justify-start" onClick={onOpenProfile}>
+      <div id="sidebar-footer" className="p-2 border-t space-y-1">
+          <Button id="btn-profile" variant="ghost" size="md" className="w-full justify-start" onClick={onOpenProfile}>
           <User className="w-4 h-4" />
-          Mi Perfil
+          {t('sidebar.myProfile')}
         </Button>
-        <Button variant="ghost" size="md" className="w-full justify-start" onClick={onOpenSettings}>
+        <Button id="btn-tutorial" variant="ghost" size="md" className="w-full justify-start" onClick={startTutorial}>
+          <GraduationCap className="w-4 h-4" />
+          {t('sidebar.tutorial')}
+        </Button>
+        <Button id="btn-settings" variant="ghost" size="md" className="w-full justify-start" onClick={onOpenSettings}>
           <Settings className="w-4 h-4" />
-          Configuración
+          {t('sidebar.settings')}
         </Button>
         <ApiConnectionIndicator />
       </div>
 
       <ConfirmDialog
         open={confirmDeleteConversation !== null}
-        title="Eliminar conversación"
-        message="Esta acción no se puede deshacer. La conversación se eliminará permanentemente."
-        confirmLabel="Eliminar"
+        title={t('sidebar.deleteConversation')}
+        message={t('sidebar.deleteConversationMessage')}
+        confirmLabel={t('sidebar.confirmDelete')}
         onConfirm={async () => {
           if (confirmDeleteConversation) {
             await deleteConversation(confirmDeleteConversation)

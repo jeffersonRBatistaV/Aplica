@@ -1,16 +1,21 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Eye, EyeOff, RefreshCw, Check, AlertCircle, Trash2, DollarSign } from 'lucide-react'
+import { Eye, EyeOff, RefreshCw, Check, AlertCircle, Trash2, DollarSign, Coins } from 'lucide-react'
 import type { ModelInfo } from '../../types/ipc'
 import type { UsageStats } from '../../../shared/types'
+import { useTranslation } from 'react-i18next'
+import { useSettings } from '../../contexts/SettingsContext'
+
+const CURRENCIES = ['USD', 'EUR', 'DOP', 'MXN', 'COP', 'ARS', 'CLP', 'BRL', 'GBP', 'PEN'] as const
 
 interface ApiConfigProps {
   baseUrl: string
   apiKey: string
   model: string
-  onChange: (config: { baseUrl: string; apiKey: string; model: string }) => void
+  onChange: (config: { baseUrl: string; apiKey: string; model: string; configured?: boolean }) => void
 }
 
 export function ApiConfig({ baseUrl, apiKey, model, onChange }: ApiConfigProps) {
+  const { t } = useTranslation()
   const [localBaseUrl, setLocalBaseUrl] = useState(baseUrl)
   const [localApiKey, setLocalApiKey] = useState(apiKey)
   const [showKey, setShowKey] = useState(false)
@@ -29,16 +34,16 @@ export function ApiConfig({ baseUrl, apiKey, model, onChange }: ApiConfigProps) 
     try {
       const result = await window.api.listModels({ baseUrl: url, apiKey: key })
       if (result.length === 0) {
-        setModelError('No se encontraron modelos disponibles')
+        setModelError(t('apiConfig.noModelsFound'))
       } else {
         setModels(result)
         const current = result.find((m: ModelInfo) => m.id === model || m.name === model)
         if (!current || !model) {
-          onChange({ baseUrl: url, apiKey: key, model: result[0].id })
+          onChange({ baseUrl: url, apiKey: key, model: result[0].id, configured: true })
         }
       }
     } catch {
-      setModelError('No se pudieron cargar los modelos. Verifica la URL e intenta de nuevo.')
+      setModelError(t('apiConfig.modelsLoadError'))
     } finally {
       setLoadingModels(false)
     }
@@ -70,14 +75,14 @@ export function ApiConfig({ baseUrl, apiKey, model, onChange }: ApiConfigProps) 
 
   const handleSaveUrl = () => {
     const url = localBaseUrl.trim()
-    onChange({ baseUrl: url, apiKey: localApiKey, model })
+    onChange({ baseUrl: url, apiKey: localApiKey, model, configured: true })
     if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
       fetchModels(url, localApiKey)
     }
   }
 
   const handleSaveKey = () => {
-    onChange({ baseUrl: localBaseUrl, apiKey: localApiKey, model })
+    onChange({ baseUrl: localBaseUrl, apiKey: localApiKey, model, configured: true })
   }
 
   const handleUrlChange = (value: string) => {
@@ -101,25 +106,25 @@ export function ApiConfig({ baseUrl, apiKey, model, onChange }: ApiConfigProps) 
       {/* Base URL */}
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Base URL
+          {t('apiConfig.baseUrl')}
         </label>
         <input
           type="url"
           value={localBaseUrl}
           onChange={(e) => handleUrlChange(e.target.value)}
           onBlur={handleSaveUrl}
-          placeholder="http://localhost:11434/v1"
+          placeholder={t('apiConfig.urlPlaceholder')}
           className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
         />
         <p className="text-xs text-gray-400 mt-1">
-          Ej: https://api.openai.com/v1, https://api.groq.com/openai/v1
+          {t('apiConfig.urlExample')}
         </p>
       </div>
 
       {/* API Key */}
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          API Key
+          {t('apiConfig.apiKey')}
         </label>
         <div className="relative">
           <input
@@ -144,7 +149,7 @@ export function ApiConfig({ baseUrl, apiKey, model, onChange }: ApiConfigProps) 
       <div>
         <div className="flex items-center justify-between mb-1">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Modelo
+            {t('apiConfig.model')}
           </label>
           <button
             onClick={() => fetchModels(localBaseUrl, localApiKey)}
@@ -152,18 +157,18 @@ export function ApiConfig({ baseUrl, apiKey, model, onChange }: ApiConfigProps) 
             className="text-xs text-blue-500 hover:text-blue-600 flex items-center gap-1 disabled:opacity-50"
           >
             <RefreshCw className={`w-3 h-3 ${loadingModels ? 'animate-spin' : ''}`} />
-            Recargar
+            {t('apiConfig.reload')}
           </button>
         </div>
 
         <select
           value={model}
-          onChange={(e) => onChange({ baseUrl: localBaseUrl, apiKey: localApiKey, model: e.target.value })}
+          onChange={(e) => onChange({ baseUrl: localBaseUrl, apiKey: localApiKey, model: e.target.value, configured: true })}
           disabled={loadingModels}
           className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loadingModels ? (
-            <option value="">Cargando modelos...</option>
+            <option value="">{t('apiConfig.loadingModels')}</option>
           ) : models.length > 0 ? (
             models.map((m) => (
               <option key={m.id} value={m.id}>
@@ -171,11 +176,11 @@ export function ApiConfig({ baseUrl, apiKey, model, onChange }: ApiConfigProps) 
               </option>
             ))
           ) : !canFetch ? (
-            <option value="">Ingresa una URL válida primero</option>
+            <option value="">{t('apiConfig.enterValidUrl')}</option>
           ) : modelError ? (
-            <option value={model || ''}>{model || 'Error al cargar'} {model ? '(usando valor manual)' : ''}</option>
+            <option value={model || ''}>{model || t('apiConfig.loadError')} {model ? t('apiConfig.usingManualValue') : ''}</option>
           ) : (
-            <option value="">Sin modelos disponibles</option>
+            <option value="">{t('apiConfig.noModelsAvailable')}</option>
           )}
         </select>
 
@@ -189,28 +194,31 @@ export function ApiConfig({ baseUrl, apiKey, model, onChange }: ApiConfigProps) 
         {loadingModels && (
           <p className="flex items-center gap-1 mt-1 text-xs text-blue-500">
             <RefreshCw className="w-3 h-3 animate-spin shrink-0" />
-            Cargando modelos...
+            {t('apiConfig.loadingModels')}
           </p>
         )}
 
         {!loadingModels && models.length > 0 && (
           <p className="flex items-center gap-1 mt-1 text-xs text-green-500">
             <Check className="w-3 h-3 shrink-0" />
-            {models.length} modelo{models.length !== 1 ? 's' : ''} disponible{models.length !== 1 ? 's' : ''}
+            {t('apiConfig.modelsAvailable', { count: models.length })}
           </p>
         )}
       </div>
 
-      {/* Consumo de API */}
+      {/* API Consumption */}
       <ConsumptionSection />
     </div>
   )
 }
 
 function ConsumptionSection() {
+  const { t, i18n } = useTranslation()
+  const { settings, updateSettings } = useSettings()
   const [usage, setUsage] = useState<UsageStats | null>(null)
   const [loading, setLoading] = useState(true)
-  const [dopRate, setDopRate] = useState<number | null>(null)
+  const [exchangeRate, setExchangeRate] = useState<number | null>(null)
+  const currency = settings.preferredCurrency || 'USD'
 
   const loadUsage = useCallback(async () => {
     if (!window.api) return
@@ -218,23 +226,29 @@ function ConsumptionSection() {
     try {
       const [data, rate] = await Promise.all([
         window.api.getUsage(),
-        window.api.getExchangeRate('USD', 'DOP').catch(() => null),
+        currency !== 'USD'
+          ? window.api.getExchangeRate('USD', currency).catch(() => null)
+          : Promise.resolve(null),
       ])
       setUsage(data)
-      setDopRate(rate)
+      setExchangeRate(rate)
     } catch {
       setUsage(null)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [currency])
 
   useEffect(() => {
     loadUsage()
   }, [loadUsage])
 
+  const handleCurrencyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    updateSettings({ preferredCurrency: e.target.value })
+  }
+
   const handleReset = async () => {
-    if (!window.confirm('¿Restablecer todas las estadísticas de consumo?')) return
+    if (!window.confirm(t('apiConfig.resetConfirm'))) return
     try {
       await window.api.resetUsage()
       setUsage({ totalPromptTokens: 0, totalCompletionTokens: 0, totalCost: 0, records: [] })
@@ -244,63 +258,85 @@ function ConsumptionSection() {
   if (loading) {
     return (
       <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Consumo de API</h4>
-        <p className="text-xs text-gray-400">Cargando estadísticas...</p>
+        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">{t('apiConfig.consumption')}</h4>
+        <p className="text-xs text-gray-400">{t('apiConfig.loadingStats')}</p>
       </div>
     )
   }
 
-  const fmt = (n: number) => n.toLocaleString('es')
+  const fmt = (n: number) => n.toLocaleString(i18n.language?.startsWith('es') ? 'es' : 'en')
   const totalTokens = (usage?.totalPromptTokens ?? 0) + (usage?.totalCompletionTokens ?? 0)
+
+  const symbolMap: Record<string, string> = {
+    USD: '$', EUR: '€', GBP: '£', DOP: 'RD$', MXN: 'MX$', COP: 'COL$',
+    ARS: 'ARS$', CLP: 'CLP$', BRL: 'R$', PEN: 'S/',
+  }
 
   return (
     <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
       <div className="flex items-center justify-between mb-3">
-        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Consumo de API</h4>
-        {(usage?.records?.length ?? 0) > 0 && (
-          <button onClick={handleReset} className="text-xs text-red-500 hover:text-red-600 flex items-center gap-1">
-            <Trash2 className="w-3 h-3" />
-            Restablecer
-          </button>
-        )}
+        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('apiConfig.consumption')}</h4>
+        <div className="flex items-center gap-2">
+          {(usage?.records?.length ?? 0) > 0 && (
+            <button onClick={handleReset} className="text-xs text-red-500 hover:text-red-600 flex items-center gap-1">
+              <Trash2 className="w-3 h-3" />
+              {t('apiConfig.reset')}
+            </button>
+          )}
+        </div>
       </div>
 
       {!usage || usage.records.length === 0 ? (
-        <p className="text-xs text-gray-400">No hay consumo registrado aún.</p>
+        <p className="text-xs text-gray-400">{t('apiConfig.noConsumption')}</p>
       ) : (
         <div className="space-y-2 text-xs">
           <div className="flex items-center justify-between">
-            <span className="text-gray-500 dark:text-gray-400">Tokens de entrada</span>
+            <span className="text-gray-500 dark:text-gray-400">{t('apiConfig.inputTokens')}</span>
             <span className="font-mono text-gray-800 dark:text-gray-200">{fmt(usage.totalPromptTokens)}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-gray-500 dark:text-gray-400">Tokens de salida</span>
+            <span className="text-gray-500 dark:text-gray-400">{t('apiConfig.outputTokens')}</span>
             <span className="font-mono text-gray-800 dark:text-gray-200">{fmt(usage.totalCompletionTokens)}</span>
           </div>
           <div className="flex items-center justify-between border-t border-gray-100 dark:border-gray-800 pt-2">
-            <span className="font-medium text-gray-600 dark:text-gray-300">Total</span>
+            <span className="font-medium text-gray-600 dark:text-gray-300">{t('common.total')}</span>
             <span className="font-mono font-medium text-gray-800 dark:text-gray-200">{fmt(totalTokens)}</span>
           </div>
           <div className="flex items-center justify-between">
             <span className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
               <DollarSign className="w-3 h-3" />
-              Costo estimado
+              {t('apiConfig.estimatedCost')}
             </span>
             <span className="font-mono text-gray-800 dark:text-gray-200">
               ${usage.totalCost.toFixed(4)} USD
             </span>
           </div>
-          {dopRate !== null && (
+          {currency !== 'USD' && exchangeRate !== null && (
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
                 <DollarSign className="w-3 h-3" />
-                En RD$
+                {t('apiConfig.inCurrency', { currency: t(`currencies.${currency}`) })}
               </span>
               <span className="font-mono text-gray-800 dark:text-gray-200">
-                RD$ {(usage.totalCost * dopRate).toFixed(2)}
+                {symbolMap[currency] || currency} {(usage.totalCost * exchangeRate).toFixed(2)}
               </span>
             </div>
           )}
+          <div className="flex items-center justify-between pt-1 border-t border-gray-100 dark:border-gray-800">
+            <span className="flex items-center gap-1 text-gray-400">
+              <Coins className="w-3 h-3" />
+              {t('apiConfig.currency')}
+            </span>
+            <select
+              value={currency}
+              onChange={handleCurrencyChange}
+              className="text-xs font-mono bg-transparent border border-gray-300 dark:border-gray-600 rounded px-2 py-0.5 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              {CURRENCIES.map((c) => (
+                <option key={c} value={c}>{c} — {t(`currencies.${c}`)}</option>
+              ))}
+            </select>
+          </div>
         </div>
       )}
     </div>

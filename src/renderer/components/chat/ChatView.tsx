@@ -3,8 +3,11 @@ import { useChat } from '../../contexts/ChatContext'
 import { MessageBubble } from './MessageBubble'
 import { StreamingMessage } from './StreamingMessage'
 import { ChatInput } from '../input/ChatInput'
+import { useTranslation } from 'react-i18next'
+import { Trans } from 'react-i18next'
 
 export function ChatView() {
+  const { t } = useTranslation()
   const {
     activeConversation,
     isStreaming,
@@ -26,9 +29,9 @@ export function ChatView() {
     return (
       <div className="flex-1 flex items-center justify-center text-gray-400 dark:text-gray-600">
         <div className="text-center">
-          <p className="text-sm font-medium">Selecciona o inicia una conversación</p>
+          <p className="text-sm font-medium">{t('chatView.selectOrStart')}</p>
           <p className="text-xs mt-1">
-            Usa el botón <span className="font-semibold">+</span> en la barra lateral para comenzar
+            <Trans i18nKey="chatView.usePlusButton" components={{ bold: <span className="font-semibold" /> }} />
           </p>
         </div>
       </div>

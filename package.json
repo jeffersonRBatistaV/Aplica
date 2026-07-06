@@ -64,9 +64,13 @@
     "vite-plugin-electron-renderer": "^1.0.0"
   },
   "dependencies": {
+    "driver.js": "^1.6.0",
     "highlight.js": "^11.11.1",
+    "i18next": "^26.3.4",
+    "i18next-browser-languagedetector": "^8.2.1",
     "lucide-react": "^1.21.0",
     "marked": "^18.0.5",
+    "react-i18next": "^17.0.8",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "tesseract.js": "^7.0.0",

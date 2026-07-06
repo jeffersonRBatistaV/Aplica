@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { FileText, Copy, Check, Download, Sparkles, BarChart3, ScrollText, Loader2, Eye, EyeOff, Wand2, AlertCircle, Plus, Trash2, ChevronDown, ChevronRight, ArrowLeft } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '../ui/Button'
 import type { ATSReport, CvTemplate } from '../../../shared/types'
 
@@ -20,12 +21,6 @@ interface CVGeneratorProps {
 type CvTab = 'preview' | 'edit'
 type CvStep = 'style' | 'summary' | 'generated'
 
-const BUILTIN_STYLES: { id: string; name: string; icon: any; desc: string; color: string }[] = [
-  { id: 'ats', name: 'ATS-Friendly', icon: BarChart3, desc: 'Optimizado con keywords para pasar filtros ATS', color: 'blue' },
-  { id: 'moderno', name: 'Moderno', icon: Sparkles, desc: 'Formato visual tipo dashboard con badges de skills', color: 'purple' },
-  { id: 'tradicional', name: 'Tradicional', icon: ScrollText, desc: 'Formato cronologico inverso clasico y formal', color: 'green' },
-]
-
 const SUMMARY_CARD_ICONS: Record<string, any> = {
   tecnicista: BarChart3,
   ejecutivo: Sparkles,
@@ -39,17 +34,24 @@ const colorClasses: Record<string, { bg: string; border: string; text: string; h
   slate: { bg: 'bg-slate-50 dark:bg-slate-900/20', border: 'border-slate-500', text: 'text-slate-700 dark:text-slate-300', hover: 'hover:border-slate-400' },
 }
 
-function styleLabel(id: string, templates: CvTemplate[]): string {
-  const builtin = BUILTIN_STYLES.find(s => s.id === id)
-  if (builtin) return builtin.name
-  if (id.startsWith('custom:')) {
-    const t = templates.find(t => `custom:${t.id}` === id)
-    if (t) return t.name
-  }
-  return id
-}
-
 export function CVGenerator({ vacancyText, atsReport, currentStyle, currentContent, onSave }: CVGeneratorProps) {
+  const { t } = useTranslation()
+
+  const BUILTIN_STYLES = useMemo(() => [
+    { id: 'ats', name: 'ATS-Friendly', icon: BarChart3, desc: t('cvGenerator.styleAtsDesc'), color: 'blue' as const },
+    { id: 'moderno', name: 'Moderno', icon: Sparkles, desc: t('cvGenerator.styleModernoDesc'), color: 'purple' as const },
+    { id: 'tradicional', name: 'Tradicional', icon: ScrollText, desc: t('cvGenerator.styleTraditionalDesc'), color: 'green' as const },
+  ], [t])
+
+  const getStyleName = useCallback((id: string | null, templates: CvTemplate[]): string => {
+    const builtin = BUILTIN_STYLES.find(s => s.id === id)
+    if (builtin) return builtin.name
+    if (id && id.startsWith('custom:')) {
+      const tmpl = templates.find(t => `custom:${t.id}` === id)
+      if (tmpl) return tmpl.name
+    }
+    return id || ''
+  }, [BUILTIN_STYLES])
   const [step, setStep] = useState<CvStep>(currentStyle && currentContent ? 'generated' : 'style')
   const [generating, setGenerating] = useState(false)
   const [selectedStyle, setSelectedStyle] = useState<string | null>(currentStyle)
@@ -107,7 +109,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
       setSummaryOptions(options)
       setStep('summary')
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error generando opciones de resumen'
+      const msg = err instanceof Error ? err.message : t('cvGenerator.errorGeneratingSummary')
       setError(msg)
     } finally {
       setLoadingSummaries(false)
@@ -125,7 +127,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
       onSave(selectedStyle, result)
       setStep('generated')
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error generando CV'
+      const msg = err instanceof Error ? err.message : t('cvGenerator.errorGeneratingCv')
       setError(msg)
     } finally {
       setGenerating(false)
@@ -143,7 +145,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
       setContent(result)
       onSave(styleId, result)
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error generando CV'
+      const msg = err instanceof Error ? err.message : t('cvGenerator.errorGeneratingCv')
       setError(msg)
     } finally {
       setGenerating(false)
@@ -168,7 +170,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
       onSave(selectedStyle, result)
       setInstructions('')
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error al aplicar los cambios'
+      const msg = err instanceof Error ? err.message : t('cvGenerator.errorApplying')
       setError(msg)
     } finally {
       setApplying(false)
@@ -189,7 +191,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
       const path = await window.api.downloadCvPdf(content, selectedStyle!)
       if (path) setSavedPath(path)
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error al descargar PDF'
+      const msg = err instanceof Error ? err.message : t('cvGenerator.errorDownloading')
       setError(msg)
     } finally {
       setDownloading(false)
@@ -218,7 +220,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
       setNewPrompt('')
       setShowCreateForm(false)
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error al guardar plantilla'
+      const msg = err instanceof Error ? err.message : t('cvGenerator.errorSavingTemplate')
       setError(msg)
     } finally {
       setSavingTemplate(false)
@@ -235,7 +237,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
         setContent('')
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error al eliminar plantilla'
+      const msg = err instanceof Error ? err.message : t('cvGenerator.errorDeletingTemplate')
       setError(msg)
     }
   }
@@ -244,13 +246,13 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
   if (step === 'style') {
     return (
       <div className="space-y-4">
-        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
-          <FileText className="w-4 h-4" />
-          Generar CV
-        </h3>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-          Selecciona un estilo para generar tu curriculum adaptado a esta vacante:
-        </p>
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+            <FileText className="w-4 h-4" />
+            {t('cvGenerator.title')}
+          </h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+            {t('cvGenerator.selectStyle')}
+          </p>
         {error && (
           <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">
             <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
@@ -285,7 +287,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
         {/* Custom templates */}
         {customTemplates.length > 0 && (
           <div>
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Tus plantillas</p>
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">{t('cvGenerator.yourTemplates')}</p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {customTemplates.map((t) => {
                 const styleId = `custom:${t.id}`
@@ -328,30 +330,30 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
           >
             {showCreateForm ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
             <Plus className="w-3.5 h-3.5" />
-            Crear plantilla
+            {t('cvGenerator.createTemplate')}
           </button>
 
           {showCreateForm && (
             <div className="mt-3 p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 space-y-3">
               <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Nombre de la plantilla</label>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{t('cvGenerator.templateName')}</label>
                 <input
                   type="text"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
-                  placeholder="Ej: Minimalista, Creativo, Ejecutivo..."
+                  placeholder={t('cvGenerator.templateNamePlaceholder')}
                   className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
                 />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                  Prompt — describe el estilo, colores, layout
+                  {t('cvGenerator.templatePrompt')}
                 </label>
                 <textarea
                   value={newPrompt}
                   onChange={(e) => setNewPrompt(e.target.value)}
                   rows={5}
-                  placeholder={`Ej: Estilo minimalista, una sola columna, tipografia sans-serif, colores grises y azul oscuro. Incluye seccion de habilidades como badges. No uses emojis.`}
+                  placeholder={t('cvGenerator.templatePromptPlaceholder')}
                   className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 resize-y font-mono"
                 />
               </div>
@@ -367,7 +369,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
                   ) : (
                     <Check className="w-4 h-4" />
                   )}
-                  Guardar plantilla
+                  {t('cvGenerator.saveTemplate')}
                 </Button>
               </div>
             </div>
@@ -377,7 +379,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
         {loadingSummaries && selectedStyle && (
           <div className="flex items-center gap-2 text-sm text-gray-400 py-4">
             <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-            Preparando opciones de resumen...
+            {t('cvGenerator.preparingSummaries')}
           </div>
         )}
       </div>
@@ -397,11 +399,11 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
           </button>
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
             <FileText className="w-4 h-4" />
-            Elige tu resumen profesional
+            {t('cvGenerator.chooseSummary')}
           </h3>
         </div>
         <p className="text-xs text-gray-500 dark:text-gray-400">
-          Selecciona el enfoque de resumen que mejor represente tu perfil para esta vacante:
+          {t('cvGenerator.selectSummary')}
         </p>
 
         {error && (
@@ -427,7 +429,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
-                      Enfoque {opt.label}
+                      {t('cvGenerator.focusPrefix')}{opt.label}
                     </div>
                     <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
                       {opt.summary}
@@ -442,7 +444,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
         {generating && (
           <div className="flex items-center gap-2 text-sm text-gray-400 py-4">
             <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-            Generando CV con el resumen seleccionado...
+            {t('cvGenerator.generatingWithSummary')}
           </div>
         )}
       </div>
@@ -455,7 +457,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
           <FileText className="w-4 h-4" />
-          CV — {styleLabel(selectedStyle, customTemplates)}
+          {t('cvGenerator.cvPrefix')}{getStyleName(selectedStyle, customTemplates)}
         </h3>
         <div className="flex items-center gap-2">
           <div className="flex gap-1 flex-wrap">
@@ -500,7 +502,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
       {generating && (
         <div className="flex items-center gap-2 text-sm text-gray-400 py-4">
           <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          Regenerando...
+          {t('cvGenerator.regenerating')}
         </div>
       )}
 
@@ -525,7 +527,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
                 }`}
               >
                 <Eye className="w-3.5 h-3.5" />
-                Vista Previa
+                {t('cvGenerator.preview')}
               </button>
               <button
                 onClick={() => setTab('edit')}
@@ -536,16 +538,16 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
                 }`}
               >
                 <EyeOff className="w-3.5 h-3.5" />
-                Editor
+                {t('cvGenerator.editor')}
               </button>
             </div>
             <div className="flex items-center gap-1 pb-2">
-              <Button variant="ghost" size="sm" onClick={handleCopy} title="Copiar al portapapeles">
+              <Button variant="ghost" size="sm" onClick={handleCopy} title={t('cvGenerator.copy')}>
                 {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
               </Button>
               <Button variant="primary" size="sm" onClick={handleDownloadPdf} disabled={downloading}>
                 {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                {downloading ? 'Generando PDF...' : 'Descargar PDF'}
+                {downloading ? t('cvGenerator.generatingPdf') : t('cvGenerator.download')}
               </Button>
             </div>
           </div>
@@ -583,7 +585,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
                   handleApplyInstructions()
                 }
               }}
-              placeholder="Escribe una instruccion para modificar el CV (ej: agrega seccion de proyectos, cambia el color...)"
+              placeholder={t('cvGenerator.instructionsPlaceholder')}
               className="flex-1 px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
             />
             <Button
@@ -597,7 +599,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
               ) : (
                 <Wand2 className="w-4 h-4" />
               )}
-              Aplicar
+              {t('cvGenerator.apply')}
             </Button>
           </div>
 
@@ -605,7 +607,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
           {savedPath && (
             <div className="flex items-center gap-2 text-xs text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 p-2 rounded-lg border border-green-200 dark:border-green-800">
               <Check className="w-3.5 h-3.5" />
-              <span>PDF guardado en: {savedPath}</span>
+              <span>{t('cvGenerator.pdfSaved')}{savedPath}</span>
             </div>
           )}
         </>

@@ -9,7 +9,7 @@ interface NavigationContextValue {
 const NavigationContext = createContext<NavigationContextValue | null>(null)
 
 export function NavigationProvider({ children }: { children: ReactNode }) {
-  const [currentView, setCurrentView] = useState<AppView>('chat')
+  const [currentView, setCurrentView] = useState<AppView>('analytics')
 
   return (
     <NavigationContext.Provider value={{ currentView, setCurrentView }}>

@@ -1,4 +1,5 @@
 import { Shield } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 interface PrivacySettingsProps {
   storeHistory: boolean
@@ -11,15 +12,16 @@ export function PrivacySettings({
   excludeFromTraining,
   onChange,
 }: PrivacySettingsProps) {
+  const { t } = useTranslation()
   return (
     <div className="space-y-4">
       <div className="flex items-start gap-3">
         <div className="flex-1">
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            Almacenar historial local
+            {t('privacy.storeHistory')}
           </label>
           <p className="text-xs text-gray-400 mt-0.5">
-            Las conversaciones se guardan en tu equipo. Al desactivarlo, no se persistirá ninguna conversación.
+            {t('privacy.storeHistoryDesc')}
           </p>
         </div>
         <label className="relative inline-flex items-center cursor-pointer">
@@ -38,10 +40,10 @@ export function PrivacySettings({
       <div className="flex items-start gap-3">
         <div className="flex-1">
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            Excluir datos de entrenamiento
+            {t('privacy.excludeTraining')}
           </label>
           <p className="text-xs text-gray-400 mt-0.5">
-            Solicita al proveedor de IA que no use tus conversaciones para entrenar sus modelos.
+            {t('privacy.excludeTrainingDesc')}
           </p>
         </div>
         <label className="relative inline-flex items-center cursor-pointer">
@@ -60,7 +62,7 @@ export function PrivacySettings({
       <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 flex items-start gap-2">
         <Shield className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
         <p className="text-xs text-blue-700 dark:text-blue-300">
-          Todos los datos se almacenan localmente en tu equipo. No se envían a servidores externos aparte del proveedor de IA configurado en la pestaña API.
+          {t('privacy.localStorageInfo')}
         </p>
       </div>
     </div>

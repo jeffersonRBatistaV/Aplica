@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { Upload, FileText, Loader2, Scan } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { isImageType } from '../../types/attachments'
+import { useTranslation } from 'react-i18next'
 
 interface VacancyInputProps {
   onAnalyze: (text: string) => void
@@ -10,6 +11,7 @@ interface VacancyInputProps {
 }
 
 export function VacancyInput({ onAnalyze, analyzing, initialText }: VacancyInputProps) {
+  const { t } = useTranslation()
   const [text, setText] = useState(initialText || '')
   const [dragOver, setDragOver] = useState(false)
   const [ocrProcessing, setOcrProcessing] = useState(false)
@@ -35,10 +37,10 @@ export function VacancyInput({ onAnalyze, analyzing, initialText }: VacancyInput
         if (result) {
           setText(result)
         } else {
-          setOcrError('No se pudo extraer texto de la imagen')
+          setOcrError(t('vacantes.extractingText'))
         }
       } catch (err) {
-        setOcrError(err instanceof Error ? err.message : 'Error al procesar la imagen')
+        setOcrError(err instanceof Error ? err.message : t('vacantes.errorUnknown'))
       } finally {
         setOcrProcessing(false)
       }
@@ -130,7 +132,7 @@ export function VacancyInput({ onAnalyze, analyzing, initialText }: VacancyInput
       <div className="p-4">
         <div className="flex items-center justify-between mb-3">
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            Vacante
+            {t('vacantes.vacancy')}
           </label>
           <div className="flex items-center gap-2">
             <input
@@ -145,7 +147,7 @@ export function VacancyInput({ onAnalyze, analyzing, initialText }: VacancyInput
               className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer flex items-center gap-1"
             >
               <FileText className="w-3.5 h-3.5" />
-              Subir archivo
+              {t('vacantes.uploadFile')}
             </label>
           </div>
         </div>
@@ -156,14 +158,14 @@ export function VacancyInput({ onAnalyze, analyzing, initialText }: VacancyInput
             value={text}
             onChange={(e) => setText(e.target.value)}
             onPaste={handlePaste}
-            placeholder="Pega el texto de la vacante aquí, o arrastra un archivo .txt/.md/.png/.jpg..."
+            placeholder={t('vacantes.vacancyPlaceholder')}
             rows={8}
             className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40 resize-y min-h-[180px] font-mono"
           />
           {ocrProcessing && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 dark:bg-gray-900/80 rounded-lg z-10">
               <Scan className="w-8 h-8 text-blue-500 animate-pulse mb-2" />
-              <span className="text-sm font-medium text-blue-600 dark:text-blue-400">Extrayendo texto desde imagen...</span>
+              <span className="text-sm font-medium text-blue-600 dark:text-blue-400">{t('vacantes.extractingText')}</span>
             </div>
           )}
         </div>
@@ -173,17 +175,17 @@ export function VacancyInput({ onAnalyze, analyzing, initialText }: VacancyInput
             {ocrProcessing ? (
               <>
                 <Scan className="w-3.5 h-3.5 text-blue-500 animate-pulse" />
-                <span className="text-blue-500">Extrayendo texto desde imagen...</span>
+                <span className="text-blue-500">{t('vacantes.extractingText')}</span>
               </>
             ) : ocrError ? (
               <span className="text-red-500">{ocrError}</span>
             ) : dragOver ? (
               <>
                 <Upload className="w-3.5 h-3.5 text-blue-500" />
-                <span className="text-blue-500">Suelta el archivo aquí</span>
+                <span className="text-blue-500">{t('vacantes.dropFileHere')}</span>
               </>
             ) : (
-              <span className="text-gray-400">Arrastra un archivo o pega el texto de la vacante</span>
+              <span className="text-gray-400">{t('vacantes.dragOrPaste')}</span>
             )}
           </div>
 
@@ -196,10 +198,10 @@ export function VacancyInput({ onAnalyze, analyzing, initialText }: VacancyInput
             {analyzing ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Procesando vacante...
+                {t('vacantes.processing')}
               </>
             ) : (
-              'Analizar Vacante'
+              t('vacantes.analyze')
             )}
           </Button>
         </div>

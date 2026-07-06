@@ -18,6 +18,8 @@ async function getConfig(): Promise<LLMConfig> {
   }
 }
 
+const LANGUAGE_INSTRUCTION = `\n\nIMPORTANTE: Responde SIEMPRE en el MISMO IDIOMA en el que está escrita la vacante. Si la vacante está en inglés, responde en inglés. Si está en español, responde en español. Si está en otro idioma, responde en ese mismo idioma.`
+
 const ATS_SYSTEM_PROMPT = `Eres un Reclutador Senior y Especialista ATS (Applicant Tracking System). Tu objetivo es identificar conexiones entre el perfil del candidato y la vacante, incluso cuando no son obvias. Busca skills transferibles, experiencia indirecta, y cualquier punto de contacto que pueda hacer que el candidato sea considerado.
 
 Debes responder ÚNICAMENTE con un objeto JSON válido, sin texto adicional, siguiendo esta estructura exacta:
@@ -29,7 +31,7 @@ Debes responder ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sig
   "gaps": ["brechas o áreas de mejora, con sugerencias constructivas"],
   "quickFixes": ["acciones rápidas que el candidato puede tomar para mejorar su aplicación, incluyendo formas de reformular experiencia existente"],
   "analysis": "análisis detallado en markdown del match, destacando cómo el perfil del candidato PUEDE ser relevante para la vacante incluso si no es un match perfecto. Incluye recomendaciones específicas para reformular la experiencia."
-}`
+}${LANGUAGE_INSTRUCTION}`
 
 const COVER_LETTER_SYSTEM_PROMPT = `Eres un Redactor Profesional de Cartas de Presentación especializado en persuasión para reclutadores. Tu objetivo es posicionar al candidato como la mejor opcion para la vacante, incluso si su perfil no es un match perfecto.
 
@@ -56,7 +58,7 @@ Debes responder ÚNICAMENTE con un objeto JSON válido, sin texto adicional:
   "coverLetterB": "texto completo de la cover letter en markdown",
   "recruiterEmail": "email extraído de la vacante o cadena vacía si no aparece",
   "subject": "asunto sugerido para el correo basado en la vacante y el puesto"
-}`
+}${LANGUAGE_INSTRUCTION}`
 
 export async function analyzeVacancy(
   vacancyText: string,
@@ -211,7 +213,7 @@ Corrige el siguiente texto de una oferta de trabajo. Debes:
 - Mantener exactamente el significado, estructura y formato original
 - NO agregues, resumas ni modifiques información
 - NO agregues comentarios, prefijos ni sufijos
-- Devuelve ÚNICAMENTE el texto corregido, sin delimitadores ni bloques de código`
+- Devuelve ÚNICAMENTE el texto corregido, sin delimitadores ni bloques de código${LANGUAGE_INSTRUCTION}`
 
 export async function correctVacancyText(raw: string): Promise<string> {
   const config = await getConfig()
@@ -244,7 +246,7 @@ Debes responder ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sig
       "category": "Experiencia | Técnica | Comportamental | Empresa/Industria | Motivación"
     }
   ]
-}`
+}${LANGUAGE_INSTRUCTION}`
 
 export async function generateInterviewQuestions(
   vacancyText: string,

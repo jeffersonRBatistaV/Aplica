@@ -1,4 +1,4 @@
-import type { Conversation, AppSettings, StreamParams, Profile, JobApplication, ATSReport, CvTemplate, InterviewQuestion, UsageStats } from '../../shared/types'
+import type { Conversation, AppSettings, StreamParams, Profile, JobApplication, ATSReport, CvTemplate, InterviewQuestion, UsageStats, ImportResult } from '../../shared/types'
 
 export interface ModelInfo {
   id: string
@@ -83,11 +83,16 @@ export interface ElectronAPI {
   // Data Export / Import
   exportAll: () => Promise<unknown>
   saveExportFile: (data: unknown, format: 'json' | 'xlsx') => Promise<string | null>
-  importFromFile: () => Promise<string | null>
+  importFromFile: () => Promise<ImportResult>
+  processImportData: (fileName: string, content: string) => Promise<ImportResult>
 
   // Clipboard
   copyToClipboard: (text: string) => Promise<void>
   readClipboardImage: () => Promise<string | null>
+
+  // Career Advice
+  getCareerAdvice: () => Promise<{ diagnostico: string; areaMejora: string; planAccion: string } | null>
+  refreshCareerAdvice: () => Promise<{ diagnostico: string; areaMejora: string; planAccion: string } | null>
 
   // Currency Exchange
   getExchangeRate: (from: string, to: string) => Promise<number>

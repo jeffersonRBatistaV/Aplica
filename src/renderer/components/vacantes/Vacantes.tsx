@@ -9,6 +9,7 @@ import { InterviewPrep } from './InterviewPrep'
 import { KanbanBoard } from './KanbanBoard'
 import { TemplatesManager } from './TemplatesManager'
 import type { ATSReport, JobApplication, InterviewQuestion } from '../../../shared/types'
+import { useTranslation } from 'react-i18next'
 
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
   'Tecnología / IT': ['software', 'desarrollador', 'developer', 'frontend', 'backend', 'full stack', 'devops', 'data science', 'machine learning', 'it', 'sistemas', 'infraestructura', 'cloud', 'programador', 'ingeniero de software'],
@@ -80,6 +81,7 @@ function extractJobInfo(text: string): { company: string; position: string } {
 type Tab = 'new' | 'library' | 'board' | 'templates'
 
 export function Vacantes() {
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<Tab>('new')
   const [vacancyText, setVacancyText] = useState('')
   const [analyzing, setAnalyzing] = useState(false)
@@ -147,7 +149,7 @@ export function Vacantes() {
       setAtsReport(report)
 
       const { company, position: extractedPosition } = extractJobInfo(cleanText)
-      const position = extractedPosition || cleanText.split('\n').find(l => l.trim().length > 10)?.trim().substring(0, 60) || 'Vacante'
+      const position = extractedPosition || cleanText.split('\n').find(l => l.trim().length > 10)?.trim().substring(0, 60) || t('vacantes.title')
       const category = extractCategory(cleanText)
 
       const app: JobApplication = {
@@ -186,7 +188,7 @@ export function Vacantes() {
       await window.api.saveJob(app)
       setCurrentApp({ ...app })
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error desconocido'
+      const msg = err instanceof Error ? err.message : t('vacantes.errorUnknown')
       setError(msg)
     } finally {
       setAnalyzing(false)
@@ -281,7 +283,7 @@ export function Vacantes() {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Briefcase className="w-5 h-5 text-blue-500" />
-            <h2 className="text-lg font-semibold">Vacantes</h2>
+            <h2 className="text-lg font-semibold">{t('vacantes.title')}</h2>
           </div>
         </div>
 
@@ -296,7 +298,7 @@ export function Vacantes() {
             }`}
           >
             <Briefcase className="w-4 h-4" />
-            Nueva Vacante
+            {t('vacantes.newVacancy')}
           </button>
           <button
             onClick={() => setActiveTab('board')}
@@ -307,7 +309,7 @@ export function Vacantes() {
             }`}
           >
             <Columns className="w-4 h-4" />
-            Tablero
+            {t('vacantes.board')}
           </button>
           <button
             onClick={() => setActiveTab('library')}
@@ -318,7 +320,7 @@ export function Vacantes() {
             }`}
           >
             <Library className="w-4 h-4" />
-            Biblioteca
+            {t('vacantes.library')}
           </button>
           <button
             onClick={() => setActiveTab('templates')}
@@ -329,7 +331,7 @@ export function Vacantes() {
             }`}
           >
             <FileText className="w-4 h-4" />
-            Plantillas
+            {t('vacantes.templates')}
           </button>
         </div>
       </div>
@@ -354,7 +356,7 @@ export function Vacantes() {
             {analyzing && (
               <div className="flex items-center justify-center py-8 text-gray-400">
                 <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                <span className="text-sm">Analizando vacante contra tu perfil...</span>
+                <span className="text-sm">{t('vacantes.analyzing')}</span>
               </div>
             )}
 
@@ -363,11 +365,11 @@ export function Vacantes() {
                 {/* Company / Position read-only info */}
                 <div className="flex gap-4 p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                   <div className="flex-1">
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Empresa</label>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('vacantes.company')}</label>
                     <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{currentApp?.company || '—'}</p>
                   </div>
                   <div className="flex-1">
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Puesto</label>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('vacantes.position')}</label>
                     <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{currentApp?.position || '—'}</p>
                   </div>
                 </div>

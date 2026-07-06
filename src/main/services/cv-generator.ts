@@ -3,6 +3,8 @@ import { completeChatCompletion } from './llm-service'
 import { readJSON } from './storage'
 import { SETTINGS_FILE } from '../utils/paths'
 
+const LANGUAGE_INSTRUCTION = '\n\nIMPORTANTE: Responde SIEMPRE en el MISMO IDIOMA en el que está escrita la vacante. Si la vacante está en inglés, responde en inglés. Si está en español, responde en español. Si está en otro idioma, responde en ese mismo idioma.'
+
 interface LLMConfig {
   baseUrl: string
   apiKey: string
@@ -35,7 +37,7 @@ ESTRATEGIA CLAVE:
 
 Formato esperado (debe comenzar con <div class="cv-ats">):
 
-<div class="cv-ats" style="font-family: 'Segoe UI', Arial, sans-serif; font-size: 11pt; color: #1f2937; line-height: 1.5; max-width: 190mm; margin: 0 auto; padding: 0;">
+<div class="cv-ats" style="font-family: 'Segoe UI', Arial, sans-serif; font-size: 11pt; color: #1f2937; line-height: 1.5; width: 100%; min-height: 277mm; padding: 0;">
 
 <h1 style="font-size: 20pt; color: #1e3a5f; border-bottom: 2px solid #2563eb; padding-bottom: 6px; margin: 0 0 8px;">[Nombre]</h1>
 <p style="margin: 2px 0; color: #4b5563; font-size: 10pt;">[Email] | [Telefono] | [Ubicacion]</p>
@@ -69,7 +71,7 @@ REGLAS:
 - Reformula titulos de puestos para que coincidan con la nomenclatura de la vacante
 - Solo incluye informacion PRESENTE o INFERIBLE del perfil del candidato (no inventes carreras completas)
 - Formato limpio, facil de parsear por ATS
-- Cada etiqueta debe tener style inline`,
+- Cada etiqueta debe tener style inline${LANGUAGE_INSTRUCTION}`,
 
   moderno: `Eres un disenador de curriculums modernos y visuales, experto en optimizacion para ATS y reclutadores. Tu objetivo es maximizar el match rate reformulando strategicamente el perfil del candidato.
 
@@ -88,7 +90,7 @@ ESTRATEGIA CLAVE:
 
 Formato esperado (debe comenzar con <div class="cv-moderno">):
 
-<div class="cv-moderno" style="font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; font-size: 10.5pt; color: #1f2937; line-height: 1.6; max-width: 190mm; margin: 0 auto; padding: 0;">
+<div class="cv-moderno" style="font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; font-size: 10.5pt; color: #1f2937; line-height: 1.6; width: 100%; min-height: 277mm; padding: 0;">
 
 <div style="background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%); color: white; padding: 24px 20px; border-radius: 8px 8px 0 0; margin-bottom: 16px;">
   <h1 style="font-size: 22pt; margin: 0 0 4px; font-weight: 700;">[Nombre Completo]</h1>
@@ -142,7 +144,7 @@ REGLAS:
 - Prioriza metricas y logros cuantificables
 - Cada etiqueta debe tener style inline
 - Usa fondos suaves para badges de skills (#dbeafe) y para idiomas (#f3f4f6)
-- Integra OBLIGATORIAMENTE keywords faltantes del reporte ATS en las secciones de habilidades y experiencia`,
+- Integra OBLIGATORIAMENTE keywords faltantes del reporte ATS en las secciones de habilidades y experiencia${LANGUAGE_INSTRUCTION}`,
 
   tradicional: `Eres un redactor de curriculums formales experto en optimizacion para ATS. Reformula strategicamente el perfil del candidato para maximizar el match con la vacante.
 
@@ -158,7 +160,7 @@ ESTRATEGIA CLAVE:
 
 Formato esperado (debe comenzar con <div class="cv-tradicional">):
 
-<div class="cv-tradicional" style="font-family: 'Times New Roman', 'Georgia', serif; font-size: 11pt; color: #1f2937; line-height: 1.5; max-width: 190mm; margin: 0 auto; padding: 0;">
+<div class="cv-tradicional" style="font-family: 'Times New Roman', 'Georgia', serif; font-size: 11pt; color: #1f2937; line-height: 1.5; width: 100%; min-height: 277mm; padding: 0;">
 
 <h1 style="font-size: 18pt; color: #111827; text-align: center; margin: 0 0 4px; font-weight: 700;">[Nombre Completo]</h1>
 <p style="text-align: center; font-size: 10pt; color: #4b5563; margin: 2px 0;">[Email] | [Telefono] | [Ubicacion]</p>
@@ -209,7 +211,7 @@ REGLAS:
 - Fechas completas (Mes Anio)
 - NO uses emojis bajo ninguna circunstancia
 - Cada etiqueta debe tener style inline
-- Integra OBLIGATORIAMENTE cada keyword faltante del ATS en Competencias o Experiencia`,
+- Integra OBLIGATORIAMENTE cada keyword faltante del ATS en Competencias o Experiencia${LANGUAGE_INSTRUCTION}`,
 }
 
 export async function generateSummaryOptions(
@@ -227,7 +229,7 @@ export async function generateSummaryOptions(
     ? `\n\n## ANALISIS ATS\nMatch Score: ${atsReport.matchScore}%\nKeywords principales: ${atsReport.keywordsMissing.slice(0, 5).join(', ')}`
     : ''
 
-  const systemPrompt = `Eres un estratega de CVs. Tu tarea es generar 3 opciones de resumen profesional para un candidato, cada una con un enfoque distinto. Cada resumen debe ser de 2-3 lineas, en espanol, sin emojis.
+  const systemPrompt = `Eres un estratega de CVs. Tu tarea es generar 3 opciones de resumen profesional para un candidato, cada una con un enfoque distinto. Cada resumen debe ser de 2-3 lineas, sin emojis.
 
 Genera 3 opciones con estos IDs y enfoques:
 1. id="tecnicista" — Enfoque tecnico, destacando herramientas, metodologias y habilidades duras. Ideal para roles operativos o tecnicos.
@@ -239,7 +241,7 @@ Devuelve SOLO un JSON array valido con esta estructura exacta, sin markdown ni d
   { "id": "tecnicista", "label": "Tecnico", "summary": "..." },
   { "id": "ejecutivo", "label": "Ejecutivo", "summary": "..." },
   { "id": "creativo", "label": "Creativo", "summary": "..." }
-]`
+]${LANGUAGE_INSTRUCTION}`
 
   const userMessage = `## VACANTE\n\n${vacancyText}${profileSection}${atsSection}\n\nGenera las 3 opciones de resumen profesional. Devuelve SOLO el JSON array.`
 

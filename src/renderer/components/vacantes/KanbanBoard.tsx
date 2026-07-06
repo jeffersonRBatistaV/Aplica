@@ -1,34 +1,36 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Clock, Send, Calendar, Briefcase, XCircle, Eye, MoreHorizontal } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { JobApplication, JobStatus } from '../../../shared/types'
 
 interface KanbanBoardProps {
   onSelect: (app: JobApplication) => void
 }
 
-const COLUMNS: { id: JobStatus; label: string; icon: any; color: string }[] = [
-  { id: 'draft', label: 'Borrador', icon: Clock, color: 'gray' },
-  { id: 'applied', label: 'Aplicada', icon: Send, color: 'blue' },
-  { id: 'interview', label: 'Entrevista', icon: Calendar, color: 'amber' },
-  { id: 'offer', label: 'Oferta', icon: Briefcase, color: 'green' },
-  { id: 'rejected', label: 'Rechazada', icon: XCircle, color: 'red' },
-]
-
-const STATUS_ACTIONS: { from: JobStatus; to: JobStatus; label: string }[] = [
-  { from: 'draft', to: 'applied', label: 'Marcar como aplicada' },
-  { from: 'applied', to: 'interview', label: 'Pasar a entrevista' },
-  { from: 'interview', to: 'offer', label: 'Recibió oferta' },
-  { from: 'interview', to: 'rejected', label: 'Rechazada' },
-  { from: 'applied', to: 'rejected', label: 'Rechazada' },
-  { from: 'offer', to: 'rejected', label: 'Oferta rechazada' },
-  { from: 'draft', to: 'rejected', label: 'Descartar' },
-]
-
 export function KanbanBoard({ onSelect }: KanbanBoardProps) {
+  const { t } = useTranslation()
   const [jobs, setJobs] = useState<JobApplication[]>([])
   const [loading, setLoading] = useState(true)
   const [menuOpen, setMenuOpen] = useState<string | null>(null)
   const [menuRect, setMenuRect] = useState<{ top: number; left: number } | null>(null)
+
+  const COLUMNS = useMemo(() => [
+    { id: 'draft' as JobStatus, label: t('kanban.columnDraft'), icon: Clock, color: 'gray' },
+    { id: 'applied' as JobStatus, label: t('kanban.columnApplied'), icon: Send, color: 'blue' },
+    { id: 'interview' as JobStatus, label: t('kanban.columnInterview'), icon: Calendar, color: 'amber' },
+    { id: 'offer' as JobStatus, label: t('kanban.columnOffer'), icon: Briefcase, color: 'green' },
+    { id: 'rejected' as JobStatus, label: t('kanban.columnRejected'), icon: XCircle, color: 'red' },
+  ], [t])
+
+  const STATUS_ACTIONS = useMemo(() => [
+    { from: 'draft' as JobStatus, to: 'applied' as JobStatus, label: t('kanban.actionMarkApplied') },
+    { from: 'applied' as JobStatus, to: 'interview' as JobStatus, label: t('kanban.actionMoveInterview') },
+    { from: 'interview' as JobStatus, to: 'offer' as JobStatus, label: t('kanban.actionGotOffer') },
+    { from: 'interview' as JobStatus, to: 'rejected' as JobStatus, label: t('kanban.actionRejected') },
+    { from: 'applied' as JobStatus, to: 'rejected' as JobStatus, label: t('kanban.actionRejected') },
+    { from: 'offer' as JobStatus, to: 'rejected' as JobStatus, label: t('kanban.actionOfferRejected') },
+    { from: 'draft' as JobStatus, to: 'rejected' as JobStatus, label: t('kanban.actionDiscard') },
+  ], [t])
 
   const loadJobs = async () => {
     if (!window.api) return
@@ -70,7 +72,7 @@ export function KanbanBoard({ onSelect }: KanbanBoardProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12 text-sm text-gray-400">
-        Cargando postulaciones...
+        {t('kanban.loading')}
       </div>
     )
   }
@@ -120,7 +122,7 @@ export function KanbanBoard({ onSelect }: KanbanBoardProps) {
             <div className="flex-1 overflow-y-auto p-2 space-y-2">
               {columnJobs.length === 0 ? (
                 <div className="flex items-center justify-center py-8 text-xs text-gray-400 italic">
-                  Sin postulaciones
+                  {t('kanban.noApplications')}
                 </div>
               ) : (
                 columnJobs.map((job) => {
@@ -133,10 +135,10 @@ export function KanbanBoard({ onSelect }: KanbanBoardProps) {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                            {job.position || 'Sin puesto'}
+                            {job.position || t('kanban.noPosition')}
                           </p>
                           <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                            {job.company || 'Sin empresa'}
+                            {job.company || t('kanban.noCompany')}
                           </p>
                           {job.atsReport && (
                             <span className={`inline-block mt-1 text-xs font-medium px-1.5 py-0.5 rounded ${
@@ -183,7 +185,7 @@ export function KanbanBoard({ onSelect }: KanbanBoardProps) {
               className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
             >
               <Eye className="w-3.5 h-3.5" />
-              Ver detalle
+              {t('kanban.viewDetail')}
             </button>
             {STATUS_ACTIONS.filter(a => a.from === menuJob.status).map(action => (
               <button

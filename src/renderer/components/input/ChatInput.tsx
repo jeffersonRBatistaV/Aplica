@@ -3,6 +3,7 @@ import { Send, Square, X, Image as ImageIcon, FileText, Table } from 'lucide-rea
 import { useFileAttachments } from '../../hooks/useFileAttachments'
 import { useSpeechRecognition } from '../../hooks/useSpeechRecognition'
 import { isImageType, isTextType, isExcelType, formatFileSize } from '../../types/attachments'
+import { useTranslation } from 'react-i18next'
 
 interface ChatInputProps {
   onSend: (content: string, attachments?: string) => void
@@ -12,6 +13,7 @@ interface ChatInputProps {
 }
 
 export function ChatInput({ onSend, onAbort, isStreaming, disabled }: ChatInputProps) {
+  const { t } = useTranslation()
   const [value, setValue] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -60,7 +62,7 @@ export function ChatInput({ onSend, onAbort, isStreaming, disabled }: ChatInputP
     if (attachments.length === 0) return undefined
     return attachments
       .map((att) => {
-        const header = `[Archivo: ${att.name}]`
+        const header = `[${t('chatInput.filePrefix')}: ${att.name}]`
         return `${header}\n${att.data}`
       })
       .join('\n\n---\n\n')
@@ -172,10 +174,10 @@ export function ChatInput({ onSend, onAbort, isStreaming, disabled }: ChatInputP
                 />
               </svg>
               <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                Suelta archivos aquí
+                {t('chatInput.dropFilesHere')}
               </p>
               <p className="text-xs text-blue-500/70 mt-1">
-                .txt, .md, .csv, .xlsx, .png, .jpg, etc.
+                {t('chatInput.fileTypes')}
               </p>
             </div>
           </div>
@@ -231,7 +233,7 @@ export function ChatInput({ onSend, onAbort, isStreaming, disabled }: ChatInputP
           <button
             onClick={() => inputRef.current?.click()}
             className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 flex-shrink-0 self-end mb-1"
-            title="Adjuntar archivo"
+            title={t('chatInput.attachFile')}
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -255,7 +257,7 @@ export function ChatInput({ onSend, onAbort, isStreaming, disabled }: ChatInputP
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Escribe un mensaje... (Enter para enviar, Shift+Enter para nueva línea)"
+            placeholder={t('chatInput.placeholder')}
             rows={1}
             disabled={disabled}
             className="flex-1 resize-none bg-transparent text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 outline-none py-1.5 max-h-[200px]"
@@ -276,7 +278,7 @@ export function ChatInput({ onSend, onAbort, isStreaming, disabled }: ChatInputP
                   ? 'bg-red-500 text-white hover:bg-red-600 animate-pulse'
                   : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800'
               }`}
-              title={isListening ? 'Detener dictado' : 'Dictado por voz'}
+              title={isListening ? t('chatInput.stopDictation') : t('chatInput.voiceDictation')}
             >
               {isListening ? (
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
@@ -305,7 +307,7 @@ export function ChatInput({ onSend, onAbort, isStreaming, disabled }: ChatInputP
             <button
               onClick={onAbort}
               className="p-2 rounded-xl bg-red-500 hover:bg-red-600 text-white transition-colors flex-shrink-0 self-end"
-              title="Detener"
+              title={t('chatInput.stop')}
             >
               <Square className="w-4 h-4" />
             </button>
@@ -314,7 +316,7 @@ export function ChatInput({ onSend, onAbort, isStreaming, disabled }: ChatInputP
               onClick={handleSend}
               disabled={!hasInput || disabled}
               className="p-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white disabled:text-gray-500 dark:disabled:text-gray-400 transition-colors flex-shrink-0 self-end"
-              title="Enviar"
+              title={t('chatInput.send')}
             >
               <Send className="w-4 h-4" />
             </button>

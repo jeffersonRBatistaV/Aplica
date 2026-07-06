@@ -1,13 +1,23 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react'
 import type { AppSettings, ThemeMode } from '../../shared/types'
+import i18n from '../i18n'
 
 const DEFAULT_SETTINGS: AppSettings = {
   api: { baseUrl: 'http://localhost:11434/v1', apiKey: '', model: 'llama3', configured: false },
-  appearance: { mode: 'system' },
+  appearance: { mode: 'system', fontSize: 100 },
   privacy: { storeHistory: true, excludeFromTraining: false },
   systemPrompt: '',
-  locale: 'es',
+  locale: 'en',
   ttsVoice: '',
+  preferredCurrency: 'USD',
+}
+
+export function useLocale() {
+  const locale = i18n.language?.startsWith('es') ? 'es' : 'en'
+  const setLocale = async (lng: string) => {
+    await i18n.changeLanguage(lng)
+  }
+  return { locale, setLocale }
 }
 
 interface SettingsContextValue {
@@ -26,7 +36,16 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (window.api) {
       window.api.getSettings().then((saved) => {
-        if (saved) setSettings(saved)
+        if (saved) {
+          const merged = { ...DEFAULT_SETTINGS, ...saved, appearance: { ...DEFAULT_SETTINGS.appearance, ...saved.appearance } }
+          if (merged.appearance.fontSize && merged.appearance.fontSize > 200) {
+            merged.appearance.fontSize = 200
+          }
+          setSettings(merged)
+          if (saved.locale) {
+            i18n.changeLanguage(saved.locale)
+          }
+        }
         setLoaded(true)
       })
     } else {
@@ -43,16 +62,20 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   const updateSettings = useCallback(
     async (partial: Partial<AppSettings>) => {
-      await persist({ ...settings, ...partial })
+      const next = { ...settings, ...partial }
+      if (partial.locale) {
+        i18n.changeLanguage(partial.locale)
+      }
+      await persist(next)
     },
     [settings, persist],
   )
 
   const setThemeMode = useCallback(
     async (mode: ThemeMode) => {
-      await updateSettings({ appearance: { mode } })
+      await updateSettings({ appearance: { ...settings.appearance, mode } })
     },
-    [updateSettings],
+    [updateSettings, settings.appearance],
   )
 
   return (

@@ -21,6 +21,7 @@ export interface AppSettings {
   systemPrompt: string
   locale: string
   ttsVoice: string
+  preferredCurrency: string
 }
 
 export interface ApiConfig {
@@ -32,6 +33,7 @@ export interface ApiConfig {
 
 export interface AppearanceConfig {
   mode: 'light' | 'dark' | 'system'
+  fontSize?: number
 }
 
 export interface PrivacyConfig {
@@ -151,3 +153,16 @@ export interface InterviewQuestion {
 }
 
 export type AppView = 'chat' | 'jobs' | 'analytics'
+
+export interface ImportStats {
+  conversations: number
+  jobs: number
+  profile: boolean
+  settings: boolean
+  cvTemplates: number
+}
+
+export type ImportResult =
+  | { ok: true; filePath: string; stats: ImportStats }
+  | { ok: false; error: string }
+  | null

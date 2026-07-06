@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Button } from '../ui/Button'
 import { useNotification } from '../../contexts/NotificationContext'
+import { useTranslation } from 'react-i18next'
 
 interface CoverLetterGeneratorProps {
   coverLetterA: string
@@ -28,6 +29,7 @@ function extractLetterContent(raw: string, key: string): string {
 }
 
 function CopyBtn({ text, label }: { text: string; label?: string }) {
+  const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
 
   const handleCopy = async () => {
@@ -43,9 +45,9 @@ function CopyBtn({ text, label }: { text: string; label?: string }) {
   }
 
   return (
-    <span className="inline-flex items-center gap-1 cursor-pointer text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors" onClick={handleCopy} title={label || 'Copiar'}>
+    <span className="inline-flex items-center gap-1 cursor-pointer text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors" onClick={handleCopy} title={label || t('coverLetter.copy')}>
       {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
-      <span className="text-xs">{copied ? 'Copiado' : 'Copiar'}</span>
+      <span className="text-xs">{copied ? t('coverLetter.copied') : t('coverLetter.copy')}</span>
     </span>
   )
 }
@@ -58,6 +60,7 @@ export function CoverLetterGenerator({
   recruiterEmail,
   subject,
 }: CoverLetterGeneratorProps) {
+  const { t } = useTranslation()
   const { notify } = useNotification()
   const [activeLetter, setActiveLetter] = useState<'A' | 'B'>('A')
   const [editing, setEditing] = useState(false)
@@ -84,7 +87,7 @@ ${displayedContent}`
   const handleSendEmail = () => {
     const mailto = `mailto:${encodeURIComponent(recruiterEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(displayedContent)}`
     window.location.href = mailto
-    notify('Cliente de correo abierto para enviar la carta', 'info')
+    notify(t('coverLetter.emailClientOpened'), 'info')
   }
 
   const handleStartEdit = () => {
@@ -99,9 +102,9 @@ ${displayedContent}`
 
   return (
     <div className="space-y-3">
-      <h3 className="text-base font-semibold">Cartas Generadas</h3>
+      <h3 className="text-base font-semibold">{t('coverLetter.title')}</h3>
 
-      {/* Selector de variación */}
+      {/* Variation selector */}
       <div className="flex gap-2">
         <button
           onClick={() => setActiveLetter('A')}
@@ -112,7 +115,7 @@ ${displayedContent}`
           }`}
         >
           <Mail className="w-4 h-4" />
-          Variación A · Cold Email
+          {t('coverLetter.variationA')}
         </button>
         <button
           onClick={() => setActiveLetter('B')}
@@ -123,33 +126,33 @@ ${displayedContent}`
           }`}
         >
           <FileText className="w-4 h-4" />
-          Variación B · Cover Letter
+          {t('coverLetter.variationB')}
         </button>
       </div>
 
-      {/* Destinatario (de la IA) */}
+      {/* Recipient (from AI) */}
       {recruiterEmail && (
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800">
           <AtSign className="w-4 h-4 text-blue-500 shrink-0" />
           <span className="text-sm text-blue-700 dark:text-blue-300 flex-1">{recruiterEmail}</span>
-          <CopyBtn text={recruiterEmail} label="Copiar email del destinatario" />
+          <CopyBtn text={recruiterEmail} label={t('coverLetter.copyEmail')} />
         </div>
       )}
 
-      {/* Asunto (de la IA) */}
+      {/* Subject (from AI) */}
       {subject && (
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
           <Mail className="w-4 h-4 text-gray-400 shrink-0" />
           <span className="text-sm text-gray-700 dark:text-gray-300 flex-1 truncate">{subject}</span>
-          <CopyBtn text={subject} label="Copiar asunto" />
+          <CopyBtn text={subject} label={t('coverLetter.copySubject')} />
         </div>
       )}
 
-      {/* Cuerpo */}
+      {/* Body */}
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="flex items-center justify-between px-4 py-2 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
           <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-            {activeLetter === 'A' ? 'Cold Email' : 'Cover Letter'}
+            {activeLetter === 'A' ? t('coverLetter.coldEmail') : t('coverLetter.coverLetter')}
           </span>
           <div className="flex items-center gap-1">
             {hasContent && (
@@ -157,7 +160,7 @@ ${displayedContent}`
                 <button
                   onClick={handleCopyAll}
                   className="p-1.5 rounded text-gray-400 hover:text-green-600 dark:hover:text-green-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-                  title="Copiar todo (To + Asunto + Cuerpo)"
+                  title={t('coverLetter.copyFull')}
                 >
                   <Mail className="w-3.5 h-3.5" />
                 </button>
@@ -165,16 +168,16 @@ ${displayedContent}`
                   <button
                     onClick={handleSendEmail}
                     className="p-1.5 rounded text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-                    title="Abrir en cliente de correo"
+                    title={t('coverLetter.openEmailClient')}
                   >
                     <Send className="w-3.5 h-3.5" />
                   </button>
                 )}
-                <CopyBtn text={displayedContent} label="Copiar solo el texto" />
+                <CopyBtn text={displayedContent} label={t('coverLetter.copy')} />
                 <button
                   onClick={editing ? handleSaveEdit : handleStartEdit}
                   className="p-1.5 rounded text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-                  title={editing ? 'Guardar' : 'Editar'}
+                  title={editing ? t('coverLetter.save') : t('coverLetter.edit')}
                 >
                   {editing ? <Check className="w-3.5 h-3.5" /> : <Pencil className="w-3.5 h-3.5" />}
                 </button>
@@ -187,7 +190,7 @@ ${displayedContent}`
           {generating ? (
             <div className="flex items-center justify-center py-8 text-gray-400">
               <Loader2 className="w-5 h-5 animate-spin mr-2" />
-              <span className="text-sm">Generando cartas...</span>
+              <span className="text-sm">{t('coverLetter.generating')}</span>
             </div>
           ) : editing ? (
             <textarea
@@ -203,7 +206,7 @@ ${displayedContent}`
             </div>
           ) : (
             <p className="text-sm text-gray-400 text-center py-4">
-              Las cartas se generarán automáticamente después del análisis ATS
+              {t('coverLetter.willGenerateAfterATS')}
             </p>
           )}
         </div>
