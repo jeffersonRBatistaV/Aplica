@@ -34,7 +34,28 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
-    if (window.api) {
+    if (!window.api) {
+      setLoaded(true)
+      return
+    }
+    window.api.getSettings().then((saved) => {
+      if (saved) {
+        const merged = { ...DEFAULT_SETTINGS, ...saved, appearance: { ...DEFAULT_SETTINGS.appearance, ...saved.appearance } }
+        if (merged.appearance.fontSize && merged.appearance.fontSize > 200) {
+          merged.appearance.fontSize = 200
+        }
+        setSettings(merged)
+        if (saved.locale) {
+          i18n.changeLanguage(saved.locale)
+        }
+      }
+      setLoaded(true)
+    })
+  }, [])
+
+  useEffect(() => {
+    const handler = () => {
+      if (!window.api) return
       window.api.getSettings().then((saved) => {
         if (saved) {
           const merged = { ...DEFAULT_SETTINGS, ...saved, appearance: { ...DEFAULT_SETTINGS.appearance, ...saved.appearance } }
@@ -46,11 +67,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
             i18n.changeLanguage(saved.locale)
           }
         }
-        setLoaded(true)
       })
-    } else {
-      setLoaded(true)
     }
+    window.addEventListener('data:imported', handler)
+    return () => window.removeEventListener('data:imported', handler)
   }, [])
 
   const persist = useCallback(async (next: AppSettings) => {

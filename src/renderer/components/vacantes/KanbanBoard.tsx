@@ -43,6 +43,12 @@ export function KanbanBoard({ onSelect }: KanbanBoardProps) {
     loadJobs()
   }, [])
 
+  useEffect(() => {
+    const handler = () => loadJobs()
+    window.addEventListener('data:imported', handler)
+    return () => window.removeEventListener('data:imported', handler)
+  }, [])
+
   const handleMoveStatus = async (id: string, newStatus: JobStatus) => {
     if (!window.api) return
     const job = jobs.find(j => j.id === id)

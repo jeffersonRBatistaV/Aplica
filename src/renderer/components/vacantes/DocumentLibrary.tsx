@@ -64,6 +64,12 @@ export function DocumentLibrary({ onSelect }: DocumentLibraryProps) {
     load()
   }, [])
 
+  useEffect(() => {
+    const handler = () => load()
+    window.addEventListener('data:imported', handler)
+    return () => window.removeEventListener('data:imported', handler)
+  }, [])
+
   const handleSaveCompany = async (oldKey: string, newName: string) => {
     if (!window.api || !newName.trim()) return
     const keyParts = oldKey.split('||')

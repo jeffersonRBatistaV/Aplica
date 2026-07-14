@@ -49,6 +49,18 @@ export function SettingsPanel({ onClose, initialTab = 'profile' }: SettingsPanel
     }
   }, [])
 
+  useEffect(() => {
+    const handler = () => {
+      if (window.api) {
+        window.api.getProfile().then((p) => {
+          setProfile(p ? { ...p, projects: p.projects ?? [], portfolio: p.portfolio ?? '' } : null)
+        })
+      }
+    }
+    window.addEventListener('profile:imported', handler)
+    return () => window.removeEventListener('profile:imported', handler)
+  }, [])
+
   const handleSaveProfile = async (p: Profile) => {
     if (window.api) {
       await window.api.saveProfile(p)

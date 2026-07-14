@@ -101,6 +101,19 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  // Re-fetch conversations after data import
+  useEffect(() => {
+    const handler = () => {
+      if (window.api) {
+        window.api.getConversations().then((chats) => {
+          setConversations(chats)
+        })
+      }
+    }
+    window.addEventListener('data:imported', handler)
+    return () => window.removeEventListener('data:imported', handler)
+  }, [])
+
   const findConversation = useCallback(
     (id: string) => conversations.find((c) => c.id === id) ?? null,
     [conversations],

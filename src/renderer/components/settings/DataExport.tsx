@@ -84,6 +84,7 @@ export function DataExport() {
           ...stats,
         })
 
+        window.dispatchEvent(new CustomEvent('data:imported', { detail: stats }))
         if (stats.profile) {
           window.dispatchEvent(new CustomEvent('profile:imported'))
         }

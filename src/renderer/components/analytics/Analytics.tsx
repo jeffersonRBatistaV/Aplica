@@ -166,6 +166,22 @@ export function Analytics() {
     load()
   }, [])
 
+  useEffect(() => {
+    const handler = async () => {
+      try {
+        const [conversations, jobs] = await Promise.all([
+          window.api.getConversations(),
+          window.api.getJobs(),
+        ])
+        computeStats(conversations, jobs)
+      } catch (e) {
+        console.error('Failed to refresh analytics data', e)
+      }
+    }
+    window.addEventListener('data:imported', handler)
+    return () => window.removeEventListener('data:imported', handler)
+  }, [])
+
   function computeStats(conversations: Conversation[], jobs: JobApplication[]) {
     const totalConversations = conversations.length
     const totalMessages = conversations.reduce((sum, c) => sum + c.messages.length, 0)
