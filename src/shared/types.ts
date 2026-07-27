@@ -33,7 +33,6 @@ export interface ApiConfig {
 
 export interface AppearanceConfig {
   mode: 'light' | 'dark' | 'system'
-  fontSize?: number
 }
 
 export interface PrivacyConfig {
@@ -66,6 +65,7 @@ export interface Profile {
   email: string
   phone: string
   location: string
+  targetMarket: string
   github: string
   linkedin: string
   portfolio: string
@@ -73,6 +73,7 @@ export interface Profile {
   title: string
   summary: string
   skills: string[]
+  skillLevels: Record<string, string>
   experience: Experience[]
   education: Education[]
   certifications: string[]
@@ -152,7 +153,25 @@ export interface InterviewQuestion {
   category: string
 }
 
-export type AppView = 'chat' | 'jobs' | 'analytics'
+export type AppView = 'chat' | 'jobs' | 'analytics' | 'roadmap'
+
+export interface RoadmapAction {
+  title: string
+  description: string
+  priority: 'alta' | 'media' | 'baja'
+}
+
+export interface RoadmapPhase {
+  name: string
+  timeframe: string
+  actions: RoadmapAction[]
+}
+
+export interface Roadmap {
+  phases: RoadmapPhase[]
+  generatedAt: number
+  targetMarket: string
+}
 
 export interface ImportStats {
   conversations: number

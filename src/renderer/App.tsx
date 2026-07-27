@@ -5,6 +5,7 @@ import { MainLayout } from './components/layout/MainLayout'
 import { ChatView } from './components/chat/ChatView'
 import { Vacantes } from './components/vacantes/Vacantes'
 import { Analytics } from './components/analytics/Analytics'
+import { RoadmapView } from './components/roadmap/RoadmapView'
 import { NotificationContainer } from './components/ui/NotificationContainer'
 import { ProfileWizard } from './components/profile/ProfileWizard'
 import { ApiSetupModal } from './components/settings/ApiSetupModal'
@@ -76,7 +77,7 @@ function AppContent() {
 
   return (
     <MainLayout>
-        {currentView === 'chat' ? <ChatView /> : currentView === 'analytics' ? <Analytics /> : <Vacantes />}
+        {currentView === 'chat' ? <ChatView /> : currentView === 'analytics' ? <Analytics /> : currentView === 'roadmap' ? <RoadmapView /> : <Vacantes />}
 
       {showWizard && (
         <ProfileWizard

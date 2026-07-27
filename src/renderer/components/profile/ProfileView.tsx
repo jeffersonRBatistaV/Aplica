@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Pencil, Check, X, User, Briefcase, BookOpen, Award, Globe, Mail, Phone, MapPin, Code2, Link, Loader2 } from 'lucide-react'
+import { Pencil, Check, X, User, Briefcase, BookOpen, Award, Globe, Mail, Phone, MapPin, Code2, Link, Loader2, Target } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { Profile, Project } from '../../../shared/types'
 
@@ -12,13 +12,14 @@ interface ProfileViewProps {
 export function ProfileView({ profile, onSave, onEdit }: ProfileViewProps) {
   const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState({ ...profile, projects: profile.projects ?? [] })
+  const [draft, setDraft] = useState({ ...profile, projects: profile.projects ?? [], skillLevels: profile.skillLevels ?? {} })
   const [saving, setSaving] = useState(false)
 
   const handleSave = async () => {
     setSaving(true)
     try {
       await onSave(draft)
+      window.dispatchEvent(new Event('profile:updated'))
       setEditing(false)
     } finally {
       setSaving(false)
@@ -26,7 +27,7 @@ export function ProfileView({ profile, onSave, onEdit }: ProfileViewProps) {
   }
 
   const handleCancel = () => {
-    setDraft({ ...profile, projects: profile.projects ?? [] })
+    setDraft({ ...profile, projects: profile.projects ?? [], skillLevels: profile.skillLevels ?? {} })
     setEditing(false)
   }
 
@@ -72,6 +73,20 @@ export function ProfileView({ profile, onSave, onEdit }: ProfileViewProps) {
           <Field label={t('profile.email')} icon={Mail} value={draft.email} onChange={(v) => setDraft({ ...draft, email: v })} />
           <Field label={t('profile.phone')} icon={Phone} value={draft.phone} onChange={(v) => setDraft({ ...draft, phone: v })} />
           <Field label={t('profile.location')} icon={MapPin} value={draft.location} onChange={(v) => setDraft({ ...draft, location: v })} />
+          <div className="flex items-center gap-2">
+            <Target className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 min-w-[70px]">{t('profile.targetMarket')}</label>
+            <select
+              value={draft.targetMarket ?? ''}
+              onChange={(e) => setDraft({ ...draft, targetMarket: e.target.value })}
+              className="flex-1 px-2.5 py-1.5 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+            >
+              <option value="">Selecciona...</option>
+              {['República Dominicana', 'México', 'Colombia', 'Argentina', 'Chile', 'Perú', 'España', 'Estados Unidos', 'Europa (otro)', 'Latinoamérica (otro)', 'Remoto (internacional)', 'Otro'].map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          </div>
           <Field label={t('profile.github')} icon={Code2} value={draft.github} onChange={(v) => setDraft({ ...draft, github: v })} />
           <Field label={t('profile.linkedin')} icon={Link} value={draft.linkedin} onChange={(v) => setDraft({ ...draft, linkedin: v })} />
           <Field label={t('profile.portfolio')} icon={Link} value={draft.portfolio} onChange={(v) => setDraft({ ...draft, portfolio: v })} />
@@ -85,7 +100,7 @@ export function ProfileView({ profile, onSave, onEdit }: ProfileViewProps) {
               className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 resize-y"
             />
           </div>
-          <TagsField label={t('profile.skills')} icon={Award} values={draft.skills} onChange={(v) => setDraft({ ...draft, skills: v })} />
+          <SkillTagsField label={t('profile.skills')} icon={Award} values={draft.skills} levels={draft.skillLevels ?? {}} onChange={(v) => setDraft({ ...draft, skills: v })} onLevelChange={(skill, level) => setDraft({ ...draft, skillLevels: { ...draft.skillLevels, [skill]: level } })} />
           <TagsField label={t('profile.certifications')} icon={BookOpen} values={draft.certifications} onChange={(v) => setDraft({ ...draft, certifications: v })} />
           <TagsField label={t('profile.languages')} icon={Globe} values={draft.languages} onChange={(v) => setDraft({ ...draft, languages: v })} />
 
@@ -270,6 +285,7 @@ export function ProfileView({ profile, onSave, onEdit }: ProfileViewProps) {
         {profile.email && <InfoRow icon={Mail} label={t('profile.email')} value={profile.email} />}
         {profile.phone && <InfoRow icon={Phone} label={t('profile.phone')} value={profile.phone} />}
         {profile.location && <InfoRow icon={MapPin} label={t('profile.location')} value={profile.location} />}
+        {profile.targetMarket && <InfoRow icon={Target} label={t('profile.targetMarket')} value={profile.targetMarket} />}
         {profile.github && <InfoRow icon={Code2} label={t('profile.github')} value={profile.github} />}
         {profile.linkedin && <InfoRow icon={Link} label={t('profile.linkedin')} value={profile.linkedin} />}
         {profile.portfolio && <InfoRow icon={Link} label={t('profile.portfolio')} value={profile.portfolio} />}
@@ -284,7 +300,17 @@ export function ProfileView({ profile, onSave, onEdit }: ProfileViewProps) {
           <div>
             <span className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1.5">{t('profile.skills')}</span>
             <div className="flex flex-wrap gap-1.5">
-              {profile.skills.map((s) => <Tag key={s} label={s} />)}
+              {profile.skills.map((s) => {
+                const level = profile.skillLevels?.[s]
+                const color = level === 'Avanzado' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                  : level === 'Básico' ? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                  : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                return (
+                  <span key={s} className={`px-2 py-0.5 text-xs rounded-full ${color}`}>
+                    {s}{level ? ` · ${level}` : ''}
+                  </span>
+                )
+              })}
             </div>
           </div>
         )}
@@ -420,5 +446,69 @@ function Tag({ label }: { label: string }) {
     <span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
       {label}
     </span>
+  )
+}
+
+const PROF_LEVELS = ['Básico', 'Intermedio', 'Avanzado'] as const
+
+function SkillTagsField({ label, icon: Icon, values, levels, onChange, onLevelChange }: { label: string; icon: any; values: string[]; levels: Record<string, string>; onChange: (v: string[]) => void; onLevelChange: (skill: string, level: string) => void }) {
+  const { t } = useTranslation()
+  const [input, setInput] = useState('')
+  const addTag = () => {
+    const trimmed = input.trim()
+    if (trimmed && !values.includes(trimmed)) {
+      onChange([...values, trimmed])
+      onLevelChange(trimmed, 'Intermedio')
+    }
+    setInput('')
+  }
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-1">
+        <Icon className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+        <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{label}</label>
+      </div>
+      <div className="flex flex-wrap gap-1.5 mb-1.5">
+        {values.map((v, i) => {
+          const level = levels[v] || 'Intermedio'
+          const color = level === 'Avanzado' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+            : level === 'Básico' ? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+            : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+          return (
+            <span key={v} className="inline-flex items-center gap-1">
+              <span className={`px-2 py-0.5 text-xs rounded-full ${color}`}>
+                {v}
+              </span>
+              <span className="flex gap-0.5">
+                {PROF_LEVELS.map((l) => (
+                  <button
+                    key={l}
+                    onClick={() => onLevelChange(v, l)}
+                    className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                      level === l
+                        ? l === 'Básico' ? 'bg-gray-500' : l === 'Intermedio' ? 'bg-blue-500' : 'bg-green-500'
+                        : 'bg-gray-300 dark:bg-gray-600 hover:bg-gray-400'
+                    }`}
+                    title={l}
+                  />
+                ))}
+              </span>
+              <button onClick={() => onChange(values.filter((_, j) => j !== i))} className="hover:text-red-500"><X className="w-3 h-3" /></button>
+            </span>
+          )
+        })}
+      </div>
+      <div className="flex gap-1">
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTag() } }}
+          className="flex-1 px-2.5 py-1.5 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+          placeholder={t('profile.addTag', { label: label.toLowerCase() })}
+        />
+        <button onClick={addTag} className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg">+</button>
+      </div>
+    </div>
   )
 }

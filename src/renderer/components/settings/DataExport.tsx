@@ -90,7 +90,7 @@ export function DataExport() {
         }
       }
     } catch (e) {
-      const msg = 'Error al importar los datos'
+      const msg = e instanceof Error ? `Error al importar: ${e.message}` : 'Error al importar los datos'
       setImportError(msg)
       notify(msg, 'error')
       console.error(e)

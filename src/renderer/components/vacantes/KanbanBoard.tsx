@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Clock, Send, Calendar, Briefcase, XCircle, Eye, MoreHorizontal } from 'lucide-react'
+import { Clock, Send, Calendar, Briefcase, XCircle, Eye, MoreHorizontal, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import type { JobApplication, JobStatus } from '../../../shared/types'
 
 interface KanbanBoardProps {
@@ -13,6 +14,7 @@ export function KanbanBoard({ onSelect }: KanbanBoardProps) {
   const [loading, setLoading] = useState(true)
   const [menuOpen, setMenuOpen] = useState<string | null>(null)
   const [menuRect, setMenuRect] = useState<{ top: number; left: number } | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   const COLUMNS = useMemo(() => [
     { id: 'draft' as JobStatus, label: t('kanban.columnDraft'), icon: Clock, color: 'gray' },
@@ -56,6 +58,15 @@ export function KanbanBoard({ onSelect }: KanbanBoardProps) {
     const updated = { ...job, status: newStatus, updatedAt: Date.now() }
     await window.api.saveJob(updated)
     setJobs(prev => prev.map(j => j.id === id ? updated : j))
+    setMenuOpen(null)
+    setMenuRect(null)
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!window.api) return
+    await window.api.deleteJob(id)
+    setJobs(prev => prev.filter(j => j.id !== id))
+    setConfirmDeleteId(null)
     setMenuOpen(null)
     setMenuRect(null)
   }
@@ -203,9 +214,26 @@ export function KanbanBoard({ onSelect }: KanbanBoardProps) {
                 {action.label}
               </button>
             ))}
+            <hr className="border-gray-200 dark:border-gray-700 my-1" />
+            <button
+              onClick={() => { setConfirmDeleteId(menuJob.id); closeMenu() }}
+              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              {t('kanban.actionDelete')}
+            </button>
           </div>
         </>
       )}
+
+      <ConfirmDialog
+        open={confirmDeleteId !== null}
+        title={t('kanban.confirmDeleteTitle')}
+        message={t('kanban.confirmDeleteMessage')}
+        confirmLabel={t('confirmDialog.confirm')}
+        onConfirm={() => { if (confirmDeleteId) handleDelete(confirmDeleteId) }}
+        onCancel={() => setConfirmDeleteId(null)}
+      />
     </div>
   )
 }

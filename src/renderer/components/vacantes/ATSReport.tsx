@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { RefreshCw, CheckCircle2, XCircle, AlertTriangle, Lightbulb, TrendingUp, CheckSquare, Square, Loader2 } from 'lucide-react'
+import { RefreshCw, CheckCircle2, XCircle, AlertTriangle, Lightbulb, TrendingUp, CheckSquare, Square, Loader2, X } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Button } from '../ui/Button'
@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next'
 interface ATSReportViewProps {
   report: ATSReport
   onRefresh: () => void
-  onAddKeywords?: (keywords: string[]) => Promise<void>
+  onAddKeywords?: (keywords: { keyword: string; level: string }[]) => Promise<void>
 }
 
 function ScoreBadge({ score }: { score: number }) {
@@ -70,6 +70,8 @@ export function ATSReportView({ report, onRefresh, onAddKeywords }: ATSReportVie
   const { t } = useTranslation()
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
+  const [showProficiencyModal, setShowProficiencyModal] = useState(false)
+  const [proficiencyLevels, setProficiencyLevels] = useState<Record<string, string>>({})
 
   const toggleKeyword = (keyword: string) => {
     setSelected((prev) => {
@@ -82,10 +84,20 @@ export function ATSReportView({ report, onRefresh, onAddKeywords }: ATSReportVie
 
   const handleAddSelected = async () => {
     if (!onAddKeywords || selected.size === 0) return
+    const initial: Record<string, string> = {}
+    selected.forEach(kw => { initial[kw] = 'Intermedio' })
+    setProficiencyLevels(initial)
+    setShowProficiencyModal(true)
+  }
+
+  const handleConfirmProficiency = async () => {
+    if (!onAddKeywords) return
     setSaving(true)
     try {
-      await onAddKeywords(Array.from(selected))
+      const keywords = Array.from(selected).map(kw => ({ keyword: kw, level: proficiencyLevels[kw] || 'Intermedio' }))
+      await onAddKeywords(keywords)
       setSelected(new Set())
+      setShowProficiencyModal(false)
     } finally {
       setSaving(false)
     }
@@ -210,6 +222,53 @@ export function ATSReportView({ report, onRefresh, onAddKeywords }: ATSReportVie
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {report.analysis}
             </ReactMarkdown>
+          </div>
+        </div>
+      )}
+
+      {/* Proficiency Modal */}
+      {showProficiencyModal && (
+        <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center">
+          <div className="bg-white dark:bg-gray-950 rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col mx-4">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-800">
+              <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">¿Cuál es tu nivel con estas skills?</h3>
+              <button onClick={() => setShowProficiencyModal(false)} className="p-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+              {Array.from(selected).map((kw) => (
+                <div key={kw} className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">{kw}</span>
+                  <div className="flex gap-1 shrink-0">
+                    {(['Básico', 'Intermedio', 'Avanzado'] as const).map((level) => (
+                      <button
+                        key={level}
+                        onClick={() => setProficiencyLevels(prev => ({ ...prev, [kw]: level }))}
+                        className={`px-2 py-1 text-[10px] font-medium rounded-full transition-colors ${
+                          proficiencyLevels[kw] === level
+                            ? level === 'Básico' ? 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                            : level === 'Intermedio' ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                            : 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300'
+                            : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        {level}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2 px-5 py-3 border-t border-gray-200 dark:border-gray-800">
+              <button onClick={() => setShowProficiencyModal(false)} className="flex-1 px-4 py-2 text-sm font-medium rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
+                Cancelar
+              </button>
+              <button onClick={handleConfirmProficiency} disabled={saving} className="flex-1 px-4 py-2 text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-1.5">
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                {saving ? 'Guardando...' : 'Guardar'}
+              </button>
+            </div>
           </div>
         </div>
       )}

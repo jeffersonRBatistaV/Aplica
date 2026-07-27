@@ -1,13 +1,14 @@
 import { ipcMain, nativeTheme, clipboard, BrowserWindow } from 'electron'
 import { readJSON, writeJSON, ensureDir } from '../services/storage'
 import { readProfile } from '../services/profile-reader'
-import { CHATS_FILE, SETTINGS_FILE, JOBS_FILE, PROFILE_PATH, USER_PROFILE_PATH, DATA_DIR, CV_TEMPLATES_FILE, CAREER_ADVICE_FILE } from '../utils/paths'
+import { CHATS_FILE, SETTINGS_FILE, JOBS_FILE, PROFILE_PATH, USER_PROFILE_PATH, DATA_DIR, CV_TEMPLATES_FILE, CAREER_ADVICE_FILE, ROADMAP_FILE } from '../utils/paths'
 import type { Conversation, AppSettings, StreamParams, JobApplication, Profile, ATSReport, CvTemplate, InterviewQuestion, ImportResult } from '../../shared/types'
 import { streamChatCompletion, abortCurrentStream, listModels } from '../services/llm-service'
 import { ThrottledStream } from '../utils/throttled-stream'
 import { analyzeVacancy, generateCoverLetters, correctVacancyText, generateInterviewQuestions } from '../services/job-service'
 import { generateCV, regenerateCV, generateSummaryOptions, generateSampleCv } from '../services/cv-generator'
 import { loadCareerAdvice, refreshCareerAdvice } from '../services/career-advice'
+import { loadRoadmap, refreshRoadmap } from '../services/roadmap-service'
 import { getUsage, resetUsage } from '../services/usage-service'
 import { getSeedTemplates, wrapHtml } from '../services/cv-templates-seed'
 import { extractTextFromImage } from '../services/ocr-service'
@@ -371,63 +372,88 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
   async function writeImportData(data: Record<string, unknown>): Promise<ImportStats> {
     await ensureDir(DATA_DIR)
     const stats = { conversations: 0, jobs: 0, profile: false, settings: false, cvTemplates: 0 }
+    const errors: string[] = []
 
     if (data.conversations) {
-      const existing = (await readJSON<unknown[]>(CHATS_FILE)) ?? []
-      const incoming = data.conversations as unknown[]
-      const merged = [...incoming, ...existing]
-      const seen = new Set<string>()
-      const deduped = merged.filter((item: any) => {
-        if (!item.id) return true
-        if (seen.has(item.id)) return false
-        seen.add(item.id)
-        return true
-      })
-      await writeJSON(CHATS_FILE, deduped)
-      stats.conversations = incoming.length
+      try {
+        const existing = (await readJSON<unknown[]>(CHATS_FILE)) ?? []
+        const incoming = data.conversations as unknown[]
+        const merged = [...incoming, ...existing]
+        const seen = new Set<string>()
+        const deduped = merged.filter((item: any) => {
+          if (!item.id) return true
+          if (seen.has(item.id)) return false
+          seen.add(item.id)
+          return true
+        })
+        await writeJSON(CHATS_FILE, deduped)
+        stats.conversations = incoming.length
+      } catch (e) {
+        errors.push(`conversations: ${e instanceof Error ? e.message : String(e)}`)
+      }
     }
 
     if (data.jobs) {
-      const existing = (await readJSON<unknown[]>(JOBS_FILE)) ?? []
-      const incoming = data.jobs as unknown[]
-      const merged = [...incoming, ...existing]
-      const seen = new Set<string>()
-      const deduped = merged.filter((item: any) => {
-        if (!item.id) return true
-        if (seen.has(item.id)) return false
-        seen.add(item.id)
-        return true
-      })
-      await writeJSON(JOBS_FILE, deduped)
-      stats.jobs = incoming.length
+      try {
+        const existing = (await readJSON<unknown[]>(JOBS_FILE)) ?? []
+        const incoming = data.jobs as unknown[]
+        const merged = [...incoming, ...existing]
+        const seen = new Set<string>()
+        const deduped = merged.filter((item: any) => {
+          if (!item.id) return true
+          if (seen.has(item.id)) return false
+          seen.add(item.id)
+          return true
+        })
+        await writeJSON(JOBS_FILE, deduped)
+        stats.jobs = incoming.length
+      } catch (e) {
+        errors.push(`jobs: ${e instanceof Error ? e.message : String(e)}`)
+      }
     }
 
     if (data.profile && typeof data.profile === 'object') {
-      await writeJSON(USER_PROFILE_PATH, data.profile)
-      stats.profile = true
+      try {
+        await writeJSON(USER_PROFILE_PATH, data.profile)
+        stats.profile = true
+      } catch (e) {
+        errors.push(`profile: ${e instanceof Error ? e.message : String(e)}`)
+      }
     }
 
     if (data.settings && typeof data.settings === 'object') {
-      const current = await readJSON<Record<string, unknown>>(SETTINGS_FILE)
-      await writeJSON(SETTINGS_FILE, { ...current, ...data.settings })
-      stats.settings = true
+      try {
+        const current = await readJSON<Record<string, unknown>>(SETTINGS_FILE)
+        await writeJSON(SETTINGS_FILE, { ...current, ...data.settings })
+        stats.settings = true
+      } catch (e) {
+        errors.push(`settings: ${e instanceof Error ? e.message : String(e)}`)
+      }
     }
 
     if (data.cvTemplates) {
-      const existing = (await readJSON<unknown[]>(CV_TEMPLATES_FILE)) ?? []
-      const incoming = (data.cvTemplates as unknown[]).filter(
-        (t: any) => typeof t.id !== 'string' || !t.id.startsWith('seed-'),
-      )
-      const merged = [...incoming, ...existing]
-      const seen = new Set<string>()
-      const deduped = merged.filter((item: any) => {
-        if (!item.id) return true
-        if (seen.has(item.id)) return false
-        seen.add(item.id)
-        return true
-      })
-      await writeJSON(CV_TEMPLATES_FILE, deduped)
-      stats.cvTemplates = incoming.length
+      try {
+        const existing = (await readJSON<unknown[]>(CV_TEMPLATES_FILE)) ?? []
+        const incoming = (data.cvTemplates as unknown[]).filter(
+          (t: any) => typeof t.id !== 'string' || !t.id.startsWith('seed-'),
+        )
+        const merged = [...incoming, ...existing]
+        const seen = new Set<string>()
+        const deduped = merged.filter((item: any) => {
+          if (!item.id) return true
+          if (seen.has(item.id)) return false
+          seen.add(item.id)
+          return true
+        })
+        await writeJSON(CV_TEMPLATES_FILE, deduped)
+        stats.cvTemplates = incoming.length
+      } catch (e) {
+        errors.push(`cvTemplates: ${e instanceof Error ? e.message : String(e)}`)
+      }
+    }
+
+    if (errors.length > 0) {
+      console.warn('[writeImportData] partial errors:', errors)
     }
 
     return stats
@@ -541,8 +567,12 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
       return { ok: false, error: 'Formato de archivo no soportado. Usa .json o .xlsx' }
     }
 
-    const stats = await writeImportData(data)
-    return { ok: true, filePath: filePath[0], stats }
+    try {
+      const stats = await writeImportData(data)
+      return { ok: true, filePath: filePath[0], stats }
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    }
   })
 
   ipcMain.handle('data:processImportData', async (_event, fileName: string, content: string): Promise<ImportResult> => {
@@ -566,8 +596,12 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
       return { ok: false, error: 'Formato de archivo no soportado. Usa .json o .xlsx' }
     }
 
-    const stats = await writeImportData(data)
-    return { ok: true, filePath: fileName, stats }
+    try {
+      const stats = await writeImportData(data)
+      return { ok: true, filePath: fileName, stats }
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    }
   })
 
   // ── Clipboard ──
@@ -613,6 +647,16 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
   ipcMain.handle('refreshCareerAdvice', async (): Promise<unknown> => {
     const profile = await loadProfile()
     return refreshCareerAdvice(profile)
+  })
+
+  // ── Roadmap ──
+  ipcMain.handle('getRoadmap', async (): Promise<unknown> => {
+    return loadRoadmap()
+  })
+
+  ipcMain.handle('refreshRoadmap', async (): Promise<unknown> => {
+    const profile = await loadProfile()
+    return refreshRoadmap(profile)
   })
 
   // ── CV Download as PDF ──

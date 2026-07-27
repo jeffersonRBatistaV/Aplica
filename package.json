@@ -26,19 +26,19 @@
       "target": [
         "portable"
       ],
-      "icon": null
+      "icon": "resources/icon.ico"
     },
     "linux": {
       "target": [
         "AppImage"
       ],
-      "icon": null
+      "icon": "resources/icon.ico"
     },
     "mac": {
       "target": [
         "dmg"
       ],
-      "icon": null
+      "icon": "resources/icon.ico"
     },
     "nsis": {
       "oneClick": false,

@@ -11,9 +11,12 @@ import {
   Calendar,
   Lightbulb,
   Loader2,
+  Map,
+  ArrowRight,
 } from 'lucide-react'
 import type { Conversation, JobApplication, JobStatus } from '../../../shared/types'
 import { useTranslation } from 'react-i18next'
+import { useNavigation } from '../../contexts/AppContext'
 
 interface Stats {
   totalConversations: number
@@ -134,6 +137,7 @@ function BarChart({ data, height = 160 }: { data: { label: string; value: number
 
 export function Analytics() {
   const { t } = useTranslation()
+  const { setCurrentView } = useNavigation()
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
   const [advice, setAdvice] = useState<{ diagnostico: string; areaMejora: string; planAccion: string } | null>(null)
@@ -455,6 +459,16 @@ export function Analytics() {
           </div>
         )}
       </div>
+
+      {/* Ver roadmap */}
+      <button
+        onClick={() => setCurrentView('roadmap')}
+        className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-gray-300 dark:border-gray-700 text-sm font-medium text-gray-500 dark:text-gray-400 hover:border-blue-400 dark:hover:border-blue-600 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors"
+      >
+        <Map className="w-4 h-4" />
+        Ver roadmap profesional
+        <ArrowRight className="w-3.5 h-3.5" />
+      </button>
     </div>
   )
 }

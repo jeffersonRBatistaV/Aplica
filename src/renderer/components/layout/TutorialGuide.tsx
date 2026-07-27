@@ -45,6 +45,14 @@ export function useTutorial() {
           },
         },
         {
+          element: '#nav-roadmap',
+          popover: {
+            title: t('tutorial.roadmapTitle'),
+            description: t('tutorial.roadmapDesc'),
+            side: 'right' as const,
+          },
+        },
+        {
           element: '#btn-profile',
           popover: {
             title: t('tutorial.profileTitle'),

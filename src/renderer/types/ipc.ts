@@ -1,4 +1,4 @@
-import type { Conversation, AppSettings, StreamParams, Profile, JobApplication, ATSReport, CvTemplate, InterviewQuestion, UsageStats, ImportResult } from '../../shared/types'
+import type { Conversation, AppSettings, StreamParams, Profile, JobApplication, ATSReport, CvTemplate, InterviewQuestion, UsageStats, ImportResult, Roadmap } from '../../shared/types'
 
 export interface ModelInfo {
   id: string
@@ -93,6 +93,10 @@ export interface ElectronAPI {
   // Career Advice
   getCareerAdvice: () => Promise<{ diagnostico: string; areaMejora: string; planAccion: string } | null>
   refreshCareerAdvice: () => Promise<{ diagnostico: string; areaMejora: string; planAccion: string } | null>
+
+  // Roadmap
+  getRoadmap: () => Promise<Roadmap | null>
+  refreshRoadmap: () => Promise<Roadmap | null>
 
   // Currency Exchange
   getExchangeRate: (from: string, to: string) => Promise<number>

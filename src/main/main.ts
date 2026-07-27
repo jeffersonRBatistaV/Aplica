@@ -8,6 +8,13 @@ import { DATA_DIR } from './utils/paths'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
+function getIconPath(): string {
+  if (app.isPackaged) {
+    return path.join(__dirname, '../../resources/icon.ico')
+  }
+  return path.join(process.cwd(), 'resources/icon.ico')
+}
+
 let mainWindow: BrowserWindow | null = null
 
 function createWindow(): void {
@@ -17,6 +24,7 @@ function createWindow(): void {
     minWidth: 900,
     minHeight: 600,
     title: 'Aplica',
+    icon: getIconPath(),
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),

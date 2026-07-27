@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
 import { ThemeProvider } from './ThemeContext'
 import { SettingsProvider, useSettings } from './SettingsContext'
 import { ChatProvider } from './ChatContext'
@@ -9,11 +9,6 @@ import type { ThemeMode } from '../../shared/types'
 function ThemeProviderWithSettings({ children }: { children: ReactNode }) {
   const { settings, loaded } = useSettings()
   const initialMode = loaded ? (settings.appearance.mode as ThemeMode) : undefined
-
-  useEffect(() => {
-    const size = settings.appearance.fontSize ?? 100
-    document.documentElement.style.fontSize = `${size}%`
-  }, [settings.appearance.fontSize])
 
   return <ThemeProvider initialMode={initialMode}>{children}</ThemeProvider>
 }

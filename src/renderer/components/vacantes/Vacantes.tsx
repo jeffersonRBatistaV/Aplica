@@ -261,12 +261,15 @@ export function Vacantes() {
     }
   }
 
-  const handleAddKeywords = async (keywords: string[]) => {
+  const handleAddKeywords = async (keywords: { keyword: string; level: string }[]) => {
     if (!window.api || keywords.length === 0) return
     const profile = await window.api.getProfile()
     if (!profile) return
-    profile.skills = [...new Set([...profile.skills, ...keywords])]
+    profile.skills = [...new Set([...profile.skills, ...keywords.map(k => k.keyword)])]
+    if (!profile.skillLevels) profile.skillLevels = {}
+    keywords.forEach(({ keyword, level }) => { profile.skillLevels[keyword] = level })
     await window.api.saveProfile(profile)
+    window.dispatchEvent(new Event('profile:updated'))
     const report = await window.api.analyzeVacancy(vacancyText)
     setAtsReport(report)
     if (currentApp) {

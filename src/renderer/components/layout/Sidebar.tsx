@@ -7,12 +7,12 @@ import {
   Trash2,
   Archive,
   Pencil,
-  Sparkles,
   Briefcase,
   MessageCircle,
   User,
   BarChart3,
   GraduationCap,
+  Map,
 } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
@@ -21,6 +21,27 @@ import { useChat, useNavigation } from '../../contexts/AppContext'
 import { useTutorial } from './TutorialGuide'
 import { groupConversations, formatTime } from '../../lib/time'
 import { useTranslation } from 'react-i18next'
+
+function AplicaIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none" className={className}>
+      <defs>
+        <linearGradient id="sidebar-icon-bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#3B82F6"/>
+          <stop offset="100%" stopColor="#6366F1"/>
+        </linearGradient>
+      </defs>
+      <rect width="256" height="256" rx="48" fill="url(#sidebar-icon-bg)"/>
+      <g stroke="white" strokeWidth="8" strokeLinecap="round">
+        <line x1="128" y1="48" x2="128" y2="208"/>
+        <line x1="48" y1="128" x2="208" y2="128"/>
+        <line x1="72" y1="72" x2="184" y2="184"/>
+        <line x1="184" y1="72" x2="72" y2="184"/>
+      </g>
+      <circle cx="128" cy="128" r="18" fill="white"/>
+    </svg>
+  )
+}
 
 interface SidebarProps {
   onOpenSettings: () => void
@@ -92,29 +113,17 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
       <div className="p-3 border-b">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-blue-500" />
+            <AplicaIcon className="w-5 h-5" />
             <h1 className="text-lg font-bold tracking-tight">Aplica</h1>
           </div>
         </div>
 
         {/* Navigation */}
-        <div className="flex gap-1 mb-3">
-          <button
-            id="nav-chat"
-            onClick={() => setCurrentView('chat')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex-1 justify-center ${
-              currentView === 'chat'
-                ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
-                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-            }`}
-          >
-            <MessageCircle className="w-3.5 h-3.5" />
-            Chat
-          </button>
+        <div className="grid grid-cols-2 gap-1 mb-3">
           <button
             id="nav-jobs"
             onClick={() => setCurrentView('jobs')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex-1 justify-center ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors justify-center ${
               currentView === 'jobs'
                 ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
@@ -126,7 +135,7 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
           <button
             id="nav-stats"
             onClick={() => setCurrentView('analytics')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex-1 justify-center ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors justify-center ${
               currentView === 'analytics'
                 ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
@@ -134,6 +143,30 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
           >
             <BarChart3 className="w-3.5 h-3.5" />
             Stats
+          </button>
+          <button
+            id="nav-roadmap"
+            onClick={() => setCurrentView('roadmap')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors justify-center ${
+              currentView === 'roadmap'
+                ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+            }`}
+          >
+            <Map className="w-3.5 h-3.5" />
+            Roadmap
+          </button>
+          <button
+            id="nav-chat"
+            onClick={() => setCurrentView('chat')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors justify-center ${
+              currentView === 'chat'
+                ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+            }`}
+          >
+            <MessageCircle className="w-3.5 h-3.5" />
+            Chat
           </button>
         </div>
 

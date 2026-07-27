@@ -4,7 +4,7 @@ import electron from 'vite-plugin-electron'
 import renderer from 'vite-plugin-electron-renderer'
 import path from 'path'
 import fs from 'fs'
-import replace from '@rollup/plugin-replace'
+
 
 const preloadSrc = path.resolve(__dirname, 'src/preload/preload.js')
 const preloadOut = path.resolve(__dirname, 'dist-electron/preload.cjs')
@@ -27,12 +27,6 @@ export default defineConfig({
             external: ['tesseract.js'],
           },
         },
-        plugins: [
-          replace({
-            preventAssignment: true,
-            values: { __dirname: 'new URL(".", import.meta.url).pathname' },
-          }),
-        ],
       },
       },
     ]),

@@ -83,6 +83,10 @@ const api = {
   getCareerAdvice: () => ipcRenderer.invoke('getCareerAdvice'),
   refreshCareerAdvice: () => ipcRenderer.invoke('refreshCareerAdvice'),
 
+  // ── Roadmap ──
+  getRoadmap: () => ipcRenderer.invoke('getRoadmap'),
+  refreshRoadmap: () => ipcRenderer.invoke('refreshRoadmap'),
+
   // ── Data Export / Import ──
   exportAll: () => ipcRenderer.invoke('data:exportAll'),
   saveExportFile: (data, format) => ipcRenderer.invoke('data:saveExportFile', data, format),

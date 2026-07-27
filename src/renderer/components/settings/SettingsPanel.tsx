@@ -221,29 +221,6 @@ export function SettingsPanel({ onClose, initialTab = 'profile' }: SettingsPanel
               </div>
             </div>
 
-            <div className="space-y-4">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                {t('settingsPanel.fontSize')}
-              </label>
-              <div className="flex items-center gap-4">
-                <input
-                  type="range"
-                  min="100"
-                  max="200"
-                  step="10"
-                  value={settings.appearance.fontSize ?? 100}
-                  onChange={(e) => {
-                    const val = Number(e.target.value)
-                    updateSettings({ appearance: { ...settings.appearance, fontSize: val } })
-                  }}
-                  className="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                />
-                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 w-14 text-right">
-                  {settings.appearance.fontSize ?? 100}%
-                </span>
-              </div>
-            </div>
-
             <button
               onClick={() => {
                 setThemeMode(mode)
