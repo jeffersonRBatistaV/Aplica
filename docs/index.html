@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aplica</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #08090a;
+      color: #f7f8f8;
+      font-family: 'Inter', -apple-system, sans-serif;
+      font-weight: 400;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    section {
+      padding: 96px 0;
+    }
+
+    h1 {
+      font-size: 3rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+    }
+
+    h2 {
+      font-size: 1.5rem;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      margin-bottom: 32px;
+    }
+
+    p {
+      color: #a0a2a6;
+      font-size: 1rem;
+    }
+
+    a {
+      color: #f7f8f8;
+      text-decoration: none;
+      border-bottom: 1px solid #2a2b2e;
+      transition: border-color 0.2s;
+    }
+
+    a:hover {
+      border-color: #f7f8f8;
+    }
+
+    .hero p {
+      font-size: 1.125rem;
+      margin-top: 16px;
+      max-width: 540px;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 48px 32px;
+    }
+
+    .feature h3 {
+      font-size: 1rem;
+      font-weight: 500;
+      margin-bottom: 6px;
+    }
+
+    .feature p {
+      font-size: 0.875rem;
+    }
+
+    .tech-list {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .tech-list span {
+      display: inline-block;
+      padding: 6px 14px;
+      border: 1px solid #2a2b2e;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      color: #a0a2a6;
+    }
+
+    .download-link {
+      display: inline-block;
+      margin-top: 16px;
+      padding: 10px 24px;
+      border: 1px solid #f7f8f8;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: background 0.2s;
+    }
+
+    .download-link:hover {
+      background: #f7f8f8;
+      color: #08090a;
+      border-color: #f7f8f8;
+    }
+
+    footer {
+      padding: 48px 0 64px;
+      border-top: 1px solid #161718;
+    }
+
+    footer p {
+      font-size: 0.875rem;
+    }
+
+    @media (max-width: 600px) {
+      h1 { font-size: 2rem; }
+      .features-grid { grid-template-columns: 1fr; gap: 32px; }
+      section { padding: 64px 0; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <div class="container">
+        <h1>Aplica</h1>
+        <p>
+          Aplicación de escritorio para crear currículums con IA.
+          Ejecuta modelos de lenguaje localmente, genera documentos PDF
+          adaptados a cada oferta y organiza tu búsqueda laboral.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <div class="container">
+        <h2>Funciones</h2>
+        <div class="features-grid">
+          <div class="feature">
+            <h3>Chat con IA local</h3>
+            <p>Conversaciones con modelos vía Ollama. Sin datos en la nube, sin suscripciones.</p>
+          </div>
+          <div class="feature">
+            <h3>Generación de CV</h3>
+            <p>Construye tu perfil con un asistente paso a paso. Exporta a PDF listo para enviar.</p>
+          </div>
+          <div class="feature">
+            <h3>Análisis ATS</h3>
+            <p>Evalúa qué tan bien calza tu currículum con los requisitos de una oferta específica.</p>
+          </div>
+          <div class="feature">
+            <h3>Kanban de ofertas</h3>
+            <p>Organiza postulaciones por etapa: pendiente, en proceso, entrevista, cerrada.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="container">
+        <h2>Tecnologías</h2>
+        <div class="tech-list">
+          <span>Electron</span>
+          <span>React 19</span>
+          <span>TypeScript</span>
+          <span>Vite</span>
+          <span>Tailwind CSS</span>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="container">
+        <h2>Descargar</h2>
+        <p>Versión 1.0.0 disponible para Windows, macOS y Linux.</p>
+        <a class="download-link" href="https://github.com/jeffersonRBatistaV/Aplica/releases/tag/v1.0.0" target="_blank">Ir a GitHub Releases</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container">
+      <p><a href="https://github.com/jeffersonRBatistaV/Aplica" target="_blank">Repositorio en GitHub</a></p>
+    </div>
+  </footer>
+</body>
+</html>
