@@ -6,7 +6,7 @@
   <title>Aplica</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -17,114 +17,136 @@
       font-weight: 400;
       line-height: 1.6;
       -webkit-font-smoothing: antialiased;
+      font-feature-settings: "cv01", "ss03";
     }
 
     .container {
-      max-width: 720px;
+      max-width: 680px;
       margin: 0 auto;
       padding: 0 24px;
     }
 
     section {
-      padding: 96px 0;
+      padding: 100px 0;
     }
 
-    h1 {
-      font-size: 3rem;
-      font-weight: 600;
-      letter-spacing: -0.02em;
-      line-height: 1.15;
+    .hero {
+      text-align: center;
+      padding-top: 120px;
+    }
+
+    .hero h1 {
+      font-size: 3.5rem;
+      font-weight: 510;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin-top: 24px;
+    }
+
+    .hero p {
+      font-size: 1.125rem;
+      color: #8a8f98;
+      max-width: 480px;
+      margin: 16px auto 0;
+      line-height: 1.7;
     }
 
     h2 {
-      font-size: 1.5rem;
+      font-size: 1.25rem;
       font-weight: 500;
       letter-spacing: -0.01em;
       margin-bottom: 32px;
+      color: #f7f8f8;
     }
 
     p {
-      color: #a0a2a6;
-      font-size: 1rem;
+      color: #8a8f98;
+      font-size: 0.9375rem;
     }
 
     a {
       color: #f7f8f8;
       text-decoration: none;
-      border-bottom: 1px solid #2a2b2e;
-      transition: border-color 0.2s;
-    }
-
-    a:hover {
-      border-color: #f7f8f8;
-    }
-
-    .hero p {
-      font-size: 1.125rem;
-      margin-top: 16px;
-      max-width: 540px;
     }
 
     .features-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 48px 32px;
+      gap: 12px;
+    }
+
+    .feature {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      padding: 24px;
     }
 
     .feature h3 {
-      font-size: 1rem;
+      font-size: 0.9375rem;
       font-weight: 500;
       margin-bottom: 6px;
+      color: #f7f8f8;
     }
 
     .feature p {
-      font-size: 0.875rem;
+      font-size: 0.8125rem;
+      line-height: 1.6;
     }
 
     .tech-list {
       display: flex;
-      gap: 12px;
+      gap: 8px;
       flex-wrap: wrap;
     }
 
     .tech-list span {
       display: inline-block;
-      padding: 6px 14px;
+      padding: 5px 12px;
       border: 1px solid #2a2b2e;
       border-radius: 6px;
-      font-size: 0.875rem;
+      font-size: 0.8125rem;
       color: #a0a2a6;
     }
 
-    .download-link {
+    .download-section p {
+      margin-bottom: 20px;
+    }
+
+    .btn {
       display: inline-block;
-      margin-top: 16px;
       padding: 10px 24px;
-      border: 1px solid #f7f8f8;
+      background: #5e6ad2;
+      color: #fff;
       border-radius: 6px;
       font-size: 0.875rem;
       font-weight: 500;
       transition: background 0.2s;
     }
 
-    .download-link:hover {
-      background: #f7f8f8;
-      color: #08090a;
-      border-color: #f7f8f8;
+    .btn:hover {
+      background: #828fff;
     }
 
     footer {
-      padding: 48px 0 64px;
+      padding: 48px 0 80px;
       border-top: 1px solid #161718;
     }
 
-    footer p {
+    footer a {
       font-size: 0.875rem;
+      color: #8a8f98;
+      transition: color 0.2s;
+    }
+
+    footer a:hover {
+      color: #f7f8f8;
     }
 
     @media (max-width: 600px) {
-      h1 { font-size: 2rem; }
-      .features-grid { grid-template-columns: 1fr; gap: 32px; }
+      .hero { padding-top: 80px; }
+      .hero h1 { font-size: 2.25rem; }
+      .features-grid { grid-template-columns: 1fr; }
       section { padding: 64px 0; }
     }
   </style>
@@ -133,8 +155,18 @@
   <main>
     <section class="hero">
       <div class="container">
-         <svg style="display:block;margin:0 auto 24px" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none" width="48" height="48"><defs><linearGradient id="bg" x1="0" y1="0" x2="256" y2="256"><stop offset="0%" stop-color="#3B82F6"/><stop offset="100%" stop-color="#6366F1"/></linearGradient></defs><rect width="256" height="256" rx="48" fill="url(#bg)"/><g stroke="white" stroke-width="8" stroke-linecap="round"><line x1="128" y1="48" x2="128" y2="208"/><line x1="48" y1="128" x2="208" y2="128"/><line x1="72" y1="72" x2="184" y2="184"/><line x1="184" y1="72" x2="72" y2="184"/></g><circle cx="128" cy="128" r="18" fill="white"/></svg>
-         <h1>Aplica</h1>
+        <svg style="display:block;margin:0 auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none" width="64" height="64">
+          <defs><linearGradient id="bg" x1="0" y1="0" x2="256" y2="256"><stop offset="0%" stop-color="#3B82F6"/><stop offset="100%" stop-color="#6366F1"/></linearGradient></defs>
+          <rect width="256" height="256" rx="48" fill="url(#bg)"/>
+          <g stroke="white" stroke-width="8" stroke-linecap="round">
+            <line x1="128" y1="48" x2="128" y2="208"/>
+            <line x1="48" y1="128" x2="208" y2="128"/>
+            <line x1="72" y1="72" x2="184" y2="184"/>
+            <line x1="184" y1="72" x2="72" y2="184"/>
+          </g>
+          <circle cx="128" cy="128" r="18" fill="white"/>
+        </svg>
+        <h1>Aplica</h1>
         <p>
           Aplicación de escritorio para crear currículums con IA.
           Ejecuta modelos de lenguaje localmente, genera documentos PDF
@@ -176,22 +208,24 @@
           <span>TypeScript</span>
           <span>Vite</span>
           <span>Tailwind CSS</span>
+          <span>SQLite</span>
+          <span>Ollama</span>
         </div>
       </div>
     </section>
 
-    <section>
+    <section class="download-section">
       <div class="container">
         <h2>Descargar</h2>
         <p>Versión 1.0.0 disponible para Windows, macOS y Linux.</p>
-        <a class="download-link" href="https://github.com/jeffersonRBatistaV/Aplica/releases/tag/v1.0.0" target="_blank">Ir a GitHub Releases</a>
+        <a class="btn" href="https://github.com/jeffersonRBatistaV/Aplica/releases/tag/v1.0.0" target="_blank">Ir a GitHub Releases</a>
       </div>
     </section>
   </main>
 
   <footer>
     <div class="container">
-      <p><a href="https://github.com/jeffersonRBatistaV/Aplica" target="_blank">Repositorio en GitHub</a></p>
+      <a href="https://github.com/jeffersonRBatistaV/Aplica" target="_blank">Repositorio en GitHub</a>
     </div>
   </footer>
 </body>
