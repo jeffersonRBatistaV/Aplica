@@ -32,13 +32,13 @@
       "target": [
         "AppImage"
       ],
-      "icon": "resources/icon.ico"
+      "icon": "resources/icon.png"
     },
     "mac": {
       "target": [
         "dmg"
       ],
-      "icon": "resources/icon.ico"
+      "icon": "resources/icon.png"
     },
     "nsis": {
       "oneClick": false,
