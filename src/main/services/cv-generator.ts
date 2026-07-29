@@ -282,7 +282,7 @@ export async function generateCV(
     : '\n\n## PERFIL DEL CANDIDATO\nNo hay perfil disponible.'
 
   const atsSection = atsReport
-    ? `\n\n## ANALISIS ATS\nMatch Score: ${atsReport.matchScore}%\nKeywords de la vacante: ${atsReport.keywordsMissing.join(', ')}${atsReport.keywordsPresent.length > 0 ? '\nKeywords que coinciden: ' + atsReport.keywordsPresent.join(', ') : ''}\nAnalisis: ${atsReport.analysis}`
+    ? `\n\n## ANALISIS ATS\nMatch Score: ${atsReport.matchScore}%\nKeywords de la vacante: ${atsReport.keywordsMissing.join(', ')}${atsReport.keywordsPresent.length > 0 ? '\nKeywords que coinciden: ' + atsReport.keywordsPresent.join(', ') : ''}\nAnalisis: ${atsReport.analysis.slice(0, 1500)}`
     : ''
 
   const summarySection = chosenSummary
@@ -317,7 +317,7 @@ export async function regenerateCV(
     : '\n\n## PERFIL DEL CANDIDATO\nNo hay perfil disponible.'
 
   const atsSection = atsReport
-    ? `\n\n## ANALISIS ATS\nMatch Score: ${atsReport.matchScore}%\nKeywords de la vacante: ${atsReport.keywordsMissing.join(', ')}${atsReport.keywordsPresent.length > 0 ? '\nKeywords que coinciden: ' + atsReport.keywordsPresent.join(', ') : ''}`
+    ? `\n\n## ANALISIS ATS\nMatch Score: ${atsReport.matchScore}%\nKeywords de la vacante: ${atsReport.keywordsMissing.join(', ')}${atsReport.keywordsPresent.length > 0 ? '\nKeywords que coinciden: ' + atsReport.keywordsPresent.join(', ') : ''}\nAnalisis: ${atsReport.analysis.slice(0, 1500)}`
     : ''
 
   const userMessage = `## VACANTE\n\n${vacancyText}${profileSection}${atsSection}\n\n## CV ACTUAL (formato ${styleLabel})\n\n\`\`\`html\n${currentCv}\n\`\`\`\n\n## INSTRUCCIONES DEL USUARIO\n\n${instructions}\n\nAplica estos cambios al CV de arriba. Manten el mismo estilo, colores y estructura general. Devuelve SOLO el HTML modificado, sin bloques de codigo ni delimitadores.`

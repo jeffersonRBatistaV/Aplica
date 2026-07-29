@@ -1,5 +1,18 @@
 import type { Conversation, AppSettings, StreamParams, Profile, JobApplication, ATSReport, CvTemplate, InterviewQuestion, UsageStats, ImportResult, Roadmap } from '../../shared/types'
 
+export interface UpdateInfo {
+  version: string
+  releaseDate?: string
+  releaseNotes?: string
+}
+
+export interface DownloadProgress {
+  percent: number
+  bytesPerSecond: number
+  total: number
+  transferred: number
+}
+
 export interface ModelInfo {
   id: string
   name?: string
@@ -100,6 +113,13 @@ export interface ElectronAPI {
 
   // Currency Exchange
   getExchangeRate: (from: string, to: string) => Promise<number>
+
+  // Auto Update
+  onUpdateAvailable: (callback: (info: UpdateInfo) => void) => () => void
+  onUpdateProgress: (callback: (progress: DownloadProgress) => void) => () => void
+  onUpdateDownloaded: (callback: () => void) => () => void
+  startUpdateDownload: () => Promise<void>
+  quitAndInstall: () => Promise<void>
 }
 
 declare global {

@@ -1,0 +1,43 @@
+import { autoUpdater } from 'electron-updater'
+import type { BrowserWindow } from 'electron'
+
+let mainWindow: BrowserWindow | null = null
+
+export function initUpdater(win: BrowserWindow): void {
+  mainWindow = win
+
+  autoUpdater.autoDownload = false
+  autoUpdater.autoInstallOnAppQuit = false
+
+  autoUpdater.on('update-available', (info) => {
+    mainWindow?.webContents.send('update:available', info)
+  })
+
+  autoUpdater.on('download-progress', (progress) => {
+    mainWindow?.webContents.send('update:progress', progress)
+  })
+
+  autoUpdater.on('update-downloaded', () => {
+    mainWindow?.webContents.send('update:downloaded')
+  })
+
+  autoUpdater.on('error', (err) => {
+    console.error('[updater]', err.message)
+  })
+
+  autoUpdater.checkForUpdates().catch((err) => {
+    console.error('[updater] check failed', err.message)
+  })
+}
+
+export async function startUpdateDownload(): Promise<void> {
+  await autoUpdater.downloadUpdate()
+}
+
+export function quitAndInstall(): void {
+  autoUpdater.quitAndInstall()
+}
+
+export function stopUpdater(): void {
+  autoUpdater.removeAllListeners()
+}

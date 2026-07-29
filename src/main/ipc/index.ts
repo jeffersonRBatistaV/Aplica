@@ -7,6 +7,7 @@ import { streamChatCompletion, abortCurrentStream, listModels } from '../service
 import { ThrottledStream } from '../utils/throttled-stream'
 import { analyzeVacancy, generateCoverLetters, correctVacancyText, generateInterviewQuestions } from '../services/job-service'
 import { generateCV, regenerateCV, generateSummaryOptions, generateSampleCv } from '../services/cv-generator'
+import { startUpdateDownload, quitAndInstall } from '../services/updater'
 import { loadCareerAdvice, refreshCareerAdvice } from '../services/career-advice'
 import { loadRoadmap, refreshRoadmap } from '../services/roadmap-service'
 import { getUsage, resetUsage } from '../services/usage-service'
@@ -630,6 +631,14 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
     return getExchangeRate(from, to)
   })
 
+  // ── Update ──
+  ipcMain.handle('update:start-download', async () => {
+    await startUpdateDownload()
+  })
+  ipcMain.handle('update:quit-and-install', () => {
+    quitAndInstall()
+  })
+
   // ── System Theme ──
   ipcMain.handle('system:getTheme', () => nativeTheme.shouldUseDarkColors)
 
@@ -671,7 +680,7 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
       await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
       const pdfBuffer = await pdfWindow.webContents.printToPDF({
         printBackground: true,
-        margin: { top: '10mm', bottom: '10mm', left: '12mm', right: '12mm' },
+        margin: { top: 0, bottom: 0, left: 0, right: 0 },
         pageSize: 'A4',
       })
       const { filePath, canceled } = await dialog.showSaveDialog(pdfWindow, {
@@ -695,19 +704,34 @@ function buildCvHtml(bodyHtml: string, styleName: string): string {
 <html lang="es">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CV - ${labels[styleName] || styleName}</title>
 <style>
   @page { margin: 0; size: A4; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
     width: 210mm;
-    height: 297mm;
-    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    min-height: 297mm;
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
     font-size: 11pt;
     line-height: 1.5;
+    color: #1a1a1a;
+    background: #fff;
   }
+  @media print {
+    html, body { background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    p, h1, h2, h3, h4, h5, h6 { orphans: 3; widows: 3; }
+    h1, h2, h3, h4 { page-break-after: avoid; }
+    table { page-break-inside: avoid; }
+  }
+  img { max-width: 100%; height: auto; }
+  a { color: inherit; text-decoration: none; }
+  ul, ol { padding-left: 1.5em; }
+  .cv-content { padding: 15mm; }
+  .cv-content section, .cv-content div:not(.cv-content) { page-break-inside: avoid; }
+  p, li { orphans: 3; widows: 3; overflow-wrap: break-word; word-wrap: break-word; }
 </style>
 </head>
-<body>${bodyHtml}</body>
+<body><div class="cv-content" style="padding: 15mm;">${bodyHtml}</div></body>
 </html>`
 }

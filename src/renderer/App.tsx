@@ -7,6 +7,7 @@ import { Vacantes } from './components/vacantes/Vacantes'
 import { Analytics } from './components/analytics/Analytics'
 import { RoadmapView } from './components/roadmap/RoadmapView'
 import { NotificationContainer } from './components/ui/NotificationContainer'
+import UpdateBanner from './components/updater/UpdateBanner'
 import { ProfileWizard } from './components/profile/ProfileWizard'
 import { ApiSetupModal } from './components/settings/ApiSetupModal'
 import { useTutorial } from './components/layout/TutorialGuide'
@@ -91,6 +92,7 @@ function AppContent() {
       )}
 
       <NotificationContainer />
+      <UpdateBanner />
     </MainLayout>
   )
 }

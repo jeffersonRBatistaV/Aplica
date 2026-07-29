@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url'
 import { registerAllHandlers } from './ipc'
 import { ensureDir } from './services/storage'
 import { DATA_DIR } from './utils/paths'
+import { initUpdater } from './services/updater'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -57,6 +58,7 @@ app.whenReady().then(async () => {
 
   if (mainWindow) {
     registerAllHandlers(mainWindow)
+    initUpdater(mainWindow)
   }
 
   app.on('activate', () => {

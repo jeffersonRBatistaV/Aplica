@@ -15,6 +15,11 @@
   "build": {
     "appId": "com.aplica.app",
     "productName": "Aplica",
+    "publish": {
+      "provider": "github",
+      "owner": "jeffersonRBatistaV",
+      "repo": "Aplica"
+    },
     "directories": {
       "output": "release"
     },
@@ -65,6 +70,7 @@
   },
   "dependencies": {
     "driver.js": "^1.6.0",
+    "electron-updater": "^6.8.9",
     "highlight.js": "^11.11.1",
     "i18next": "^26.3.4",
     "i18next-browser-languagedetector": "^8.2.1",

@@ -1,7 +1,28 @@
 import type { Message, Profile } from '../../shared/types'
 
+const MAX_INPUT_TOKENS = 900000
+const ESTIMATE_FACTOR = 4
+
 function estimateTokens(text: string): number {
-  return Math.ceil(text.length / 4)
+  return Math.ceil(text.length / ESTIMATE_FACTOR)
+}
+
+function truncateMessages(
+  systemContent: string,
+  messages: { role: string; content: string }[],
+  maxTokens: number,
+): { role: string; content: string }[] {
+  let total = estimateTokens(systemContent)
+  for (const m of messages) total += estimateTokens(m.content)
+  if (total <= maxTokens) return messages
+
+  const result = [...messages]
+  while (result.length > 1) {
+    const removed = result.shift()!
+    total -= estimateTokens(removed.content)
+    if (total <= maxTokens) break
+  }
+  return result
 }
 
 interface LLMConfig {
@@ -71,10 +92,13 @@ export async function streamChatCompletion(
       role: 'system',
       content: buildSystemPrompt(options?.systemPrompt, options?.profile),
     }
-    const apiMessages = [
+    let apiMessages = [
       systemMessage,
       ...messages.map(({ role, content }) => ({ role, content })),
     ]
+
+    const truncated = truncateMessages(systemMessage.content, apiMessages.slice(1), MAX_INPUT_TOKENS)
+    apiMessages = [systemMessage, ...truncated]
 
     const response = await fetchCompletion(config, apiMessages, signal, undefined, options?.excludeFromTraining)
     if (!response.ok) {
@@ -140,7 +164,12 @@ export async function completeChatCompletion(
   messages: { role: string; content: string }[],
   signal?: AbortSignal,
 ): Promise<string> {
-  const response = await fetchCompletion(config, messages, signal)
+  const systemMsg = messages.find(m => m.role === 'system')
+  const otherMessages = messages.filter(m => m.role !== 'system')
+  const systemContent = systemMsg?.content ?? ''
+  const truncated = truncateMessages(systemContent, otherMessages, MAX_INPUT_TOKENS)
+  const finalMessages = systemMsg ? [systemMsg, ...truncated] : truncated
+  const response = await fetchCompletion(config, finalMessages, signal)
   if (!response.ok) {
     const errorText = await response.text().catch(() => 'Unknown error')
     throw new Error(`API ${response.status}: ${errorText}`)

@@ -103,6 +103,25 @@ const api = {
   // ── Clipboard ──
   copyToClipboard: (text) => ipcRenderer.invoke('clipboard:copy', text),
   readClipboardImage: () => ipcRenderer.invoke('clipboard:readImage'),
+
+  // ── Update ──
+  startUpdateDownload: () => ipcRenderer.invoke('update:start-download'),
+  quitAndInstall: () => ipcRenderer.invoke('update:quit-and-install'),
+  onUpdateAvailable: (callback) => {
+    const handler = (_event, info) => callback(info)
+    ipcRenderer.on('update:available', handler)
+    return () => { ipcRenderer.removeListener('update:available', handler) }
+  },
+  onUpdateProgress: (callback) => {
+    const handler = (_event, progress) => callback(progress)
+    ipcRenderer.on('update:progress', handler)
+    return () => { ipcRenderer.removeListener('update:progress', handler) }
+  },
+  onUpdateDownloaded: (callback) => {
+    const handler = () => callback()
+    ipcRenderer.on('update:downloaded', handler)
+    return () => { ipcRenderer.removeListener('update:downloaded', handler) }
+  },
 }
 
 contextBridge.exposeInMainWorld('api', api)
