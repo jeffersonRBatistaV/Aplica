@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Library,
   Search,
@@ -39,14 +39,11 @@ function extractLetterContent(raw: string, key: string): string {
 }
 
 function CvPreview({ html }: { html: string }) {
-  const iframeRef = useRef<HTMLIFrameElement>(null)
-  useEffect(() => {
-    if (!iframeRef.current) return
-    const fullHtml = `<!DOCTYPE html>
+  const fullHtml = `<!DOCTYPE html>
 <html><head><meta charset="utf-8">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif;font-size:11pt;line-height:1.5;color:#1a1a1a;background:#fff;padding:0}
+html,body{font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif;font-size:11pt;line-height:1.5;color:#1a1a1a;background:#fff;padding:0;width:100%;height:100%}
 img{max-width:100%;height:auto}
 a{color:inherit;text-decoration:none}
 ul,ol{padding-left:1.5em}
@@ -55,17 +52,13 @@ ul,ol{padding-left:1.5em}
 p,li{orphans:3;widows:3;overflow-wrap:break-word;word-wrap:break-word}
 @media print{html,body{background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 </style></head><body><div class="cv-content">${html}</div></body></html>`
-    const blob = new Blob([fullHtml], { type: 'text/html' })
-    const url = URL.createObjectURL(blob)
-    iframeRef.current.src = url
-    return () => URL.revokeObjectURL(url)
-  }, [html])
+
   return (
     <iframe
-      ref={iframeRef}
       className="w-full h-full rounded-lg border-0"
       title="CV Preview"
-      sandbox="allow-same-origin"
+      sandbox="allow-same-origin allow-scripts"
+      srcDoc={fullHtml}
     />
   )
 }
@@ -490,7 +483,7 @@ export function DocumentLibrary({ onSelect }: DocumentLibraryProps) {
                     CV — {selected.cvStyle === 'ats' ? 'ATS-Friendly' : selected.cvStyle === 'moderno' ? 'Moderno' : selected.cvStyle === 'tradicional' ? 'Tradicional' : selected.cvStyle?.startsWith('custom:') ? 'Personalizado' : selected.cvStyle || ''}
                   </h4>
                 </div>
-                <div className="bg-white rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden" style={{ height: 500 }}>
+                <div className="bg-white rounded-lg border border-gray-200 dark:border-gray-700 overflow-auto" style={{ height: 500 }}>
                   <CvPreview html={selected.cvContent} />
                 </div>
               </div>
