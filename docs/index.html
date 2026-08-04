@@ -238,7 +238,7 @@
       const assets = (release.assets || []).map(a => ({ name: a.name, url: a.browser_download_url }))
       const find = re => assets.find(a => re.test(a.name))
       const appimage = find(/\.AppImage$/)
-      const exe = find(/Windows\.exe$/)
+      const exe = find(/\.exe$/)
       document.getElementById("download-version").textContent = "Versión " + tag + " disponible para Windows y Linux."
       const btn = document.getElementById("release-btn")
       btn.href = release.html_url
