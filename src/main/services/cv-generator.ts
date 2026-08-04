@@ -1,7 +1,7 @@
-import type { ATSReport, Profile, AppSettings } from '../../shared/types'
+import type { ATSReport, Profile, AppSettings, CvTemplate } from '../../shared/types'
 import { completeChatCompletion } from './llm-service'
 import { readJSON } from './storage'
-import { SETTINGS_FILE } from '../utils/paths'
+import { CV_TEMPLATES_FILE, SETTINGS_FILE } from '../utils/paths'
 
 const LANGUAGE_INSTRUCTION = '\n\nIMPORTANTE: Responde SIEMPRE en el MISMO IDIOMA en el que está escrita la vacante. Si la vacante está en inglés, responde en inglés. Si está en español, responde en español. Si está en otro idioma, responde en ese mismo idioma.'
 
@@ -17,6 +17,17 @@ async function getConfig(): Promise<LLMConfig> {
     baseUrl: settings?.api?.baseUrl || 'http://localhost:11434/v1',
     apiKey: settings?.api?.apiKey || '',
     model: settings?.api?.model || 'llama3',
+  }
+}
+
+async function getTemplateExtraPrompt(style: string): Promise<string | undefined> {
+  try {
+    const templates = await readJSON<CvTemplate[]>(CV_TEMPLATES_FILE)
+    if (!templates?.length) return undefined
+    const templateId = style.startsWith('custom:') ? style.slice('custom:'.length) : `seed-${style}`
+    return templates.find((t) => t.id === templateId)?.extraPrompt
+  } catch {
+    return undefined
   }
 }
 
@@ -275,7 +286,9 @@ export async function generateCV(
   chosenSummary?: string,
 ): Promise<string> {
   const config = await getConfig()
-  const prompt = customPrompt || STYLE_PROMPTS[style] || STYLE_PROMPTS.ats
+  const basePrompt = customPrompt || STYLE_PROMPTS[style] || STYLE_PROMPTS.ats
+  const extraPrompt = await getTemplateExtraPrompt(style)
+  const prompt = extraPrompt ? `${basePrompt}\n\n## INSTRUCCIONES ADICIONALES DEL USUARIO (OBLIGATORIO aplicarlas SIEMPRE en cada generacion)\n${extraPrompt}` : basePrompt
 
   const profileSection = profile
     ? `\n\n## PERFIL DEL CANDIDATO\n\`\`\`json\n${JSON.stringify(profile, null, 2)}\n\`\`\``
@@ -310,7 +323,9 @@ export async function regenerateCV(
 ): Promise<string> {
   const config = await getConfig()
   const styleLabel = style === 'ats' ? 'ATS-Friendly' : style === 'moderno' ? 'Moderno' : style === 'tradicional' ? 'Tradicional' : 'Personalizado'
-  const prompt = customPrompt || STYLE_PROMPTS[style] || STYLE_PROMPTS.ats
+  const basePrompt = customPrompt || STYLE_PROMPTS[style] || STYLE_PROMPTS.ats
+  const extraPrompt = await getTemplateExtraPrompt(style)
+  const prompt = extraPrompt ? `${basePrompt}\n\n## INSTRUCCIONES ADICIONALES DEL USUARIO (OBLIGATORIO aplicarlas SIEMPRE en cada generacion)\n${extraPrompt}` : basePrompt
 
   const profileSection = profile
     ? `\n\n## PERFIL DEL CANDIDATO\n\`\`\`json\n${JSON.stringify(profile, null, 2)}\n\`\`\``

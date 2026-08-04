@@ -314,6 +314,13 @@ export function TemplatesManager({ onSelect }: TemplatesManagerProps) {
                   <p className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap max-h-32 overflow-y-auto">{selected.prompt}</p>
                 </div>
 
+                {selected.extraPrompt && (
+                  <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Instrucciones del usuario (se aplican siempre)</p>
+                    <p className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap max-h-32 overflow-y-auto">{selected.extraPrompt}</p>
+                  </div>
+                )}
+
                 {/* Edit prompt form */}
                 {editingPrompt && (
                   <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 space-y-3">

@@ -124,6 +124,7 @@ export interface CvTemplate {
   sampleHtml: string
   createdAt: number
   updatedAt: number
+  extraPrompt?: string
 }
 
 export type JobStatus = 'draft' | 'applied' | 'interview' | 'offer' | 'rejected'

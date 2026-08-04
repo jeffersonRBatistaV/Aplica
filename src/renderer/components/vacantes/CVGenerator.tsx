@@ -98,6 +98,26 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
     return t?.prompt
   }, [customTemplates])
 
+  const persistInstructionToTemplate = useCallback(async (styleId: string, instruction: string): Promise<void> => {
+    const templateId = styleId.startsWith('custom:') ? styleId.slice('custom:'.length) : `seed-${styleId}`
+    const existing = customTemplates.find(t => t.id === templateId)
+    const template: CvTemplate = {
+      id: templateId,
+      name: existing?.name ?? (BUILTIN_STYLES.find(s => s.id === styleId)?.name ?? styleId),
+      prompt: existing?.prompt ?? '',
+      sampleHtml: existing?.sampleHtml ?? '',
+      createdAt: existing?.createdAt ?? Date.now(),
+      updatedAt: Date.now(),
+      extraPrompt: `${existing?.extraPrompt ? existing.extraPrompt + '\n' : ''}- ${instruction}`,
+    }
+    await window.api.saveCvTemplate(template)
+    setCustomTemplates(prev =>
+      prev.some(t => t.id === templateId)
+        ? prev.map(t => (t.id === templateId ? template : t))
+        : [...prev, template],
+    )
+  }, [customTemplates, BUILTIN_STYLES])
+
   const handleChooseStyle = async (styleId: string) => {
     if (!window.api || generating) return
     setSelectedStyle(styleId)
@@ -153,7 +173,8 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
   }
 
   const handleApplyInstructions = async () => {
-    if (!instructions.trim() || !selectedStyle || !window.api) return
+    const instruction = instructions.trim()
+    if (!instruction || !selectedStyle || !window.api) return
     setApplying(true)
     setError(null)
     try {
@@ -163,12 +184,13 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
         style: selectedStyle,
         vacancyText,
         atsReport,
-        instructions: instructions.trim(),
+        instructions: instruction,
         customPrompt,
       })
       setContent(result)
       onSave(selectedStyle, result)
       setInstructions('')
+      await persistInstructionToTemplate(selectedStyle, instruction)
     } catch (err) {
       const msg = err instanceof Error ? err.message : t('cvGenerator.errorApplying')
       setError(msg)
@@ -211,6 +233,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
         id: crypto.randomUUID(),
         name: newName.trim(),
         prompt: newPrompt.trim(),
+        sampleHtml: '',
         createdAt: Date.now(),
         updatedAt: Date.now(),
       }

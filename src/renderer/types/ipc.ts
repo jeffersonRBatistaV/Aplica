@@ -59,7 +59,6 @@ export interface ElectronAPI {
   analyzeVacancy: (vacancyText: string) => Promise<ATSReport>
   correctVacancyText: (rawText: string) => Promise<string>
   generateCoverLetters: (vacancyText: string, atsReport: ATSReport) => Promise<{ coverLetterA: string; coverLetterB: string; recruiterEmail: string; subject: string }>
-  generateCV: (vacancyText: string, atsReport: ATSReport | null, style: string) => Promise<string>
   generateInterviewQuestions: (vacancyText: string, atsReport: ATSReport | null) => Promise<InterviewQuestion[]>
 
   // Theme
