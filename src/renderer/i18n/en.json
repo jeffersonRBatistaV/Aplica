@@ -167,7 +167,9 @@
     "errorApplying": "Error applying changes",
     "errorDownloading": "Error downloading PDF",
     "errorSavingTemplate": "Error saving template",
-    "errorDeletingTemplate": "Error deleting template"
+    "errorDeletingTemplate": "Error deleting template",
+    "instructionSaved": "Instruction saved to template:",
+    "templateHasInstructions": "This template has saved instructions applied to the CV"
   },
 
   "interviewPrep": {

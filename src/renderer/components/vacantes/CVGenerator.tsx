@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { FileText, Copy, Check, Download, Sparkles, BarChart3, ScrollText, Loader2, Eye, EyeOff, Wand2, AlertCircle, Plus, Trash2, ChevronDown, ChevronRight, ArrowLeft } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { useNotification } from '../../contexts/NotificationContext'
 import { Button } from '../ui/Button'
 import type { ATSReport, CvTemplate } from '../../../shared/types'
 
@@ -36,6 +37,7 @@ const colorClasses: Record<string, { bg: string; border: string; text: string; h
 
 export function CVGenerator({ vacancyText, atsReport, currentStyle, currentContent, onSave }: CVGeneratorProps) {
   const { t } = useTranslation()
+  const { notify } = useNotification()
 
   const BUILTIN_STYLES = useMemo(() => [
     { id: 'ats', name: 'ATS-Friendly', icon: BarChart3, desc: t('cvGenerator.styleAtsDesc'), color: 'blue' as const },
@@ -145,6 +147,9 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
       const result = await window.api.generateCV(vacancyText, atsReport, selectedStyle, customPrompt, summary)
       setContent(result)
       onSave(selectedStyle, result)
+      const summaryTmplId = selectedStyle.startsWith('custom:') ? selectedStyle.slice('custom:'.length) : `seed-${selectedStyle}`
+      const summaryTmpl = customTemplates.find(t => t.id === summaryTmplId)
+      if (summaryTmpl?.extraPrompt) notify(t('cvGenerator.templateHasInstructions'), 'info')
       setStep('generated')
     } catch (err) {
       const msg = err instanceof Error ? err.message : t('cvGenerator.errorGeneratingCv')
@@ -164,6 +169,9 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
       const result = await window.api.generateCV(vacancyText, atsReport, styleId, customPrompt)
       setContent(result)
       onSave(styleId, result)
+      const regenTmplId = styleId.startsWith('custom:') ? styleId.slice('custom:'.length) : `seed-${styleId}`
+      const regenTmpl = customTemplates.find(t => t.id === regenTmplId)
+      if (regenTmpl?.extraPrompt) notify(t('cvGenerator.templateHasInstructions'), 'info')
     } catch (err) {
       const msg = err instanceof Error ? err.message : t('cvGenerator.errorGeneratingCv')
       setError(msg)
@@ -191,6 +199,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
       onSave(selectedStyle, result)
       setInstructions('')
       await persistInstructionToTemplate(selectedStyle, instruction)
+      notify(`${t('cvGenerator.instructionSaved')} ${getStyleName(selectedStyle, customTemplates)}`, 'success')
     } catch (err) {
       const msg = err instanceof Error ? err.message : t('cvGenerator.errorApplying')
       setError(msg)

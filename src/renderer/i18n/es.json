@@ -167,7 +167,9 @@
     "errorApplying": "Error al aplicar los cambios",
     "errorDownloading": "Error al descargar PDF",
     "errorSavingTemplate": "Error al guardar plantilla",
-    "errorDeletingTemplate": "Error al eliminar plantilla"
+    "errorDeletingTemplate": "Error al eliminar plantilla",
+    "instructionSaved": "Instrucción guardada en la plantilla:",
+    "templateHasInstructions": "Esta plantilla tiene instrucciones guardadas que se aplican al CV"
   },
 
   "interviewPrep": {
