@@ -47,9 +47,9 @@ html,body{font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif;font-size:11p
 img{max-width:100%;height:auto}
 a{color:inherit;text-decoration:none}
 ul,ol{padding-left:1.5em}
-.cv-content{padding:15mm}
-.cv-content section,.cv-content div{page-break-inside:avoid}
+.cv-content{padding:9.5mm 10mm}
 p,li{orphans:3;widows:3;overflow-wrap:break-word;word-wrap:break-word}
+@page{size:A4;margin:0}
 @media print{html,body{background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 </style></head><body><div class="cv-content">${html}</div></body></html>`
 

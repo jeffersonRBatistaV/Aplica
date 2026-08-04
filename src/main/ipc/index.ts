@@ -680,7 +680,7 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
       await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
       const pdfBuffer = await pdfWindow.webContents.printToPDF({
         printBackground: true,
-        margin: { top: 0, bottom: 0, left: 0, right: 0 },
+        margins: { marginType: 'custom', top: 0, bottom: 0, left: 0, right: 0 },
         pageSize: 'A4',
       })
       const { filePath, canceled } = await dialog.showSaveDialog(pdfWindow, {
@@ -727,11 +727,10 @@ function buildCvHtml(bodyHtml: string, styleName: string): string {
   img { max-width: 100%; height: auto; }
   a { color: inherit; text-decoration: none; }
   ul, ol { padding-left: 1.5em; }
-  .cv-content { padding: 15mm; }
-  .cv-content section, .cv-content div:not(.cv-content) { page-break-inside: avoid; }
+  .cv-content { padding: 9.5mm 10mm; }
   p, li { orphans: 3; widows: 3; overflow-wrap: break-word; word-wrap: break-word; }
 </style>
 </head>
-<body><div class="cv-content" style="padding: 15mm;">${bodyHtml}</div></body>
+<body><div class="cv-content" style="padding: 9.5mm 10mm;">${bodyHtml}</div></body>
 </html>`
 }
