@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Pencil, Check, X, User, Briefcase, BookOpen, Award, Globe, Mail, Phone, MapPin, Code2, Link, Loader2, Target } from 'lucide-react'
+import { Pencil, Check, X, User, Briefcase, BookOpen, Award, Globe, Mail, Phone, MapPin, Code2, Link, Loader2, Target, Copy } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { Profile, Project } from '../../../shared/types'
 
@@ -14,6 +14,16 @@ export function ProfileView({ profile, onSave, onEdit }: ProfileViewProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState({ ...profile, projects: profile.projects ?? [], skillLevels: profile.skillLevels ?? {} })
   const [saving, setSaving] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const handleCopyPrompt = async () => {
+    if (!window.api) return
+    const { photo, ...rest } = profile
+    const prompt = `## PERFIL DEL CANDIDATO\n\`\`\`json\n${JSON.stringify(rest, null, 2)}\n\`\`\``
+    await window.api.copyToClipboard(prompt)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   const handleSave = async () => {
     setSaving(true)
@@ -271,6 +281,9 @@ export function ProfileView({ profile, onSave, onEdit }: ProfileViewProps) {
           </button>
           <button onClick={onEdit} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
             {t('profile.redoWizard')}
+          </button>
+          <button onClick={handleCopyPrompt} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors">
+            {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}{t('profile.copyPrompt')}
           </button>
         </div>
       </div>
