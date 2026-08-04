@@ -115,6 +115,8 @@ export interface ATSReport {
   gaps: string[]
   quickFixes: string[]
   analysis: string
+  company?: string
+  position?: string
 }
 
 export interface CvTemplate {

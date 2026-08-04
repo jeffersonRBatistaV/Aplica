@@ -30,8 +30,14 @@ Debes responder ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sig
   "strengths": ["fortalezas del candidato para esta vacante, destacando skills transferibles y experiencia indirecta relevante"],
   "gaps": ["brechas o áreas de mejora, con sugerencias constructivas"],
   "quickFixes": ["acciones rápidas que el candidato puede tomar para mejorar su aplicación, incluyendo formas de reformular experiencia existente"],
-  "analysis": "análisis detallado en markdown del match, destacando cómo el perfil del candidato PUEDE ser relevante para la vacante incluso si no es un match perfecto. Incluye recomendaciones específicas para reformular la experiencia."
-}${LANGUAGE_INSTRUCTION}`
+  "analysis": "análisis detallado en markdown del match, destacando cómo el perfil del candidato PUEDE ser relevante para la vacante incluso si no es un match perfecto. Incluye recomendaciones específicas para reformular la experiencia.",
+  "company": "nombre real de la empresa que publica la vacante, o cadena vacía si no aparece",
+  "position": "título real del puesto ofertado, o cadena vacía si no aparece"
+}
+REGLAS CRÍTICAS para company y position:
+- Extrae SOLO datos reales presentes en el texto de la vacante.
+- Si la empresa o el puesto no aparecen claramente, usa cadena vacía ("").
+- NUNCA uses frases genéricas, placeholders ni encabezados de bolsa de empleo como "Estamos contratando", "We are hiring", "Se busca", "No especificado", "A convenir", "N/A", "Buscamos", etc.${LANGUAGE_INSTRUCTION}`
 
 const COVER_LETTER_SYSTEM_PROMPT = `Eres un Redactor Profesional de Cartas de Presentación especializado en persuasión para reclutadores. Tu objetivo es posicionar al candidato como la mejor opcion para la vacante, incluso si su perfil no es un match perfecto.
 
@@ -100,6 +106,8 @@ export async function analyzeVacancy(
       gaps: parsed.gaps ?? [],
       quickFixes: parsed.quickFixes ?? [],
       analysis: parsed.analysis ?? response,
+      company: typeof parsed.company === 'string' ? parsed.company : '',
+      position: typeof parsed.position === 'string' ? parsed.position : '',
     }
   } catch {
     return {

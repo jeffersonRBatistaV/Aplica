@@ -42,6 +42,33 @@ function extractCategory(text: string): string {
   return bestCategory
 }
 
+const BOILERPLATE = [
+  "estamos contratando", "we are hiring", "we're hiring", "se busca", "se solicita",
+  "buscamos", "te estamos buscando", "estamos buscando", "aplica ya", "apply now",
+  "aplica hoy", "postulate", "postúlate", "postulate ya", "oferta de empleo",
+  "empleo disponible", "vacante disponible", "hiring", "trabaja con nosotros",
+  "work with us", "join our team", "únete a nuestro equipo", "unete a nuestro equipo",
+  "queremos conocerte", "envianos tu cv", "envíanos tu cv", "envia tu cv",
+  "compartir", "guardar vacante", "denunciar", "empresa verificada", "vacante verificada",
+  "postulacion", "postulación", "inscripcion", "inscripción", "registrate", "regístrate",
+  "inicia sesion", "inicia sesión", "no especificado", "a convenir", "n/a", "sin especificar",
+]
+
+function isBoilerplate(text: string): boolean {
+  const t = text.toLowerCase().trim()
+  return BOILERPLATE.some(b => t.includes(b))
+}
+
+function looksLikeCompany(text: string): boolean {
+  const t = text.trim()
+  if (!t || t.length > 60) return false
+  if (/^(http|www\.)/i.test(t)) return false
+  if (/[:|]/.test(t)) return false
+  if (t.split(/\s+/).length > 5) return false
+  if (isBoilerplate(t)) return false
+  return true
+}
+
 function extractJobInfo(text: string): { company: string; position: string } {
   let company = ''
   let position = ''
@@ -53,22 +80,22 @@ function extractJobInfo(text: string): { company: string; position: string } {
     if (!t) continue
 
     const c = t.match(/^(?:Company|Empresa|Compañía|Compania|Organization|Organización|About)\s*[:]\s*(.+)/i)
-    if (c) { company = c[1].trim(); continue }
+    if (c && !isBoilerplate(c[1])) { company = c[1].trim(); continue }
 
     const p = t.match(/^(?:Position|Puesto|Role|Rol|Title|Título|Cargo)\s*[:]\s*(.+)/i)
-    if (p) { position = p[1].trim(); continue }
+    if (p && !isBoilerplate(p[1])) { position = p[1].trim(); continue }
 
     const h = t.match(/^#+\s+(.+?)\s*[-–—]\s*(.+)/)
     if (h && !company && !position) {
-      company = h[1].trim()
-      position = h[2].trim()
+      if (!isBoilerplate(h[1])) company = h[1].trim()
+      if (!isBoilerplate(h[2])) position = h[2].trim()
     }
   }
 
   if (!company) {
     for (const line of lines) {
       const t = line.trim()
-      if (t && !t.startsWith('http') && t.split(/\s+/).length <= 5) {
+      if (looksLikeCompany(t)) {
         company = t
         break
       }
@@ -76,6 +103,13 @@ function extractJobInfo(text: string): { company: string; position: string } {
   }
 
   return { company, position }
+}
+
+function pickPositionLine(text: string): string {
+  const line = text.split('\n').map(l => l.trim()).find(l =>
+    l.length > 10 && l.length <= 80 && !/[:|]/.test(l) && !/^(http|www\.)/i.test(l) && !isBoilerplate(l),
+  )
+  return line ? line.substring(0, 60) : ''
 }
 
 type Tab = 'new' | 'library' | 'board' | 'templates'
@@ -148,8 +182,11 @@ export function Vacantes() {
       const report = await window.api.analyzeVacancy(cleanText)
       setAtsReport(report)
 
-      const { company, position: extractedPosition } = extractJobInfo(cleanText)
-      const position = extractedPosition || cleanText.split('\n').find(l => l.trim().length > 10)?.trim().substring(0, 60) || t('vacantes.title')
+      const { company: heuristicCompany, position: heuristicPosition } = extractJobInfo(cleanText)
+      const company = report.company && !isBoilerplate(report.company) ? report.company : heuristicCompany
+      const position = report.position && !isBoilerplate(report.position)
+        ? report.position
+        : heuristicPosition || pickPositionLine(cleanText) || t('vacantes.title')
       const category = extractCategory(cleanText)
 
       const app: JobApplication = {
