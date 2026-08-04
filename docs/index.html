@@ -217,8 +217,9 @@
     <section class="download-section">
       <div class="container">
         <h2>Descargar</h2>
-        <p>Versión 1.0.0 disponible para Windows, macOS y Linux.</p>
-        <a class="btn" href="https://github.com/jeffersonRBatistaV/Aplica/releases/tag/v1.0.0" target="_blank">Ir a GitHub Releases</a>
+        <p id="download-version">Obteniendo la última versión...</p>
+        <a class="btn" id="release-btn" href="https://github.com/jeffersonRBatistaV/Aplica/releases/latest" target="_blank">Descargar última versión</a>
+        <p id="download-platforms" style="margin-top:16px;font-size:0.8125rem"></p>
       </div>
     </section>
   </main>
@@ -228,5 +229,28 @@
       <a href="https://github.com/jeffersonRBatistaV/Aplica" target="_blank">Repositorio en GitHub</a>
     </div>
   </footer>
+
+<script>
+  fetch("https://api.github.com/repos/jeffersonRBatistaV/Aplica/releases/latest")
+    .then(r => (r.ok ? r.json() : Promise.reject(new Error("no release"))))
+    .then(release => {
+      const tag = (release.tag_name || "").replace(/^v/, "")
+      const assets = (release.assets || []).map(a => ({ name: a.name, url: a.browser_download_url }))
+      const find = re => assets.find(a => re.test(a.name))
+      const appimage = find(/\.AppImage$/)
+      const exe = find(/Windows\.exe$/)
+      document.getElementById("download-version").textContent = "Versión " + tag + " disponible para Windows y Linux."
+      const btn = document.getElementById("release-btn")
+      btn.href = release.html_url
+      btn.textContent = "Descargar v" + tag
+      const links = []
+      if (appimage) links.push("<a href=\"" + appimage.url + "\" style=\"color:#8a8f98;text-decoration:underline\">Linux (.AppImage)</a>")
+      if (exe) links.push("<a href=\"" + exe.url + "\" style=\"color:#8a8f98;text-decoration:underline\">Windows (.exe)</a>")
+      document.getElementById("download-platforms").innerHTML = links.join(" · ")
+    })
+    .catch(() => {
+      document.getElementById("download-version").textContent = "Descarga la última versión desde GitHub Releases."
+    })
+</script>
 </body>
 </html>
