@@ -1,16 +1,87 @@
-import { createWorker } from 'tesseract.js'
+import { createWorker, PSM } from 'tesseract.js'
+import { Jimp } from 'jimp'
 
 let worker: Awaited<ReturnType<typeof createWorker>> | null = null
 
 async function getWorker() {
   if (!worker) {
     worker = await createWorker('spa+eng')
+    await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_BLOCK })
   }
   return worker
 }
 
-export async function extractTextFromImage(buffer: Buffer): Promise<string> {
+export async function preprocessImage(buffer: Buffer): Promise<Buffer> {
+  const image = await Jimp.read(buffer)
+  if (image.width < 1500) {
+    image.scale(2)
+  }
+  image.greyscale()
+  image.contrast(0.35)
+  image.normalize()
+  image.gaussian(1)
+  return image.getBuffer('image/png')
+}
+
+async function extractTextWithLLM(
+  dataUrl: string,
+  config: { baseUrl: string; apiKey: string; model: string },
+): Promise<string | null> {
+  try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (config.apiKey) headers['Authorization'] = `Bearer ${config.apiKey}`
+
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 20000)
+
+    try {
+      const response = await fetch(`${config.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          model: config.model,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: 'Extrae TODO el texto de esta imagen de forma literal y completa. Devuelve solo el texto, sin comentarios ni formato markdown.',
+                },
+                { type: 'image_url', image_url: { url: dataUrl } },
+              ],
+            },
+          ],
+          stream: false,
+          max_tokens: 4000,
+        }),
+        signal: controller.signal,
+      })
+      if (!response.ok) return null
+      const data = await response.json()
+      const content = data?.choices?.[0]?.message?.content
+      if (!content || !content.trim()) return null
+      return content
+    } finally {
+      clearTimeout(timeout)
+    }
+  } catch {
+    return null
+  }
+}
+
+export async function extractTextFromImage(
+  buffer: Buffer,
+  dataUrl: string,
+  llmConfig: { baseUrl: string; apiKey: string; model: string } | null,
+): Promise<string> {
+  if (llmConfig) {
+    const llmText = await extractTextWithLLM(dataUrl, llmConfig)
+    if (llmText) return llmText
+  }
+
   const w = await getWorker()
-  const { data } = await w.recognize(buffer)
-  return data.text
+  const processed = await preprocessImage(buffer)
+  const { data } = await w.recognize(processed)
+  return data.text.trim()
 }

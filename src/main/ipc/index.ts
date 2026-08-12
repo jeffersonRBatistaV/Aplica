@@ -632,9 +632,14 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
 
   // ── OCR ──
   ipcMain.handle('ocr:imageToText', async (_event, base64: string): Promise<string> => {
+    const settings = await readJSON<AppSettings>(SETTINGS_FILE)
+    let llmConfig: { baseUrl: string; apiKey: string; model: string } | null = null
+    if (settings?.api?.baseUrl) {
+      llmConfig = { baseUrl: settings.api.baseUrl, apiKey: settings.api.apiKey, model: settings.api.model }
+    }
     const raw = base64.replace(/^data:image\/\w+;base64,/, '')
     const buffer = Buffer.from(raw, 'base64')
-    return extractTextFromImage(buffer)
+    return extractTextFromImage(buffer, base64, llmConfig)
   })
 
   // ── Usage ──
