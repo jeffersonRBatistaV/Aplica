@@ -2,12 +2,13 @@ import { ipcMain, nativeTheme, clipboard, BrowserWindow } from 'electron'
 import { readJSON, writeJSON, ensureDir } from '../services/storage'
 import { readProfile } from '../services/profile-reader'
 import { CHATS_FILE, SETTINGS_FILE, JOBS_FILE, PROFILE_PATH, USER_PROFILE_PATH, DATA_DIR, CV_TEMPLATES_FILE, CAREER_ADVICE_FILE, ROADMAP_FILE } from '../utils/paths'
-import type { Conversation, AppSettings, StreamParams, JobApplication, Profile, ATSReport, CvTemplate, InterviewQuestion, ImportResult } from '../../shared/types'
+import type { Conversation, AppSettings, StreamParams, JobApplication, Profile, ATSReport, CvTemplate, InterviewQuestion, ImportResult, JobCategory } from '../../shared/types'
 import { streamChatCompletion, abortCurrentStream, listModels } from '../services/llm-service'
 import { ThrottledStream } from '../utils/throttled-stream'
 import { analyzeVacancy, generateCoverLetters, correctVacancyText, generateInterviewQuestions } from '../services/job-service'
 import { generateCV, regenerateCV, generateSummaryOptions, generateSampleCv } from '../services/cv-generator'
 import { startUpdateDownload, quitAndInstall } from '../services/updater'
+import { listCategories, saveCategory, deleteCategory, generateCategories } from '../services/category-service'
 import { loadCareerAdvice, refreshCareerAdvice } from '../services/career-advice'
 import { loadRoadmap, refreshRoadmap } from '../services/roadmap-service'
 import { getUsage, resetUsage } from '../services/usage-service'
@@ -142,6 +143,20 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
   ipcMain.handle('cv:generateSample', async (_event, prompt: string): Promise<string> => {
     const html = await generateSampleCv(prompt)
     return wrapHtml(html)
+  })
+
+  // ── Job Categories (CV por categoría) ──
+  ipcMain.handle('category:list', async (_event, areaId?: string): Promise<JobCategory[]> => {
+    return listCategories(areaId)
+  })
+  ipcMain.handle('category:save', async (_event, category: JobCategory): Promise<JobCategory[]> => {
+    return saveCategory(category)
+  })
+  ipcMain.handle('category:delete', async (_event, id: string): Promise<JobCategory[]> => {
+    return deleteCategory(id)
+  })
+  ipcMain.handle('category:generate', async (_event, areaId?: string): Promise<JobCategory[]> => {
+    return generateCategories(areaId || 'tecnologia')
   })
 
   // ── Job Analysis (LLM) ──
@@ -708,7 +723,7 @@ function buildCvHtml(bodyHtml: string, styleName: string): string {
 <title>CV - ${labels[styleName] || styleName}</title>
 <style>
   @page { margin: 0; size: A4; }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; max-width: 100%; }
   html, body {
     width: 210mm;
     min-height: 297mm;
@@ -729,6 +744,10 @@ function buildCvHtml(bodyHtml: string, styleName: string): string {
   ul, ol { padding-left: 1.5em; }
   .cv-content { padding: 9.5mm 10mm; }
   p, li { orphans: 3; widows: 3; overflow-wrap: break-word; word-wrap: break-word; }
+  .cv-ats, .cv-moderno, .cv-tradicional, [class^="cv-"] { min-height: auto !important; max-width: 100% !important; }
+  img, table, pre { max-width: 100% !important; height: auto; }
+  table { width: 100% !important; table-layout: fixed; }
+  p, li, div, span, h1, h2, h3, h4, td, th { overflow-wrap: anywhere; }
 </style>
 </head>
 <body><div class="cv-content" style="padding: 9.5mm 10mm;">${bodyHtml}</div></body>

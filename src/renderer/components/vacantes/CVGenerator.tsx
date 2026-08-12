@@ -588,10 +588,16 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
           {tab === 'preview' && (
             <div
               ref={previewRef}
-              className="bg-white rounded-lg border border-gray-200 dark:border-gray-700 p-6 min-h-[300px] overflow-x-auto"
+              className="cv-preview bg-white rounded-lg border border-gray-200 dark:border-gray-700 p-6 min-h-[300px] overflow-x-auto"
               style={{ fontFamily: "'Segoe UI', 'Helvetica Neue', Arial, sans-serif" }}
             >
-              <div dangerouslySetInnerHTML={{ __html: content }} />
+              <style>{`
+                .cv-preview * { max-width: 100%; box-sizing: border-box; }
+                .cv-preview img, .cv-preview table, .cv-preview pre { max-width: 100%; height: auto; }
+                .cv-preview p, .cv-preview li, .cv-preview h1, .cv-preview h2, .cv-preview h3,
+                .cv-preview div, .cv-preview span, .cv-preview td, .cv-preview th { overflow-wrap: anywhere; }
+              `}</style>
+              <div className="w-full max-w-full" dangerouslySetInnerHTML={{ __html: content }} />
             </div>
           )}
 

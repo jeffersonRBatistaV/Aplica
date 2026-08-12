@@ -1,4 +1,4 @@
-import type { Conversation, AppSettings, StreamParams, Profile, JobApplication, ATSReport, CvTemplate, InterviewQuestion, UsageStats, ImportResult, Roadmap } from '../../shared/types'
+import type { Conversation, AppSettings, StreamParams, Profile, JobApplication, ATSReport, CvTemplate, InterviewQuestion, UsageStats, ImportResult, Roadmap, JobCategory } from '../../shared/types'
 
 export interface UpdateInfo {
   version: string
@@ -87,6 +87,12 @@ export interface ElectronAPI {
   deleteCvTemplate: (id: string) => Promise<void>
   resetCvTemplates: () => Promise<void>
   generateSampleCv: (prompt: string) => Promise<string>
+
+  // Job Categories (CV por categoría)
+  getCategories: (areaId?: string) => Promise<JobCategory[]>
+  saveCategory: (category: JobCategory) => Promise<JobCategory[]>
+  deleteCategory: (id: string) => Promise<JobCategory[]>
+  generateCategories: (areaId?: string) => Promise<JobCategory[]>
 
   // Usage
   getUsage: () => Promise<UsageStats>

@@ -279,6 +279,7 @@ export function ProfileWizard({ onClose, onComplete }: ProfileWizardProps) {
       linkedin: (answers['linkedin'] as string) ?? '',
       portfolio: (answers['portfolio'] as string) ?? '',
       photo: (answers['photo'] as string) ?? '',
+      area: selectedArea?.id,
       title: roleAnswer,
       summary,
       skills: [...new Set(skills)],

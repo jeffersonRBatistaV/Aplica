@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Briefcase, Library, Columns, FileText, Loader2, AlertCircle } from 'lucide-react'
+import { Briefcase, Library, Columns, FileText, Loader2, AlertCircle, Layers } from 'lucide-react'
 import { VacancyInput } from './VacancyInput'
 import { ATSReportView } from './ATSReport'
 import { CoverLetterGenerator } from './CoverLetterGenerator'
 import { CVGenerator } from './CVGenerator'
+import { CategoryCV } from './CategoryCV'
 import { DocumentLibrary } from './DocumentLibrary'
 import { InterviewPrep } from './InterviewPrep'
 import { KanbanBoard } from './KanbanBoard'
@@ -112,7 +113,7 @@ function pickPositionLine(text: string): string {
   return line ? line.substring(0, 60) : ''
 }
 
-type Tab = 'new' | 'library' | 'board' | 'templates'
+type Tab = 'new' | 'category' | 'library' | 'board' | 'templates'
 
 export function Vacantes() {
   const { t } = useTranslation()
@@ -341,6 +342,17 @@ export function Vacantes() {
             {t('vacantes.newVacancy')}
           </button>
           <button
+            onClick={() => setActiveTab('category')}
+            className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+              activeTab === 'category'
+                ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            <Layers className="w-4 h-4" />
+            {t('categoryCV.tab')}
+          </button>
+          <button
             onClick={() => setActiveTab('board')}
             className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
               activeTab === 'board'
@@ -378,7 +390,7 @@ export function Vacantes() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto scrollbar-thin">
-        {activeTab === 'new' ? (
+        <div className={activeTab === 'new' ? '' : 'hidden'}>
           <div className="max-w-4xl mx-auto p-6 space-y-6">
             <VacancyInput
               onAnalyze={handleAnalyze}
@@ -400,7 +412,7 @@ export function Vacantes() {
               </div>
             )}
 
-            {atsReport && !analyzing && (
+            {(atsReport && !analyzing) || (currentApp && (cvContent || cvStyle)) ? (
               <>
                 {/* Company / Position read-only info */}
                 <div className="flex gap-4 p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
@@ -414,20 +426,24 @@ export function Vacantes() {
                   </div>
                 </div>
 
-                <ATSReportView
-                  report={atsReport}
-                  onRefresh={handleUpdateReport}
-                  onAddKeywords={handleAddKeywords}
-                />
+                {atsReport && !analyzing && (
+                  <ATSReportView
+                    report={atsReport}
+                    onRefresh={handleUpdateReport}
+                    onAddKeywords={handleAddKeywords}
+                  />
+                )}
 
-                <CoverLetterGenerator
-                  coverLetterA={coverLetterA}
-                  coverLetterB={coverLetterB}
-                  generating={generatingLetters}
-                  onSave={handleSaveLetter}
-                  recruiterEmail={recruiterEmail}
-                  subject={emailSubject}
-                />
+                {atsReport && (
+                  <CoverLetterGenerator
+                    coverLetterA={coverLetterA}
+                    coverLetterB={coverLetterB}
+                    generating={generatingLetters}
+                    onSave={handleSaveLetter}
+                    recruiterEmail={recruiterEmail}
+                    subject={emailSubject}
+                  />
+                )}
 
                 <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
                   <CVGenerator
@@ -439,23 +455,33 @@ export function Vacantes() {
                   />
                 </div>
 
-                <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-                  <InterviewPrep
-                    questions={interviewQuestions}
-                    generating={generatingQuestions}
-                    onGenerate={handleGenerateQuestions}
-                  />
-                </div>
+                {atsReport && (
+                  <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                    <InterviewPrep
+                      questions={interviewQuestions}
+                      generating={generatingQuestions}
+                      onGenerate={handleGenerateQuestions}
+                    />
+                  </div>
+                )}
               </>
-            )}
+            ) : null}
           </div>
-        ) : activeTab === 'board' ? (
+        </div>
+
+        <div className={activeTab === 'category' ? '' : 'hidden'}>
+          <CategoryCV />
+        </div>
+
+        {activeTab === 'board' && (
           <div className="p-6">
             <KanbanBoard onSelect={handleSelectApp} />
           </div>
-        ) : activeTab === 'templates' ? (
+        )}
+        {activeTab === 'templates' && (
           <TemplatesManager onSelect={handleSelectTemplate} />
-        ) : (
+        )}
+        {activeTab === 'library' && (
           <DocumentLibrary onSelect={handleSelectApp} />
         )}
       </div>

@@ -5,6 +5,18 @@ import { CV_TEMPLATES_FILE, SETTINGS_FILE } from '../utils/paths'
 
 const LANGUAGE_INSTRUCTION = '\n\nIMPORTANTE: Responde SIEMPRE en el MISMO IDIOMA en el que está escrita la vacante. Si la vacante está en inglés, responde en inglés. Si está en español, responde en español. Si está en otro idioma, responde en ese mismo idioma.'
 
+const LAYOUT_RULES = `
+
+REGLAS DE TIPOGRAFIA Y MARGENES (tienen PRIORIDAD sobre cualquier tamaño mostrado en el ejemplo de formato):
+- Cuerpo del CV: 9.5pt maximo. Nombre (h1): 16pt maximo. Titulos de seccion (h2): 11pt maximo. Subtitulos: 10pt maximo. Detalles y fechas: 8.5pt maximo.
+- Usa SIEMPRE una tipografia compacta: el texto debe verse visiblemente mas pequeno que un documento normal, equivalente a reducir 2px cada tamano.
+- Todo el contenido debe caber en una hoja A4 con margenes de 10mm arriba/abajo y 12mm a los costados: el ancho util maximo es 186mm. NADA puede sobresalir horizontalmente.
+- PROHIBIDO: width o min-width fijos en mm/px que excedan el ancho disponible, white-space: nowrap, position: absolute, elementos flotantes o tablas de ancho fijo.
+- En CADA elemento usa box-sizing: border-box y max-width: 100%.
+- En textos largos usa overflow-wrap: anywhere para que las palabras se quiebren y no desborden.
+- Si usas tablas: width: 100%; table-layout: fixed.
+- No uses paddings internos ni bordes que empujen el contenido fuera de la pagina.`
+
 interface LLMConfig {
   baseUrl: string
   apiKey: string
@@ -289,6 +301,7 @@ export async function generateCV(
   const basePrompt = customPrompt || STYLE_PROMPTS[style] || STYLE_PROMPTS.ats
   const extraPrompt = await getTemplateExtraPrompt(style)
   const prompt = extraPrompt ? `${basePrompt}\n\n## INSTRUCCIONES ADICIONALES DEL USUARIO (OBLIGATORIO aplicarlas SIEMPRE en cada generacion)\n${extraPrompt}` : basePrompt
+  const fullPrompt = prompt + LAYOUT_RULES
 
   const profileSection = profile
     ? `\n\n## PERFIL DEL CANDIDATO\n\`\`\`json\n${JSON.stringify(profile, null, 2)}\n\`\`\``
@@ -305,7 +318,7 @@ export async function generateCV(
   const userMessage = `## VACANTE\n\n${vacancyText}${profileSection}${atsSection}${summarySection}\n\nGenera el CV en HTML siguiendo el formato indicado en las instrucciones. Devuelve SOLO el HTML, sin bloques de codigo ni delimitadores.`
 
   const response = await completeChatCompletion(config, [
-    { role: 'system', content: prompt },
+    { role: 'system', content: fullPrompt },
     { role: 'user', content: userMessage },
   ])
 
@@ -326,6 +339,7 @@ export async function regenerateCV(
   const basePrompt = customPrompt || STYLE_PROMPTS[style] || STYLE_PROMPTS.ats
   const extraPrompt = await getTemplateExtraPrompt(style)
   const prompt = extraPrompt ? `${basePrompt}\n\n## INSTRUCCIONES ADICIONALES DEL USUARIO (OBLIGATORIO aplicarlas SIEMPRE en cada generacion)\n${extraPrompt}` : basePrompt
+  const fullPrompt = prompt + LAYOUT_RULES
 
   const profileSection = profile
     ? `\n\n## PERFIL DEL CANDIDATO\n\`\`\`json\n${JSON.stringify(profile, null, 2)}\n\`\`\``
@@ -338,7 +352,7 @@ export async function regenerateCV(
   const userMessage = `## VACANTE\n\n${vacancyText}${profileSection}${atsSection}\n\n## CV ACTUAL (formato ${styleLabel})\n\n\`\`\`html\n${currentCv}\n\`\`\`\n\n## INSTRUCCIONES DEL USUARIO\n\n${instructions}\n\nAplica estos cambios al CV de arriba. Manten el mismo estilo, colores y estructura general. Devuelve SOLO el HTML modificado, sin bloques de codigo ni delimitadores.`
 
   const response = await completeChatCompletion(config, [
-    { role: 'system', content: prompt },
+    { role: 'system', content: fullPrompt },
     { role: 'user', content: userMessage },
   ])
 
@@ -373,7 +387,7 @@ ${profileJson}
 \`\`\``
 
   const response = await completeChatCompletion(config, [
-    { role: 'system', content: prompt },
+    { role: 'system', content: prompt + LAYOUT_RULES },
     { role: 'user', content: userMessage },
   ])
 

@@ -70,6 +70,7 @@ export interface Profile {
   linkedin: string
   portfolio: string
   photo: string
+  area?: string
   title: string
   summary: string
   skills: string[]
@@ -154,6 +155,16 @@ export interface InterviewQuestion {
   question: string
   answer: string
   category: string
+}
+
+export interface JobCategory {
+  id: string
+  areaId: string
+  name: string
+  description: string
+  keywords: string[]
+  source: 'seed' | 'ai' | 'custom'
+  createdAt: number
 }
 
 export type AppView = 'chat' | 'jobs' | 'analytics' | 'roadmap'

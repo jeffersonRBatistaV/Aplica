@@ -79,6 +79,12 @@ const api = {
   resetCvTemplates: () => ipcRenderer.invoke('cv:resetTemplates'),
   generateSampleCv: (prompt) => ipcRenderer.invoke('cv:generateSample', prompt),
 
+  // ── Job Categories (CV por categoría) ──
+  getCategories: (areaId) => ipcRenderer.invoke('category:list', areaId),
+  saveCategory: (category) => ipcRenderer.invoke('category:save', category),
+  deleteCategory: (id) => ipcRenderer.invoke('category:delete', id),
+  generateCategories: (areaId) => ipcRenderer.invoke('category:generate', areaId),
+
   // ── Career Advice ──
   getCareerAdvice: () => ipcRenderer.invoke('getCareerAdvice'),
   refreshCareerAdvice: () => ipcRenderer.invoke('refreshCareerAdvice'),

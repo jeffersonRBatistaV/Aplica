@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Pencil, Check, X, User, Briefcase, BookOpen, Award, Globe, Mail, Phone, MapPin, Code2, Link, Loader2, Target, Copy } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { Profile, Project } from '../../../shared/types'
+import { areas } from '../../data/questions'
 
 interface ProfileViewProps {
   profile: Profile
@@ -101,6 +102,19 @@ export function ProfileView({ profile, onSave, onEdit }: ProfileViewProps) {
           <Field label={t('profile.linkedin')} icon={Link} value={draft.linkedin} onChange={(v) => setDraft({ ...draft, linkedin: v })} />
           <Field label={t('profile.portfolio')} icon={Link} value={draft.portfolio} onChange={(v) => setDraft({ ...draft, portfolio: v })} />
           <Field label={t('profile.role')} icon={Briefcase} value={draft.title} onChange={(v) => setDraft({ ...draft, title: v })} />
+          <div>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('profile.area')}</label>
+            <select
+              value={draft.area ?? ''}
+              onChange={(e) => setDraft({ ...draft, area: e.target.value })}
+              className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+            >
+              <option value="">Selecciona...</option>
+              {areas.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+          </div>
           <div>
             <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('profile.summary')}</label>
             <textarea
