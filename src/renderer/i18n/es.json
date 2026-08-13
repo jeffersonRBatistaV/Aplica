@@ -96,7 +96,14 @@
     "dropFileHere": "Suelta el archivo aquí",
     "dragOrPaste": "Arrastra un archivo o pega el texto de la vacante",
     "vacancy": "Vacante",
-    "errorUnknown": "Error desconocido"
+    "errorUnknown": "Error desconocido",
+    "appliedQuestion": "¿Ya aplicaste a esta vacante?",
+    "appliedHint": "Al confirmar, la vacante se moverá de Borrador a Aplicadas en el tablero.",
+    "confirmApplied": "Sí, ya apliqué",
+    "resumeDraftTitle": "Vacante en progreso",
+    "resumeDraftMessage": "Tienes una vacante en progreso: {{company}} — {{position}}. ¿Quieres continuar donde la dejaste o crear una nueva?",
+    "resumeDraftContinue": "Continuar",
+    "resumeDraftNew": "Crear nueva"
   },
 
   "categoryCV": {

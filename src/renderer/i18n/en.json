@@ -96,7 +96,14 @@
     "dropFileHere": "Drop file here",
     "dragOrPaste": "Drag a file or paste the vacancy text",
     "vacancy": "Vacancy",
-    "errorUnknown": "Unknown error"
+    "errorUnknown": "Unknown error",
+    "appliedQuestion": "Have you already applied to this vacancy?",
+    "appliedHint": "On confirm, the vacancy moves from Draft to Applied in the board.",
+    "confirmApplied": "Yes, I applied",
+    "resumeDraftTitle": "Vacancy in progress",
+    "resumeDraftMessage": "You have a vacancy in progress: {{company}} — {{position}}. Do you want to continue where you left off or create a new one?",
+    "resumeDraftContinue": "Continue",
+    "resumeDraftNew": "Create new"
   },
 
   "categoryCV": {

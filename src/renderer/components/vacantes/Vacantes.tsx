@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Briefcase, Library, Columns, FileText, Loader2, AlertCircle, Layers } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Briefcase, Library, Columns, FileText, Loader2, AlertCircle, Layers, Check } from 'lucide-react'
 import { VacancyInput } from './VacancyInput'
 import { ATSReportView } from './ATSReport'
 import { CoverLetterGenerator } from './CoverLetterGenerator'
@@ -9,8 +9,12 @@ import { DocumentLibrary } from './DocumentLibrary'
 import { InterviewPrep } from './InterviewPrep'
 import { KanbanBoard } from './KanbanBoard'
 import { TemplatesManager } from './TemplatesManager'
-import type { ATSReport, JobApplication, InterviewQuestion } from '../../../shared/types'
+import { Button } from '../ui/Button'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
+import type { ATSReport, JobApplication, InterviewQuestion, JobStatus } from '../../../shared/types'
 import { useTranslation } from 'react-i18next'
+
+const DRAFT_KEY = 'aplica:vacancy-draft'
 
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
   'Tecnología / IT': ['software', 'desarrollador', 'developer', 'frontend', 'backend', 'full stack', 'devops', 'data science', 'machine learning', 'it', 'sistemas', 'infraestructura', 'cloud', 'programador', 'ingeniero de software'],
@@ -132,6 +136,60 @@ export function Vacantes() {
   const [emailSubject, setEmailSubject] = useState('')
   const [interviewQuestions, setInterviewQuestions] = useState<InterviewQuestion[]>([])
   const [generatingQuestions, setGeneratingQuestions] = useState(false)
+  const [editCompany, setEditCompany] = useState(currentApp?.company || '')
+  const [editPosition, setEditPosition] = useState(currentApp?.position || '')
+  const [confirmingApplied, setConfirmingApplied] = useState(false)
+  const [pendingDraft, setPendingDraft] = useState<JobApplication | null>(null)
+
+  useEffect(() => {
+    setEditCompany(currentApp?.company || '')
+    setEditPosition(currentApp?.position || '')
+  }, [currentApp])
+
+  useEffect(() => {
+    if (
+      currentApp &&
+      (currentApp.cvContent ||
+        currentApp.cvStyle ||
+        currentApp.coverLetterA ||
+        currentApp.coverLetterB ||
+        atsReport)
+    ) {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(currentApp))
+    } else {
+      localStorage.removeItem(DRAFT_KEY)
+    }
+  }, [currentApp, vacancyText, atsReport, cvContent, cvStyle])
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY)
+      if (raw) {
+        setPendingDraft(JSON.parse(raw))
+      }
+    } catch {
+      // Ignore malformed draft
+    }
+  }, [])
+
+  const handleUpdateApp = (patch: Partial<JobApplication>) => {
+    if (!currentApp || !window.api) return
+    const updated = { ...currentApp, ...patch, updatedAt: Date.now() }
+    window.api.saveJob(updated)
+    setCurrentApp(updated)
+  }
+
+  const handleConfirmApplied = async () => {
+    if (!currentApp || !window.api) return
+    setConfirmingApplied(true)
+    try {
+      const updated = { ...currentApp, status: 'applied' as JobStatus, updatedAt: Date.now() }
+      await window.api.saveJob(updated)
+      setCurrentApp(updated)
+    } finally {
+      setConfirmingApplied(false)
+    }
+  }
 
   const handleSelectTemplate = (templateId: string) => {
     setCvStyle(templateId)
@@ -144,7 +202,32 @@ export function Vacantes() {
     setActiveTab('new')
   }
 
+  const handleContinueDraft = () => {
+    if (!pendingDraft) return
+    const d = pendingDraft
+    setCurrentApp(d)
+    setVacancyText(d.vacancyText || '')
+    setAtsReport(d.atsReport)
+    setCoverLetterA(d.coverLetterA || '')
+    setCoverLetterB(d.coverLetterB || '')
+    setCvStyle(d.cvStyle)
+    setCvContent(d.cvContent || '')
+    setRecruiterEmail(d.recipientEmail || '')
+    setEmailSubject(d.emailSubject || '')
+    setInterviewQuestions(d.interviewQuestions || [])
+    localStorage.removeItem(DRAFT_KEY)
+    setPendingDraft(null)
+    setActiveTab('new')
+  }
+
+  const handleDiscardDraft = () => {
+    localStorage.removeItem(DRAFT_KEY)
+    setPendingDraft(null)
+    handleNewApp()
+  }
+
   const handleNewApp = () => {
+    localStorage.removeItem(DRAFT_KEY)
     setVacancyText('')
     setAtsReport(null)
     setCoverLetterA('')
@@ -414,15 +497,31 @@ export function Vacantes() {
 
             {(atsReport && !analyzing) || (currentApp && (cvContent || cvStyle)) ? (
               <>
-                {/* Company / Position read-only info */}
+                {/* Company / Position editable info */}
                 <div className="flex gap-4 p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                   <div className="flex-1">
                     <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('vacantes.company')}</label>
-                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{currentApp?.company || '—'}</p>
+                    <input
+                      type="text"
+                      value={editCompany}
+                      onChange={(e) => {
+                        setEditCompany(e.target.value)
+                        handleUpdateApp({ company: e.target.value })
+                      }}
+                      className="w-full px-2.5 py-1.5 text-sm rounded-lg border bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                    />
                   </div>
                   <div className="flex-1">
                     <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('vacantes.position')}</label>
-                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{currentApp?.position || '—'}</p>
+                    <input
+                      type="text"
+                      value={editPosition}
+                      onChange={(e) => {
+                        setEditPosition(e.target.value)
+                        handleUpdateApp({ position: e.target.value })
+                      }}
+                      className="w-full px-2.5 py-1.5 text-sm rounded-lg border bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                    />
                   </div>
                 </div>
 
@@ -455,6 +554,21 @@ export function Vacantes() {
                   />
                 </div>
 
+                {currentApp && currentApp.status === 'draft' && (cvContent || cvStyle) && (
+                  <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                    <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{t('vacantes.appliedQuestion')}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t('vacantes.appliedHint')}</p>
+                      </div>
+                      <Button variant="primary" size="sm" onClick={handleConfirmApplied} disabled={confirmingApplied}>
+                        {confirmingApplied ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                        {t('vacantes.confirmApplied')}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 {atsReport && (
                   <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
                     <InterviewPrep
@@ -485,6 +599,17 @@ export function Vacantes() {
           <DocumentLibrary onSelect={handleSelectApp} />
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!pendingDraft}
+        title={t('vacantes.resumeDraftTitle')}
+        message={t('vacantes.resumeDraftMessage', { company: pendingDraft?.company || '', position: pendingDraft?.position || '' })}
+        confirmLabel={t('vacantes.resumeDraftContinue')}
+        cancelLabel={t('vacantes.resumeDraftNew')}
+        variant="default"
+        onConfirm={handleContinueDraft}
+        onCancel={handleDiscardDraft}
+      />
     </div>
   )
 }
