@@ -79,17 +79,18 @@ function AppContent() {
   return (
     <MainLayout>
         {/* Mantener todos los views montados (ocultos via CSS) para no perder estado en vuelo
-            como analisis de vacantes o generacion de CV al cambiar de pestana */}
-        <div className={currentView === 'chat' ? '' : 'hidden'}>
+            como analisis de vacantes o generacion de CV al cambiar de pestana.
+            Los wrappers mantienen la cadena flex-1 para que el scroll interno funcione. */}
+        <div className={`flex-1 flex flex-col min-h-0 ${currentView === 'chat' ? '' : 'hidden'}`}>
           <ChatView />
         </div>
-        <div className={currentView === 'analytics' ? '' : 'hidden'}>
+        <div className={`flex-1 flex flex-col min-h-0 ${currentView === 'analytics' ? '' : 'hidden'}`}>
           <Analytics />
         </div>
-        <div className={currentView === 'roadmap' ? '' : 'hidden'}>
+        <div className={`flex-1 flex flex-col min-h-0 ${currentView === 'roadmap' ? '' : 'hidden'}`}>
           <RoadmapView />
         </div>
-        <div className={currentView === 'jobs' ? '' : 'hidden'}>
+        <div className={`flex-1 flex flex-col min-h-0 ${currentView === 'jobs' ? '' : 'hidden'}`}>
           <Vacantes />
         </div>
 
