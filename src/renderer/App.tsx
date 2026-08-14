@@ -78,7 +78,20 @@ function AppContent() {
 
   return (
     <MainLayout>
-        {currentView === 'chat' ? <ChatView /> : currentView === 'analytics' ? <Analytics /> : currentView === 'roadmap' ? <RoadmapView /> : <Vacantes />}
+        {/* Mantener todos los views montados (ocultos via CSS) para no perder estado en vuelo
+            como analisis de vacantes o generacion de CV al cambiar de pestana */}
+        <div className={currentView === 'chat' ? '' : 'hidden'}>
+          <ChatView />
+        </div>
+        <div className={currentView === 'analytics' ? '' : 'hidden'}>
+          <Analytics />
+        </div>
+        <div className={currentView === 'roadmap' ? '' : 'hidden'}>
+          <RoadmapView />
+        </div>
+        <div className={currentView === 'jobs' ? '' : 'hidden'}>
+          <Vacantes />
+        </div>
 
       {showWizard && (
         <ProfileWizard

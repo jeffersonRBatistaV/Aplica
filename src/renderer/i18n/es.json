@@ -23,8 +23,9 @@
   "sidebar": {
     "title": "Aplica",
     "chat": "Chat",
-    "jobs": "Jobs",
-    "stats": "Stats",
+    "jobs": "Vacantes",
+    "stats": "Estadísticas",
+    "roadmap": "Roadmap",
     "conversations": "Conversaciones",
     "newChat": "Nuevo chat (Ctrl+N)",
     "searchConversations": "Buscar conversaciones...",

@@ -130,7 +130,7 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
             }`}
           >
             <Briefcase className="w-3.5 h-3.5" />
-            Jobs
+            {t('sidebar.jobs')}
           </button>
           <button
             id="nav-stats"
@@ -142,7 +142,7 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
             }`}
           >
             <BarChart3 className="w-3.5 h-3.5" />
-            Stats
+            {t('sidebar.stats')}
           </button>
           <button
             id="nav-roadmap"
@@ -154,7 +154,7 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
             }`}
           >
             <Map className="w-3.5 h-3.5" />
-            Roadmap
+            {t('sidebar.roadmap')}
           </button>
           <button
             id="nav-chat"
@@ -166,7 +166,7 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
             }`}
           >
             <MessageCircle className="w-3.5 h-3.5" />
-            Chat
+            {t('sidebar.chat')}
           </button>
         </div>
 
