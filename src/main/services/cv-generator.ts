@@ -271,7 +271,7 @@ Devuelve SOLO un JSON array valido con esta estructura exacta, sin markdown ni d
   const response = await completeChatCompletion(config, [
     { role: 'system', content: systemPrompt },
     { role: 'user', content: userMessage },
-  ])
+  ], undefined, 'summary_options')
 
   try {
     const parsed = JSON.parse(response.trim())
@@ -387,9 +387,9 @@ ${profileJson}
 \`\`\``
 
   const response = await completeChatCompletion(config, [
-    { role: 'system', content: prompt + LAYOUT_RULES },
+    { role: 'system', content: prompt },
     { role: 'user', content: userMessage },
-  ])
+  ], undefined, 'cv_sample')
 
   return response.trim()
 }

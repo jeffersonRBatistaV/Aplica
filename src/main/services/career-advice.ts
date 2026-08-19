@@ -74,7 +74,7 @@ Devuelve SOLO un JSON valido con esta estructura exacta, sin markdown ni delimit
     const response = await completeChatCompletion(config, [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userMessage },
-    ])
+    ], undefined, 'career_advice')
     const parsed: CareerAdvice = JSON.parse(response.trim())
     if (!parsed.diagnostico || !parsed.areaMejora || !parsed.planAccion) {
       throw new Error('Missing fields')

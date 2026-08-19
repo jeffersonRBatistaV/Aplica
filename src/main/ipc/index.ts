@@ -247,6 +247,7 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
         systemPrompt: params.systemPrompt || settings?.systemPrompt,
         profile: params.profile,
         excludeFromTraining: settings?.privacy?.excludeFromTraining || false,
+        action: 'chat',
       },
     )
   })

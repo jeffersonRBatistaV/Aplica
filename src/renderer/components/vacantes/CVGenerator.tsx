@@ -3,6 +3,7 @@ import { FileText, Copy, Check, Download, Sparkles, BarChart3, ScrollText, Loade
 import { useTranslation } from 'react-i18next'
 import { useNotification } from '../../contexts/NotificationContext'
 import { Button } from '../ui/Button'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import type { ATSReport, CvTemplate } from '../../../shared/types'
 
 interface SummaryOption {
@@ -76,6 +77,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
   const [summaryOptions, setSummaryOptions] = useState<SummaryOption[] | null>(null)
   const [loadingSummaries, setLoadingSummaries] = useState(false)
   const autoSelectedRef = useRef<string | null>(null)
+  const [pendingRegenerate, setPendingRegenerate] = useState<string | null>(null)
 
   useEffect(() => {
     window.api?.getCvTemplates().then(setCustomTemplates)
@@ -87,7 +89,11 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
   useEffect(() => {
     if (!currentStyle) return
     if (autoSelectedRef.current === currentStyle) return
-    if (step === 'generated' && currentContent) return
+    if (currentContent) {
+      if (step !== 'generated') setStep('generated')
+      autoSelectedRef.current = currentStyle
+      return
+    }
     if (generating || loadingSummaries) return
     autoSelectedRef.current = currentStyle
     if (step !== 'style') setStep('style')
@@ -499,7 +505,13 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
               return (
                 <button
                   key={s.id}
-                  onClick={() => handleRegenerate(s.id)}
+                  onClick={() => {
+                    if (content) {
+                      setPendingRegenerate(s.id)
+                    } else {
+                      handleRegenerate(s.id)
+                    }
+                  }}
                   disabled={generating}
                   className={`px-2.5 py-1 text-xs rounded-lg border transition-all ${
                     isSelected ? `${cc.border} ${cc.bg} ${cc.text}` : 'border-gray-200 dark:border-gray-700 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800'
@@ -515,7 +527,13 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
               return (
                 <button
                   key={t.id}
-                  onClick={() => handleRegenerate(styleId)}
+                  onClick={() => {
+                    if (content) {
+                      setPendingRegenerate(styleId)
+                    } else {
+                      handleRegenerate(styleId)
+                    }
+                  }}
                   disabled={generating}
                   className={`px-2.5 py-1 text-xs rounded-lg border transition-all ${
                     isSelected
@@ -650,6 +668,22 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
           )}
         </>
       )}
+
+      <ConfirmDialog
+        open={pendingRegenerate !== null}
+        title={t('cvGenerator.regenerateTitle')}
+        message={t('cvGenerator.regenerateMessage')}
+        confirmLabel={t('cvGenerator.regenerateConfirm')}
+        cancelLabel={t('cvGenerator.regenerateCancel')}
+        variant="default"
+        onConfirm={() => {
+          if (pendingRegenerate) {
+            handleRegenerate(pendingRegenerate)
+            setPendingRegenerate(null)
+          }
+        }}
+        onCancel={() => setPendingRegenerate(null)}
+      />
     </div>
   )
 }

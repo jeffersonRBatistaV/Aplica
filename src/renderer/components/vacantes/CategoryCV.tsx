@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Sparkles, Plus, Trash2, FileText, ArrowLeft, Loader2, AlertCircle, Check, Briefcase, ChevronDown } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '../ui/Button'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { CVGenerator } from './CVGenerator'
 import { areas } from '../../data/questions'
 import { buildCategoryText } from '../../../shared/categories'
@@ -36,6 +37,7 @@ export function CategoryCV() {
   const [cvStyle, setCvStyle] = useState<string | null>(null)
   const [cvContent, setCvContent] = useState('')
   const [savedByCategory, setSavedByCategory] = useState<Record<string, JobApplication[]>>({})
+  const [pendingDeleteCategory, setPendingDeleteCategory] = useState<JobCategory | null>(null)
 
   const reloadSaved = useCallback(async () => {
     if (!window.api) return
@@ -150,12 +152,21 @@ export function CategoryCV() {
   const handleDeleteCategory = async (id: string) => {
     if (!window.api) return
     const cat = categories.find((c) => c.id === id)
-    if (cat && !window.confirm(t('categoryCV.deleteCategory') + ` — ${cat.name}?`)) return
+    if (cat) {
+      setPendingDeleteCategory(cat)
+      return
+    }
+  }
+
+  const confirmDeleteCategory = async () => {
+    if (!pendingDeleteCategory || !window.api) return
     try {
-      await window.api.deleteCategory(id)
+      await window.api.deleteCategory(pendingDeleteCategory.id)
       await reloadCategories(areaId)
     } catch (err) {
       setError(err instanceof Error ? err.message : t('categoryCV.error', { msg: String(err) }))
+    } finally {
+      setPendingDeleteCategory(null)
     }
   }
 
@@ -512,6 +523,17 @@ export function CategoryCV() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={pendingDeleteCategory !== null}
+        title={t('categoryCV.deleteCategoryTitle')}
+        message={t('categoryCV.deleteCategoryConfirm', { name: pendingDeleteCategory?.name || '' })}
+        confirmLabel={t('categoryCV.deleteCategoryConfirmButton')}
+        cancelLabel={t('categoryCV.deleteCategoryCancel')}
+        variant="danger"
+        onConfirm={confirmDeleteCategory}
+        onCancel={() => setPendingDeleteCategory(null)}
+      />
     </div>
   )
 }

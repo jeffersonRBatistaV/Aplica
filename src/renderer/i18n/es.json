@@ -107,6 +107,13 @@
     "resumeDraftNew": "Crear nueva"
   },
 
+  "library": {
+    "reopenEditorTitle": "Reabrir en editor",
+    "reopenEditorMessage": "Se abrirá la vacante en el editor principal. Tu CV actual se preservará. Si deseas generar un nuevo CV, podrás hacerlo desde el editor.",
+    "reopenEditorConfirm": "Reabrir",
+    "reopenEditorCancel": "Cancelar"
+  },
+
   "categoryCV": {
     "tab": "Por Categoría",
     "title": "CV por Categoría",
@@ -136,7 +143,11 @@
     "back": "Volver",
     "generatedCVTitle": "CV para {{category}}",
     "noProfile": "No hay perfil configurado. Completa tu perfil primero.",
-    "error": "Error: {{msg}}"
+    "error": "Error: {{msg}}",
+    "deleteCategoryTitle": "Eliminar categoría",
+    "deleteCategoryConfirm": "¿Estás seguro de eliminar la categoría {{name}}? Esta acción no se puede deshacer.",
+    "deleteCategoryConfirmButton": "Eliminar",
+    "deleteCategoryCancel": "Cancelar"
   },
 
   "atsReport": {
@@ -209,7 +220,11 @@
     "errorSavingTemplate": "Error al guardar plantilla",
     "errorDeletingTemplate": "Error al eliminar plantilla",
     "instructionSaved": "Instrucción guardada en la plantilla:",
-    "templateHasInstructions": "Esta plantilla tiene instrucciones guardadas que se aplican al CV"
+    "templateHasInstructions": "Esta plantilla tiene instrucciones guardadas que se aplican al CV",
+    "regenerateTitle": "Regenerar CV",
+    "regenerateMessage": "Se generará un nuevo CV con el estilo seleccionado. El CV actual será reemplazado.",
+    "regenerateConfirm": "Regenerar",
+    "regenerateCancel": "Cancelar"
   },
 
   "interviewPrep": {
@@ -354,7 +369,36 @@
     "inCurrency": "En {{currency}}",
     "noConsumption": "No hay consumo registrado aún.",
     "reset": "Restablecer",
-    "resetConfirm": "¿Restablecer todas las estadísticas de consumo?"
+    "resetConfirm": "¿Restablecer todas las estadísticas de consumo?",
+    "resetTitle": "Restablecer estadísticas",
+    "resetConfirmButton": "Restablecer",
+    "resetCancel": "Cancelar",
+    "summary": "Resumen",
+    "history": "Historial",
+    "historyEmpty": "No hay registros de consumo aún.",
+    "filterByAction": "Filtrar por acción",
+    "allActions": "Todas las acciones",
+    "tokensIn": "Entrada",
+    "tokensOut": "Salida",
+    "relativeTime": "{{time}}",
+    "action_chat": "Chat",
+    "action_ats_analysis": "Análisis ATS",
+    "action_cover_letters": "Cartas de presentación",
+    "action_correct_text": "Corrección de texto",
+    "action_interview_questions": "Preguntas de entrevista",
+    "action_cv_generate": "Generar CV",
+    "action_cv_regenerate": "Regenerar CV",
+    "action_summary_options": "Opciones de resumen",
+    "action_cv_sample": "CV de ejemplo",
+    "action_career_advice": "Consejos de carrera",
+    "action_roadmap": "Roadmap profesional",
+    "action_categories": "Categorías",
+    "action_unknown": "Otra acción",
+    "timeJustNow": "ahora mismo",
+    "timeMinutesAgo": "hace {{count}} min",
+    "timeHoursAgo": "hace {{count}}h",
+    "timeDaysAgo": "hace {{count}}d",
+    "records": "registros"
   },
 
   "apiSetupModal": {

@@ -57,6 +57,10 @@ const BOILERPLATE = [
   "compartir", "guardar vacante", "denunciar", "empresa verificada", "vacante verificada",
   "postulacion", "postulación", "inscripcion", "inscripción", "registrate", "regístrate",
   "inicia sesion", "inicia sesión", "no especificado", "a convenir", "n/a", "sin especificar",
+  "empresa del sector", "company in the", "laboral", "remoto", "hibrido", "híbrido",
+  "presencial", "full time", "medio tiempo", "part time", "freelance", "contract",
+  "indefinido", "temporal", "practicas", "prácticas", "pasantía", "internship",
+  "urgente", "urgent", "immediat", "inmediato", "disponibilidad",
 ]
 
 function isBoilerplate(text: string): boolean {
@@ -66,11 +70,17 @@ function isBoilerplate(text: string): boolean {
 
 function looksLikeCompany(text: string): boolean {
   const t = text.trim()
-  if (!t || t.length > 60) return false
+  if (!t || t.length < 3 || t.length > 50) return false
   if (/^(http|www\.)/i.test(t)) return false
   if (/[:|]/.test(t)) return false
-  if (t.split(/\s+/).length > 5) return false
+  if (t.split(/\s+/).length > 4) return false
   if (isBoilerplate(t)) return false
+  if (/^(somos|we are|our|nuestro|la empresa|the company)/i.test(t)) return false
+  if (/^(buscamos|se Busca|we seek|we need|necesitamos|queremos)/i.test(t)) return false
+  if (/^(ofrecemos|we offer|brindamos|benefits?|beneficios?)/i.test(t)) return false
+  if (/^(requisitos?|requirements?|qualifications?|skills?|habilidades)/i.test(t)) return false
+  if (/^(responsabilidades?|duties|tareas|functions?|funciones)/i.test(t)) return false
+  if (/^(experiencia|experience|educacion|education|formacion)/i.test(t)) return false
   return true
 }
 
@@ -111,10 +121,18 @@ function extractJobInfo(text: string): { company: string; position: string } {
 }
 
 function pickPositionLine(text: string): string {
-  const line = text.split('\n').map(l => l.trim()).find(l =>
-    l.length > 10 && l.length <= 80 && !/[:|]/.test(l) && !/^(http|www\.)/i.test(l) && !isBoilerplate(l),
-  )
-  return line ? line.substring(0, 60) : ''
+  const line = text.split('\n').map(l => l.trim()).find(l => {
+    if (l.length < 10 || l.length > 60) return false
+    if (/[:|]/.test(l)) return false
+    if (/^(http|www\.)/i.test(l)) return false
+    if (isBoilerplate(l)) return false
+    if (/^(buscamos|se Busca|we seek|we need|necesitamos|queremos)/i.test(l)) return false
+    if (/^(ofrecemos|we offer|brindamos)/i.test(l)) return false
+    if (/^(requisitos?|requirements?|qualifications?)/i.test(l)) return false
+    if (/^(responsabilidades?|duties|tareas)/i.test(l)) return false
+    return true
+  })
+  return line ? line.substring(0, 50) : ''
 }
 
 type Tab = 'new' | 'category' | 'library' | 'board' | 'templates'

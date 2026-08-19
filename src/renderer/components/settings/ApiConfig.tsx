@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Eye, EyeOff, RefreshCw, Check, AlertCircle, Trash2, DollarSign, Coins } from 'lucide-react'
+import { Eye, EyeOff, RefreshCw, Check, AlertCircle, Trash2, DollarSign, Coins, BarChart3, History, Clock, Filter } from 'lucide-react'
 import type { ModelInfo } from '../../types/ipc'
 import type { UsageStats } from '../../../shared/types'
 import { useTranslation } from 'react-i18next'
 import { useSettings } from '../../contexts/SettingsContext'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 
 const CURRENCIES = ['USD', 'EUR', 'DOP', 'MXN', 'COP', 'ARS', 'CLP', 'BRL', 'GBP', 'PEN'] as const
 
@@ -22,6 +23,7 @@ export function ApiConfig({ baseUrl, apiKey, model, onChange }: ApiConfigProps) 
   const [models, setModels] = useState<ModelInfo[]>([])
   const [loadingModels, setLoadingModels] = useState(false)
   const [modelError, setModelError] = useState<string | null>(null)
+  const [confirmReset, setConfirmReset] = useState(false)
   const prevUrlRef = useRef(baseUrl)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>()
   const mountedRef = useRef(false)
@@ -218,6 +220,9 @@ function ConsumptionSection() {
   const [usage, setUsage] = useState<UsageStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [exchangeRate, setExchangeRate] = useState<number | null>(null)
+  const [activeTab, setActiveTab] = useState<'summary' | 'history'>('summary')
+  const [filterAction, setFilterAction] = useState<string>('all')
+  const [confirmReset, setConfirmReset] = useState(false)
   const currency = settings.preferredCurrency || 'USD'
 
   const loadUsage = useCallback(async () => {
@@ -248,11 +253,42 @@ function ConsumptionSection() {
   }
 
   const handleReset = async () => {
-    if (!window.confirm(t('apiConfig.resetConfirm'))) return
+    setConfirmReset(true)
+  }
+
+  const confirmResetAction = async () => {
+    setConfirmReset(false)
     try {
       await window.api.resetUsage()
       setUsage({ totalPromptTokens: 0, totalCompletionTokens: 0, totalCost: 0, records: [] })
     } catch { /* */ }
+  }
+
+  const fmt = (n: number) => n.toLocaleString(i18n.language?.startsWith('es') ? 'es' : 'en')
+  const totalTokens = (usage?.totalPromptTokens ?? 0) + (usage?.totalCompletionTokens ?? 0)
+
+  const symbolMap: Record<string, string> = {
+    USD: '$', EUR: '€', GBP: '£', DOP: 'RD$', MXN: 'MX$', COP: 'COL$',
+    ARS: 'ARS$', CLP: 'CLP$', BRL: 'R$', PEN: 'S/',
+  }
+
+  const uniqueActions = usage ? [...new Set(usage.records.map(r => r.action))].sort() : []
+
+  const filteredRecords = usage?.records.filter(r => 
+    filterAction === 'all' || r.action === filterAction
+  ).slice().reverse() || []
+
+  const formatRelativeTime = (timestamp: number): string => {
+    const diff = Date.now() - timestamp
+    const minutes = Math.floor(diff / 60000)
+    const hours = Math.floor(diff / 3600000)
+    const days = Math.floor(diff / 86400000)
+    
+    if (minutes < 1) return t('apiConfig.timeJustNow')
+    if (minutes < 60) return t('apiConfig.timeMinutesAgo', { count: minutes })
+    if (hours < 24) return t('apiConfig.timeHoursAgo', { count: hours })
+    if (days < 7) return t('apiConfig.timeDaysAgo', { count: days })
+    return new Date(timestamp).toLocaleDateString(i18n.language?.startsWith('es') ? 'es' : 'en')
   }
 
   if (loading) {
@@ -264,81 +300,177 @@ function ConsumptionSection() {
     )
   }
 
-  const fmt = (n: number) => n.toLocaleString(i18n.language?.startsWith('es') ? 'es' : 'en')
-  const totalTokens = (usage?.totalPromptTokens ?? 0) + (usage?.totalCompletionTokens ?? 0)
-
-  const symbolMap: Record<string, string> = {
-    USD: '$', EUR: '€', GBP: '£', DOP: 'RD$', MXN: 'MX$', COP: 'COL$',
-    ARS: 'ARS$', CLP: 'CLP$', BRL: 'R$', PEN: 'S/',
-  }
-
   return (
-    <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-      <div className="flex items-center justify-between mb-3">
-        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('apiConfig.consumption')}</h4>
-        <div className="flex items-center gap-2">
-          {(usage?.records?.length ?? 0) > 0 && (
-            <button onClick={handleReset} className="text-xs text-red-500 hover:text-red-600 flex items-center gap-1">
-              <Trash2 className="w-3 h-3" />
-              {t('apiConfig.reset')}
-            </button>
-          )}
+    <>
+      <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('apiConfig.consumption')}</h4>
+          <div className="flex items-center gap-2">
+            {(usage?.records?.length ?? 0) > 0 && (
+              <button onClick={handleReset} className="text-xs text-red-500 hover:text-red-600 flex items-center gap-1">
+                <Trash2 className="w-3 h-3" />
+                {t('apiConfig.reset')}
+              </button>
+            )}
+          </div>
         </div>
+
+        <div className="flex gap-1 mb-4 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
+          <button
+            onClick={() => setActiveTab('summary')}
+            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+              activeTab === 'summary'
+                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            <BarChart3 className="w-3.5 h-3.5" />
+            {t('apiConfig.summary')}
+          </button>
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+              activeTab === 'history'
+                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            <History className="w-3.5 h-3.5" />
+            {t('apiConfig.history')}
+          </button>
+        </div>
+
+        {activeTab === 'summary' ? (
+          !usage || usage.records.length === 0 ? (
+            <p className="text-xs text-gray-400">{t('apiConfig.noConsumption')}</p>
+          ) : (
+            <div className="space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-500 dark:text-gray-400">{t('apiConfig.inputTokens')}</span>
+                <span className="font-mono text-gray-800 dark:text-gray-200">{fmt(usage.totalPromptTokens)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-500 dark:text-gray-400">{t('apiConfig.outputTokens')}</span>
+                <span className="font-mono text-gray-800 dark:text-gray-200">{fmt(usage.totalCompletionTokens)}</span>
+              </div>
+              <div className="flex items-center justify-between border-t border-gray-100 dark:border-gray-800 pt-2">
+                <span className="font-medium text-gray-600 dark:text-gray-300">{t('common.total')}</span>
+                <span className="font-mono font-medium text-gray-800 dark:text-gray-200">{fmt(totalTokens)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                  <DollarSign className="w-3 h-3" />
+                  {t('apiConfig.estimatedCost')}
+                </span>
+                <span className="font-mono text-gray-800 dark:text-gray-200">
+                  ${usage.totalCost.toFixed(4)} USD
+                </span>
+              </div>
+              {currency !== 'USD' && exchangeRate !== null && (
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                    <DollarSign className="w-3 h-3" />
+                    {t('apiConfig.inCurrency', { currency: t(`currencies.${currency}`) })}
+                  </span>
+                  <span className="font-mono text-gray-800 dark:text-gray-200">
+                    {symbolMap[currency] || currency} {(usage.totalCost * exchangeRate).toFixed(2)}
+                  </span>
+                </div>
+              )}
+              <div className="flex items-center justify-between pt-1 border-t border-gray-100 dark:border-gray-800">
+                <span className="flex items-center gap-1 text-gray-400">
+                  <Coins className="w-3 h-3" />
+                  {t('apiConfig.currency')}
+                </span>
+                <select
+                  value={currency}
+                  onChange={handleCurrencyChange}
+                  className="text-xs font-mono bg-transparent border border-gray-300 dark:border-gray-600 rounded px-2 py-0.5 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  {CURRENCIES.map((c) => (
+                    <option key={c} value={c}>{c} — {t(`currencies.${c}`)}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )
+        ) : (
+          <div className="space-y-3">
+            {uniqueActions.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Filter className="w-3.5 h-3.5 text-gray-400" />
+                <select
+                  value={filterAction}
+                  onChange={(e) => setFilterAction(e.target.value)}
+                  className="text-xs font-mono bg-transparent border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="all">{t('apiConfig.allActions')}</option>
+                  {uniqueActions.map(action => (
+                    <option key={action} value={action}>{t(`apiConfig.action_${action}`, action)}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {!usage || usage.records.length === 0 ? (
+              <p className="text-xs text-gray-400 py-4 text-center">{t('apiConfig.historyEmpty')}</p>
+            ) : (
+              <div className="space-y-2 max-h-80 overflow-y-auto scrollbar-thin">
+                {filteredRecords.map((record, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between p-2.5 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700/50"
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0">
+                        <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+                          {t(`apiConfig.action_${record.action}`, record.action).charAt(0)}
+                        </span>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">
+                          {t(`apiConfig.action_${record.action}`, record.action)}
+                        </p>
+                        <p className="text-[10px] text-gray-400 dark:text-gray-500 truncate">
+                          {record.model} · {formatRelativeTime(record.timestamp)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0 ml-3">
+                      <p className="text-xs font-mono text-gray-700 dark:text-gray-300">
+                        {fmt(record.promptTokens + record.completionTokens)}
+                        <span className="text-gray-400 dark:text-gray-500 ml-1 text-[10px]">tokens</span>
+                      </p>
+                      {record.estimatedCost > 0 && (
+                        <p className="text-[10px] font-mono text-gray-400 dark:text-gray-500">
+                          ${record.estimatedCost.toFixed(6)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {usage && usage.records.length > 0 && (
+              <div className="pt-2 border-t border-gray-100 dark:border-gray-800 text-[10px] text-gray-400 text-center">
+                {filteredRecords.length} / {usage.records.length} {t('apiConfig.records')}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {!usage || usage.records.length === 0 ? (
-        <p className="text-xs text-gray-400">{t('apiConfig.noConsumption')}</p>
-      ) : (
-        <div className="space-y-2 text-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-gray-500 dark:text-gray-400">{t('apiConfig.inputTokens')}</span>
-            <span className="font-mono text-gray-800 dark:text-gray-200">{fmt(usage.totalPromptTokens)}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-gray-500 dark:text-gray-400">{t('apiConfig.outputTokens')}</span>
-            <span className="font-mono text-gray-800 dark:text-gray-200">{fmt(usage.totalCompletionTokens)}</span>
-          </div>
-          <div className="flex items-center justify-between border-t border-gray-100 dark:border-gray-800 pt-2">
-            <span className="font-medium text-gray-600 dark:text-gray-300">{t('common.total')}</span>
-            <span className="font-mono font-medium text-gray-800 dark:text-gray-200">{fmt(totalTokens)}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
-              <DollarSign className="w-3 h-3" />
-              {t('apiConfig.estimatedCost')}
-            </span>
-            <span className="font-mono text-gray-800 dark:text-gray-200">
-              ${usage.totalCost.toFixed(4)} USD
-            </span>
-          </div>
-          {currency !== 'USD' && exchangeRate !== null && (
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
-                <DollarSign className="w-3 h-3" />
-                {t('apiConfig.inCurrency', { currency: t(`currencies.${currency}`) })}
-              </span>
-              <span className="font-mono text-gray-800 dark:text-gray-200">
-                {symbolMap[currency] || currency} {(usage.totalCost * exchangeRate).toFixed(2)}
-              </span>
-            </div>
-          )}
-          <div className="flex items-center justify-between pt-1 border-t border-gray-100 dark:border-gray-800">
-            <span className="flex items-center gap-1 text-gray-400">
-              <Coins className="w-3 h-3" />
-              {t('apiConfig.currency')}
-            </span>
-            <select
-              value={currency}
-              onChange={handleCurrencyChange}
-              className="text-xs font-mono bg-transparent border border-gray-300 dark:border-gray-600 rounded px-2 py-0.5 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
-              {CURRENCIES.map((c) => (
-                <option key={c} value={c}>{c} — {t(`currencies.${c}`)}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-      )}
-    </div>
+      <ConfirmDialog
+        open={confirmReset}
+        title={t('apiConfig.resetTitle')}
+        message={t('apiConfig.resetConfirm')}
+        confirmLabel={t('apiConfig.resetConfirmButton')}
+        cancelLabel={t('apiConfig.resetCancel')}
+        variant="danger"
+        onConfirm={confirmResetAction}
+        onCancel={() => setConfirmReset(false)}
+      />
+    </>
   )
 }

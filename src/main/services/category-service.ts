@@ -182,7 +182,7 @@ export async function generateCategories(areaId: string): Promise<JobCategory[]>
     const response = await completeChatCompletion(config, [
       { role: 'system', content: GENERATE_CATEGORIES_PROMPT },
       { role: 'user', content: userMessage },
-    ])
+    ], undefined, 'categories')
     const clean = response.replace(/```(?:json)?\n?/gi, '').trim()
     const jsonMatch = clean.match(/\[[\s\S]*\]/)
     if (!jsonMatch) return fallbackFor(areaId)
