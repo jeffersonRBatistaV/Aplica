@@ -31,13 +31,17 @@ Debes responder ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sig
   "gaps": ["brechas o áreas de mejora, con sugerencias constructivas"],
   "quickFixes": ["acciones rápidas que el candidato puede tomar para mejorar su aplicación, incluyendo formas de reformular experiencia existente"],
   "analysis": "análisis detallado en markdown del match, destacando cómo el perfil del candidato PUEDE ser relevante para la vacante incluso si no es un match perfecto. Incluye recomendaciones específicas para reformular la experiencia.",
-  "company": "nombre real de la empresa que publica la vacante, o cadena vacía si no aparece",
-  "position": "título real del puesto ofertado, o cadena vacía si no aparece"
+  "company": "nombre real y específico de la empresa que publica la vacante, o cadena vacía si no aparece explícitamente",
+  "position": "título real y específico del puesto ofertado, o cadena vacía si no aparece explícitamente"
 }
 REGLAS CRÍTICAS para company y position:
-- Extrae SOLO datos reales presentes en el texto de la vacante.
-- Si la empresa o el puesto no aparecen claramente, usa cadena vacía ("").
-- NUNCA uses frases genéricas, placeholders ni encabezados de bolsa de empleo como "Estamos contratando", "We are hiring", "Se busca", "No especificado", "A convenir", "N/A", "Buscamos", etc.${LANGUAGE_INSTRUCTION}`
+- Extrae SOLO datos reales y específicos presentes en el texto de la vacante.
+- La empresa debe ser un nombre propio real (ej: "Google", "Mercado Libre", "Banco Santander"), NO una frase descriptiva.
+- El puesto debe ser un título de cargo real (ej: "Desarrollador Frontend Senior", "Gerente de Marketing"), NO una oración completa.
+- Si la empresa o el puesto no aparecen claramente como nombre propio o título de cargo, usa cadena vacía ("").
+- NUNCA uses: la primera oración del texto como empresa, frases genéricas como "Estamos contratando", "Se busca profesional", "Empresa del sector tecnológico", placeholders ni encabezados de bolsa de empleo.
+- NUNCA extraigas texto descriptivo o narrativo como nombre de empresa o puesto.
+- Si el texto dice "Buscamos desarrollador para equipo de innovación en Google", la empresa es "Google" y el puesto es "Desarrollador". NO uses "Buscamos desarrollador para equipo de innovación" como puesto.${LANGUAGE_INSTRUCTION}`
 
 const COVER_LETTER_SYSTEM_PROMPT = `Eres un Redactor Profesional de Cartas de Presentación especializado en persuasión para reclutadores. Tu objetivo es posicionar al candidato como la mejor opcion para la vacante, incluso si su perfil no es un match perfecto.
 
@@ -80,7 +84,7 @@ export async function analyzeVacancy(
   const response = await completeChatCompletion(config, [
     { role: 'system', content: ATS_SYSTEM_PROMPT },
     { role: 'user', content: userMessage },
-  ])
+  ], undefined, 'ats_analysis')
 
   // Try to parse JSON from response
   const jsonMatch = response.match(/\{[\s\S]*\}/)
@@ -137,7 +141,7 @@ export async function generateCoverLetters(
   const response = await completeChatCompletion(config, [
     { role: 'system', content: COVER_LETTER_SYSTEM_PROMPT },
     { role: 'user', content: userMessage },
-  ])
+  ], undefined, 'cover_letters')
 
   // Strip markdown code fences
   let clean = response.replace(/```(?:json)?\n?/gi, '').trim()
@@ -229,7 +233,7 @@ export async function correctVacancyText(raw: string): Promise<string> {
   const response = await completeChatCompletion(config, [
     { role: 'system', content: CORRECT_VACANCY_PROMPT },
     { role: 'user', content: raw },
-  ])
+  ], undefined, 'correct_text')
 
   return response.trim()
 }
@@ -276,7 +280,7 @@ export async function generateInterviewQuestions(
   const response = await completeChatCompletion(config, [
     { role: 'system', content: INTERVIEW_QUESTIONS_PROMPT },
     { role: 'user', content: userMessage },
-  ])
+  ], undefined, 'interview_questions')
 
   let clean = response.replace(/```(?:json)?\n?/gi, '').trim()
 

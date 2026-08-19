@@ -81,7 +81,7 @@ export async function streamChatCompletion(
   config: LLMConfig,
   messages: Message[],
   callbacks: StreamCallbacks,
-  options?: { systemPrompt?: string; profile?: Profile | null; excludeFromTraining?: boolean },
+  options?: { systemPrompt?: string; profile?: Profile | null; excludeFromTraining?: boolean; action?: string },
 ): Promise<void> {
   currentAbort?.abort()
   currentAbort = new AbortController()
@@ -142,6 +142,7 @@ export async function streamChatCompletion(
       const promptTokens = usageData?.prompt_tokens ?? estimateTokens(systemMessage.content + messages.map(m => m.content).join(' '))
       const completionTokens = usageData?.completion_tokens ?? estimateTokens(fullOutput)
       await addUsage({
+        action: options?.action || 'chat',
         promptTokens,
         completionTokens,
         model: config.model,
@@ -163,6 +164,7 @@ export async function completeChatCompletion(
   config: LLMConfig,
   messages: { role: string; content: string }[],
   signal?: AbortSignal,
+  action?: string,
 ): Promise<string> {
   const systemMsg = messages.find(m => m.role === 'system')
   const otherMessages = messages.filter(m => m.role !== 'system')
@@ -208,6 +210,7 @@ export async function completeChatCompletion(
     const promptTokens = usageData?.prompt_tokens ?? estimateTokens(messages.map(m => m.content).join(' '))
     const completionTokens = usageData?.completion_tokens ?? estimateTokens(result)
     await addUsage({
+      action: action || 'unknown',
       promptTokens,
       completionTokens,
       model: config.model,

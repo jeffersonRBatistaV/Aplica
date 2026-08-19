@@ -101,7 +101,7 @@ ${profile.projects?.map(p => `- ${p.name}: ${p.description}`).join('\n') || 'Nin
     const response = await completeChatCompletion(config, [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userMessage },
-    ])
+    ], undefined, 'roadmap')
     const parsed = JSON.parse(response.trim())
     if (!parsed.phases || !Array.isArray(parsed.phases) || parsed.phases.length === 0) {
       throw new Error('Invalid roadmap structure')

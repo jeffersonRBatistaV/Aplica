@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { useTranslation } from 'react-i18next'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { formatTime } from '../../lib/time'
@@ -64,6 +65,7 @@ p,li{orphans:3;widows:3;overflow-wrap:break-word;word-wrap:break-word}
 }
 
 export function DocumentLibrary({ onSelect }: DocumentLibraryProps) {
+  const { t } = useTranslation()
   const { notify } = useNotification()
   const [applications, setApplications] = useState<JobApplication[]>([])
   const [search, setSearch] = useState('')
@@ -76,6 +78,7 @@ export function DocumentLibrary({ onSelect }: DocumentLibraryProps) {
   const [editingPosition, setEditingPosition] = useState<string | null>(null)
   const [editingPositionValue, setEditingPositionValue] = useState('')
   const [confirmDeleteJob, setConfirmDeleteJob] = useState<string | null>(null)
+  const [confirmReopen, setConfirmReopen] = useState<JobApplication | null>(null)
 
   const load = async () => {
     if (!window.api) return
@@ -464,7 +467,7 @@ export function DocumentLibrary({ onSelect }: DocumentLibraryProps) {
               </div>
             </div>
             <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" onClick={() => onSelect(selected)} title="Reabrir en editor">
+              <Button variant="ghost" size="icon" onClick={() => setConfirmReopen(selected)} title="Reabrir en editor">
                 <Briefcase className="w-4 h-4" />
               </Button>
               <Button variant="ghost" size="icon" onClick={() => handleConfirmDelete(selected.id)} title="Eliminar">
@@ -548,6 +551,22 @@ export function DocumentLibrary({ onSelect }: DocumentLibraryProps) {
           }
         }}
         onCancel={() => setConfirmDeleteJob(null)}
+      />
+
+      <ConfirmDialog
+        open={confirmReopen !== null}
+        title={t('library.reopenEditorTitle')}
+        message={t('library.reopenEditorMessage')}
+        confirmLabel={t('library.reopenEditorConfirm')}
+        cancelLabel={t('library.reopenEditorCancel')}
+        variant="default"
+        onConfirm={() => {
+          if (confirmReopen) {
+            onSelect(confirmReopen)
+            setConfirmReopen(null)
+          }
+        }}
+        onCancel={() => setConfirmReopen(null)}
       />
     </>
   )

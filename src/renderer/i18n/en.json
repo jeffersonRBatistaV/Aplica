@@ -107,6 +107,13 @@
     "resumeDraftNew": "Create new"
   },
 
+  "library": {
+    "reopenEditorTitle": "Reopen in editor",
+    "reopenEditorMessage": "The vacancy will open in the main editor. Your current CV will be preserved. If you want to generate a new CV, you can do it from the editor.",
+    "reopenEditorConfirm": "Reopen",
+    "reopenEditorCancel": "Cancel"
+  },
+
   "categoryCV": {
     "tab": "By Category",
     "title": "CV by Category",
@@ -136,7 +143,11 @@
     "back": "Back",
     "generatedCVTitle": "CV for {{category}}",
     "noProfile": "No profile configured. Complete your profile first.",
-    "error": "Error: {{msg}}"
+    "error": "Error: {{msg}}",
+    "deleteCategoryTitle": "Delete category",
+    "deleteCategoryConfirm": "Are you sure you want to delete the category {{name}}? This action cannot be undone.",
+    "deleteCategoryConfirmButton": "Delete",
+    "deleteCategoryCancel": "Cancel"
   },
 
   "atsReport": {
@@ -209,7 +220,11 @@
     "errorSavingTemplate": "Error saving template",
     "errorDeletingTemplate": "Error deleting template",
     "instructionSaved": "Instruction saved to template:",
-    "templateHasInstructions": "This template has saved instructions applied to the CV"
+    "templateHasInstructions": "This template has saved instructions applied to the CV",
+    "regenerateTitle": "Regenerate CV",
+    "regenerateMessage": "A new CV will be generated with the selected style. The current CV will be replaced.",
+    "regenerateConfirm": "Regenerate",
+    "regenerateCancel": "Cancel"
   },
 
   "interviewPrep": {
@@ -354,7 +369,36 @@
     "inCurrency": "In {{currency}}",
     "noConsumption": "No consumption recorded yet.",
     "reset": "Reset",
-    "resetConfirm": "Reset all consumption statistics?"
+    "resetConfirm": "Reset all consumption statistics?",
+    "resetTitle": "Reset statistics",
+    "resetConfirmButton": "Reset",
+    "resetCancel": "Cancel",
+    "summary": "Summary",
+    "history": "History",
+    "historyEmpty": "No consumption records yet.",
+    "filterByAction": "Filter by action",
+    "allActions": "All actions",
+    "tokensIn": "Input",
+    "tokensOut": "Output",
+    "relativeTime": "{{time}}",
+    "action_chat": "Chat",
+    "action_ats_analysis": "ATS Analysis",
+    "action_cover_letters": "Cover Letters",
+    "action_correct_text": "Text Correction",
+    "action_interview_questions": "Interview Questions",
+    "action_cv_generate": "Generate CV",
+    "action_cv_regenerate": "Regenerate CV",
+    "action_summary_options": "Summary Options",
+    "action_cv_sample": "Sample CV",
+    "action_career_advice": "Career Advice",
+    "action_roadmap": "Professional Roadmap",
+    "action_categories": "Categories",
+    "action_unknown": "Other Action",
+    "timeJustNow": "just now",
+    "timeMinutesAgo": "{{count}} min ago",
+    "timeHoursAgo": "{{count}}h ago",
+    "timeDaysAgo": "{{count}}d ago",
+    "records": "records"
   },
 
   "apiSetupModal": {

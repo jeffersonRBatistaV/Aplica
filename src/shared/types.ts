@@ -46,6 +46,7 @@ export interface Project {
 }
 
 export interface UsageRecord {
+  action: string
   promptTokens: number
   completionTokens: number
   model: string
