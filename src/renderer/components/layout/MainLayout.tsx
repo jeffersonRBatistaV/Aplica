@@ -4,6 +4,7 @@ import { Sun, Moon, Monitor, MessageSquare, Languages } from 'lucide-react'
 import { useTheme } from '../../contexts/ThemeContext'
 import { useChat } from '../../contexts/ChatContext'
 import { useSettings } from '../../contexts/SettingsContext'
+import { useNavigation } from '../../contexts/NavigationContext'
 import { Button } from '../ui/Button'
 import { SettingsPanel } from '../settings/SettingsPanel'
 import { useTranslation } from 'react-i18next'
@@ -23,6 +24,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   const { mode, isDark, setMode } = useTheme()
   const { settings, updateSettings } = useSettings()
   const { activeConversation } = useChat()
+  const { currentView } = useNavigation()
   const [showSettings, setShowSettings] = useState(false)
   const [settingsTab, setSettingsTab] = useState<'api' | 'prompts' | 'privacy' | 'appearance' | 'profile'>('api')
 
@@ -48,7 +50,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       <div className="flex-1 flex flex-col min-w-0">
         <header className="h-14 border-b flex items-center justify-between px-6 flex-shrink-0 bg-white dark:bg-gray-950">
           <div className="flex items-center gap-3 min-w-0">
-            {activeConversation ? (
+            {currentView === 'chat' && activeConversation ? (
               <>
                 <MessageSquare className="w-4 h-4 text-gray-400 flex-shrink-0" />
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
