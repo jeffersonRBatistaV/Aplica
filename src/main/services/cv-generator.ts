@@ -7,6 +7,10 @@ const LANGUAGE_INSTRUCTION = '\n\nIMPORTANTE: Responde SIEMPRE en el MISMO IDIOM
 
 const LAYOUT_RULES = `
 
+REGLAS ANTI-ALUCINACION (OBLIGATORIAS, tienen PRIORIDAD ABSOLUTA):
+1. CERO ALUCINACIONES: Esta estrictamente prohibido inventar, inferir, adivinar o agregar cualquier dato, tecnologia, habilidad, fecha, empresa o cargo que no este explicitamente escrito en el JSON de entrada.
+2. PROHIBICION DE RELLENO: Si una tecnologia (ej. Oracle, Docker, etc.), una fecha o una descripcion esta vacia o ausente en el JSON, dejalo en blanco o ignoralo. No asumas nada ni uses "conocimiento general de la industria" para completar el perfil.
+
 REGLAS DE TIPOGRAFIA Y MARGENES (tienen PRIORIDAD sobre cualquier tamaño mostrado en el ejemplo de formato):
 - Cuerpo del CV: 9.5pt maximo. Nombre (h1): 16pt maximo. Titulos de seccion (h2): 11pt maximo. Subtitulos: 10pt maximo. Detalles y fechas: 8.5pt maximo.
 - Usa SIEMPRE una tipografia compacta: el texto debe verse visiblemente mas pequeno que un documento normal, equivalente a reducir 2px cada tamano.
@@ -380,6 +384,10 @@ export async function generateSampleCv(prompt: string): Promise<string> {
   const config = await getConfig()
   const profileJson = JSON.stringify(MOCK_PROFILE, null, 2)
   const userMessage = `Genera un CV de ejemplo en HTML puro (con estilos inline) usando EXACTAMENTE estos datos del candidato. NO inventes informacion adicional. Devuelve SOLO el HTML, sin bloques de codigo ni delimitadores.
+
+REGLAS ANTI-ALUCINACION (OBLIGATORIAS):
+1. CERO ALUCINACIONES: Esta estrictamente prohibido inventar, inferir, adivinar o agregar cualquier dato, tecnologia, habilidad, fecha, empresa o cargo que no este explicitamente escrito en el JSON de entrada.
+2. PROHIBICION DE RELLENO: Si una tecnologia, una fecha o una descripcion esta vacia o ausente en el JSON, dejalo en blanco o ignoralo. No asumas nada ni uses "conocimiento general de la industria" para completar el perfil.
 
 ## PERFIL DEL CANDIDATO
 \`\`\`json
