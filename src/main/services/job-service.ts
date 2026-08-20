@@ -62,10 +62,15 @@ Basado en el perfil del candidato y el reporte ATS de una vacante, debes generar
 
 Además, extrae de la vacante el email de contacto del reclutador o empresa (si aparece), y genera un asunto sugerido para el correo.
 
+REGLAS DE FORMATO (IMPORTANTE):
+- El contenido de coverLetterA y coverLetterB debe ser ÚNICAMENTE el cuerpo del correo, en TEXTO PLANO sin formato de ningún tipo.
+- NO incluyas líneas como "To:", "Subject:", "De:", "Asunto:", "Para:" ni el email del destinatario dentro del cuerpo — esos se muestran y se envían aparte.
+- NO uses markdown: nada de **negritas**, *cursivas*, #, listas con guiones, ni caracteres especiales de formato. Solo texto simple con saltos de línea.
+
 Debes responder ÚNICAMENTE con un objeto JSON válido, sin texto adicional:
 {
-  "coverLetterA": "texto completo del cold email en markdown",
-  "coverLetterB": "texto completo de la cover letter en markdown",
+  "coverLetterA": "solo el cuerpo del cold email en texto plano",
+  "coverLetterB": "solo el cuerpo de la cover letter en texto plano",
   "recruiterEmail": "email extraído de la vacante o cadena vacía si no aparece",
   "subject": "asunto sugerido para el correo basado en la vacante y el puesto"
 }${LANGUAGE_INSTRUCTION}`

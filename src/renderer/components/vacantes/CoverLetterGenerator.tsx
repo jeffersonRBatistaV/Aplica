@@ -28,6 +28,55 @@ function extractLetterContent(raw: string, key: string): string {
   return raw
 }
 
+// Limpia el cuerpo del correo para que sea SOLO texto plano del body:
+// 1. Elimina líneas de headers (To/Subject/De/Asunto) que el modelo a veces
+//    repite dentro del body (ya se muestran aparte en la UI).
+// 2. Convierte markdown (**negritas**, *cursivas*, ##, listas) a texto plano.
+function sanitizeBody(raw: string): string {
+  if (!raw) return ''
+  let text = raw.replace(/\r\n/g, '\n').trim()
+
+  // Quitar líneas iniciales tipo "To: x", "Subject: y", "De:", "Asunto:",
+  // "Para:", "Destinatario:", "Email:", "Re:" — las que repiten los headers.
+  const lines = text.split('\n')
+  while (lines.length > 0) {
+    const line = lines[0].trim()
+    if (!line) {
+      lines.shift()
+      continue
+    }
+    if (/^(to|from|subject|de|para|asunto|destinatario|titulo|título|email|re:|cc:|bcc:)\s*[:：]/i.test(line)) {
+      lines.shift()
+      continue
+    }
+    break
+  }
+  text = lines.join('\n').trim()
+
+  // Markdown → texto plano
+  text = text
+    .replace(/\*\*([^*]+)\*\*/g, '$1')   // **negrita**
+    .replace(/\*([^*]+)\*/g, '$1')       // *cursiva*
+    .replace(/__([^_]+)__/g, '$1')       // __negrita__
+    .replace(/#{1,6}\s*/g, '')           // encabezados ##
+    .replace(/^>+\s?/gm, '')             // citas
+    .replace(/^[-*+]\s+/gm, '')          // listas - * +
+    .replace(/^\d+\.\s+/gm, '')          // listas numeradas
+    .replace(/`([^`]+)`/g, '$1')         // código inline
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // links [texto](url)
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')    // imágenes
+    .replace(/[_*]([^*_]+)[_*]/g, '$1')  // restos de _ * alrededor de palabras
+
+  // Limpiar líneas vacías consecutivas (máx 1)
+  text = text.split('\n').reduce((acc: string[], l) => {
+    if (!l.trim() && acc.length && !acc[acc.length - 1].trim()) return acc
+    acc.push(l)
+    return acc
+  }, []).join('\n').trim()
+
+  return text
+}
+
 function CopyBtn({ text, label }: { text: string; label?: string }) {
   const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
@@ -67,7 +116,7 @@ export function CoverLetterGenerator({
   const [editContent, setEditContent] = useState('')
 
   const currentContent = activeLetter === 'A' ? coverLetterA : coverLetterB
-  const displayedContent = extractLetterContent(currentContent, activeLetter === 'A' ? 'coverLetterA' : 'coverLetterB')
+  const displayedContent = sanitizeBody(extractLetterContent(currentContent, activeLetter === 'A' ? 'coverLetterA' : 'coverLetterB'))
   const hasContent = currentContent.length > 0
 
   const handleCopyAll = async () => {
