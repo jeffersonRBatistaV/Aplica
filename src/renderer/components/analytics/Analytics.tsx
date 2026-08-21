@@ -144,7 +144,7 @@ export function Analytics() {
   const [adviceLoading, setAdviceLoading] = useState(true)
 
   // Fases de investigación en vivo
-  const [phases, setPhases] = useState<string[]>([])
+  const [phase, setPhase] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -159,13 +159,13 @@ export function Analytics() {
           setAdvice(cachedAdvice)
           setAdviceLoading(false)
         } else {
-          const unsub = window.api.onInvestigatePhase((p) => setPhases((prev) => [...prev, p.message]))
+          const unsub = window.api.onInvestigatePhase((p) => setPhase(p.message))
           try {
             const fresh = await window.api.refreshCareerAdvice()
             setAdvice(fresh)
           } finally {
             unsub()
-            setPhases([])
+            setPhase(null)
             setAdviceLoading(false)
           }
         }
@@ -429,22 +429,20 @@ export function Analytics() {
             <Lightbulb className="w-4 h-4 text-yellow-500" />
             {t('analytics.careerAdvice')}
           </h3>
-          {phases.length > 0 && (
+          {phase && (
             <div className="flex items-center gap-2 text-xs text-[#8A8A93]">
               <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
-              <span>{phases[phases.length - 1]}</span>
+              <span>{phase}</span>
             </div>
           )}
         </div>
 
-        {phases.length > 0 && (
-          <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40 px-4 py-3 space-y-1.5 mb-4">
-            {phases.map((p, i) => (
-              <div key={i} className="flex items-center gap-2 text-xs text-[#8A8A93]">
-                <Loader2 className="w-3 h-3 animate-spin shrink-0" />
-                <span>{p}</span>
-              </div>
-            ))}
+        {phase && (
+          <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40 px-4 py-3 mb-4">
+            <div className="flex items-center gap-2 text-xs text-[#8A8A93]">
+              <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+              <span>{phase}</span>
+            </div>
           </div>
         )}
 

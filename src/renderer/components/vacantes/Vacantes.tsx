@@ -160,7 +160,7 @@ export function Vacantes() {
   const [pendingDraft, setPendingDraft] = useState<JobApplication | null>(null)
 
   // Fases de investigación en vivo
-  const [phases, setPhases] = useState<string[]>([])
+  const [phase, setPhase] = useState<string | null>(null)
 
   useEffect(() => {
     setEditCompany(currentApp?.company || '')
@@ -266,7 +266,7 @@ export function Vacantes() {
   const handleAnalyze = async (text: string) => {
     if (!window.api) return
     setAnalyzing(true)
-    const unsub = window.api.onInvestigatePhase((p) => setPhases((prev) => [...prev, p.message]))
+    const unsub = window.api.onInvestigatePhase((p) => setPhase(p.message))
     setAtsReport(null)
     setCoverLetterA('')
     setCoverLetterB('')
@@ -335,7 +335,7 @@ export function Vacantes() {
       setError(msg)
     } finally {
       unsub()
-      setPhases([])
+      setPhase(null)
       setAnalyzing(false)
       setGeneratingLetters(false)
     }
@@ -512,14 +512,12 @@ export function Vacantes() {
               </div>
             )}
 
-            {phases.length > 0 && (
-              <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40 px-4 py-3 space-y-1.5">
-                {phases.map((p, i) => (
-                  <div key={i} className="flex items-center gap-2 text-xs text-[#8A8A93]">
-                    <Loader2 className="w-3 h-3 animate-spin shrink-0" />
-                    <span>{p}</span>
-                  </div>
-                ))}
+            {phase && (
+              <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40 px-4 py-3">
+                <div className="flex items-center gap-2 text-xs text-[#8A8A93]">
+                  <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+                  <span>{phase}</span>
+                </div>
               </div>
             )}
 
