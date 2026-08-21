@@ -42,6 +42,7 @@ export interface ElectronAPI {
   // Investigación en línea
   investigate: (userQuery: string, country: string, language: string) => Promise<InvestigateResult>
   investigateHealth: () => Promise<{ ok: boolean; message: string }>
+  investigateDiscover: () => Promise<{ baseUrl: string; found: boolean; message: string }>
 
   // Profile
   getProfile: () => Promise<Profile | null>

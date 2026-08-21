@@ -225,6 +225,7 @@ function InvestigateSection() {
   const [showToken, setShowToken] = useState(false)
   const [health, setHealth] = useState<{ ok: boolean; message: string } | null>(null)
   const [checking, setChecking] = useState(false)
+  const [discovering, setDiscovering] = useState(false)
 
   const save = (partial: { baseUrl?: string; apiToken?: string }) => {
     const next = {
@@ -244,6 +245,25 @@ function InvestigateSection() {
       setHealth({ ok: false, message: e instanceof Error ? e.message : String(e) })
     } finally {
       setChecking(false)
+    }
+  }
+
+  const handleDiscover = async () => {
+    if (!window.api || discovering) return
+    setDiscovering(true)
+    try {
+      const result = await window.api.investigateDiscover()
+      if (result.found) {
+        setLocalUrl(result.baseUrl)
+        save({ baseUrl: result.baseUrl })
+        setHealth({ ok: true, message: result.message })
+      } else {
+        setHealth({ ok: false, message: result.message })
+      }
+    } catch (e) {
+      setHealth({ ok: false, message: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setDiscovering(false)
     }
   }
 
@@ -294,8 +314,8 @@ function InvestigateSection() {
         </div>
       </div>
 
-      {/* Health check */}
-      <div className="flex items-center gap-2">
+      {/* Health check + descubrimiento */}
+      <div className="flex items-center gap-3">
         <button
           onClick={checkHealth}
           disabled={checking}
@@ -303,6 +323,14 @@ function InvestigateSection() {
         >
           <RefreshCw className={`w-3 h-3 ${checking ? 'animate-spin' : ''}`} />
           {t('apiConfig.investigateTest')}
+        </button>
+        <button
+          onClick={handleDiscover}
+          disabled={discovering}
+          className="text-xs text-gray-500 hover:text-blue-500 flex items-center gap-1 disabled:opacity-50"
+        >
+          <Globe className={`w-3 h-3 ${discovering ? 'animate-pulse' : ''}`} />
+          {t('apiConfig.investigateDiscover')}
         </button>
         {health && (
           <span className={`text-xs flex items-center gap-1 ${health.ok ? 'text-green-500' : 'text-red-500'}`}>

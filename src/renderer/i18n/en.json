@@ -354,7 +354,7 @@
     "modelsAvailable_plural": "{{count}} models available",
     "urlPlaceholder": "http://localhost:11434/v1",
     "investigateTitle": "Online Research",
-    "investigateDesc": "Use the research backend (SearXNG + LLM) for up-to-date data, localized to your country.",
+    "investigateDesc": "Use the research backend (SearXNG + LLM) for up-to-date data, localized to your country. The URL comes pre-configured with our server — just add the token.",
     "investigateUrl": "Backend URL",
     "investigateToken": "API Token",
     "investigateTest": "Test connection",
@@ -397,7 +397,8 @@
     "timeMinutesAgo": "{{count}} min ago",
     "timeHoursAgo": "{{count}}h ago",
     "timeDaysAgo": "{{count}}d ago",
-    "records": "records"
+    "records": "records",
+    "investigateDiscover": "Detect backend"
   },
   "apiSetupModal": {
     "title": "Configure API",

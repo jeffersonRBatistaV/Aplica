@@ -24,6 +24,7 @@ const api = {
   // ── Investigación en línea ──
   investigate: (userQuery, country, language) => ipcRenderer.invoke('investigate:query', userQuery, country, language),
   investigateHealth: () => ipcRenderer.invoke('investigate:health'),
+  investigateDiscover: () => ipcRenderer.invoke('investigate:discover'),
 
   // ── Profile ──
   getProfile: () => ipcRenderer.invoke('profile:get'),
