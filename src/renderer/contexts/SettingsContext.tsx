@@ -4,7 +4,7 @@ import i18n from '../i18n'
 
 const DEFAULT_SETTINGS: AppSettings = {
   api: { baseUrl: 'http://localhost:11434/v1', apiKey: '', model: 'llama3', configured: false },
-  investigate: { baseUrl: '', apiToken: '', configured: false },
+  investigate: { baseUrl: 'https://aplica.207.244.232.191.sslip.io', apiToken: '', configured: false },
   appearance: { mode: 'system' },
   privacy: { storeHistory: true, excludeFromTraining: false },
   systemPrompt: '',
