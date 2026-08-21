@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Map, RefreshCw, Loader2, Clock, AlertTriangle, CheckCircle2, Circle, ArrowRight } from 'lucide-react'
-import type { Roadmap, RoadmapPhase, RoadmapAction } from '../../../shared/types'
+import { Map, RefreshCw, Loader2, Clock, AlertTriangle, CheckCircle2, Circle, ArrowRight, Globe, X, ExternalLink } from 'lucide-react'
+import type { Roadmap, RoadmapPhase, RoadmapAction, InvestigateResult } from '../../../shared/types'
 import { useTranslation } from 'react-i18next'
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -69,6 +69,11 @@ export function RoadmapView() {
 
   const [hasProfile, setHasProfile] = useState<boolean | null>(null)
 
+  // Investigación en línea
+  const [investigating, setInvestigating] = useState(false)
+  const [investResult, setInvestResult] = useState<InvestigateResult | null>(null)
+  const [investError, setInvestError] = useState<string | null>(null)
+
   const loadRoadmap = useCallback(async () => {
     try {
       const cached = await window.api.getRoadmap()
@@ -130,6 +135,26 @@ export function RoadmapView() {
     }
   }
 
+  const handleInvestigate = async () => {
+    if (!window.api || investigating) return
+    setInvestigating(true)
+    setInvestError(null)
+    setInvestResult(null)
+    try {
+      const profile = await window.api.getProfile()
+      const country = profile?.country || 'DO'
+      const lang = t('locale') === 'es' ? 'es' : 'en'
+      const mercado = roadmap?.targetMarket || profile?.title || profile?.area || 'profesional'
+      const query = `Tendencias y certificaciones actuales para "${mercado}" en ${country}: tecnologías en demanda, certificaciones vigentes y rutas de aprendizaje recomendadas para 2026`
+      const result = await window.api.investigate(query, country, lang)
+      setInvestResult(result)
+    } catch (e) {
+      setInvestError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setInvestigating(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -148,15 +173,68 @@ export function RoadmapView() {
           <Map className="w-5 h-5 text-blue-500" />
           Roadmap Profesional
         </h2>
-        <button
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-          {refreshing ? 'Regenerando...' : 'Regenerar'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleInvestigate}
+            disabled={investigating}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors disabled:opacity-50"
+          >
+            <Globe className={`w-3.5 h-3.5 ${investigating ? 'animate-pulse' : ''}`} />
+            {investigating ? 'Investigando...' : 'Investigar en línea'}
+          </button>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? 'Regenerando...' : 'Regenerar'}
+          </button>
+        </div>
       </div>
+
+      {investError && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          {investError}
+        </div>
+      )}
+
+      {investResult && (
+        <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/10 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-blue-100 dark:border-blue-900">
+            <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-2">
+              <Globe className="w-4 h-4" />
+              Investigación en línea
+            </h3>
+            <button onClick={() => setInvestResult(null)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="p-4">
+            <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">{investResult.answer}</div>
+            {investResult.sources.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-blue-100 dark:border-blue-900">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Fuentes ({investResult.sources.length})</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {investResult.sources.slice(0, 5).map((s, i) => (
+                    <a
+                      key={i}
+                      href={s.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 px-2 py-1 text-[11px] text-blue-600 dark:text-blue-400 bg-blue-100/60 dark:bg-blue-900/30 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors max-w-[220px]"
+                    >
+                      <ExternalLink className="w-3 h-3 shrink-0" />
+                      <span className="truncate">{s.title || s.url.replace('https://', '').slice(0, 30)}</span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm">

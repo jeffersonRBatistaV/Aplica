@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect, type KeyboardEvent } from 'react'
-import { Send, Square, X, Image as ImageIcon, FileText, Table } from 'lucide-react'
+import { Send, Square, X, Image as ImageIcon, FileText, Table, Globe } from 'lucide-react'
 import { useFileAttachments } from '../../hooks/useFileAttachments'
 import { useSpeechRecognition } from '../../hooks/useSpeechRecognition'
 import { isImageType, isTextType, isExcelType, formatFileSize } from '../../types/attachments'
@@ -10,9 +10,11 @@ interface ChatInputProps {
   onAbort: () => void
   isStreaming: boolean
   disabled?: boolean
+  onInvestigate?: (query: string) => void
+  investigating?: boolean
 }
 
-export function ChatInput({ onSend, onAbort, isStreaming, disabled }: ChatInputProps) {
+export function ChatInput({ onSend, onAbort, isStreaming, disabled, onInvestigate, investigating }: ChatInputProps) {
   const { t } = useTranslation()
   const [value, setValue] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -262,6 +264,28 @@ export function ChatInput({ onSend, onAbort, isStreaming, disabled }: ChatInputP
             disabled={disabled}
             className="flex-1 resize-none bg-transparent text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 outline-none py-1.5 max-h-[200px]"
           />
+
+          {/* Investigate online */}
+          {onInvestigate && (
+            <button
+              onClick={() => {
+                const q = value.trim()
+                if (!q) return
+                onInvestigate(q)
+                setValue('')
+                clearAttachments()
+              }}
+              disabled={!value.trim() || isStreaming || disabled || investigating}
+              className={`p-1.5 rounded-lg flex-shrink-0 self-end mb-1 transition-all ${
+                investigating
+                  ? 'text-blue-500 animate-pulse'
+                  : 'text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-gray-200 dark:hover:bg-gray-800'
+              }`}
+              title={t('chatInput.investigate')}
+            >
+              <Globe className="w-4 h-4" />
+            </button>
+          )}
 
           {/* Voice input */}
           {voiceSupport && (

@@ -16,6 +16,7 @@ export interface Conversation {
 
 export interface AppSettings {
   api: ApiConfig
+  investigate: InvestigateConfig
   appearance: AppearanceConfig
   privacy: PrivacyConfig
   systemPrompt: string
@@ -29,6 +30,22 @@ export interface ApiConfig {
   apiKey: string
   model: string
   configured?: boolean
+}
+
+/** Configuración del backend de investigación en línea (SearXNG + Jina + LLM). */
+export interface InvestigateConfig {
+  baseUrl: string
+  apiToken: string
+  configured?: boolean
+}
+
+export interface InvestigateResult {
+  answer: string
+  sources: { url: string; title: string; content?: string }[]
+  used_extracted: { url: string; provider?: string }[]
+  query: string
+  country: string
+  language: string
 }
 
 export interface AppearanceConfig {
@@ -66,6 +83,8 @@ export interface Profile {
   email: string
   phone: string
   location: string
+  /** País ISO 3166-1 alpha-2 (DO, US, MX...) — usado para localizar investigaciones en línea. */
+  country: string
   targetMarket: string
   github: string
   linkedin: string

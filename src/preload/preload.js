@@ -21,6 +21,10 @@ const api = {
   getSettings: () => ipcRenderer.invoke('settings:get'),
   setSettings: (settings) => ipcRenderer.invoke('settings:set', settings),
 
+  // ── Investigación en línea ──
+  investigate: (userQuery, country, language) => ipcRenderer.invoke('investigate:query', userQuery, country, language),
+  investigateHealth: () => ipcRenderer.invoke('investigate:health'),
+
   // ── Profile ──
   getProfile: () => ipcRenderer.invoke('profile:get'),
   saveProfile: (profile) => ipcRenderer.invoke('profile:save', profile),

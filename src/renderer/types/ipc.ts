@@ -1,4 +1,4 @@
-import type { Conversation, AppSettings, StreamParams, Profile, JobApplication, ATSReport, CvTemplate, InterviewQuestion, UsageStats, ImportResult, Roadmap, JobCategory } from '../../shared/types'
+import type { Conversation, AppSettings, StreamParams, Profile, JobApplication, ATSReport, CvTemplate, InterviewQuestion, UsageStats, ImportResult, Roadmap, JobCategory, InvestigateResult } from '../../shared/types'
 
 export interface UpdateInfo {
   version: string
@@ -38,6 +38,10 @@ export interface ElectronAPI {
   // Settings
   getSettings: () => Promise<AppSettings | null>
   setSettings: (settings: AppSettings) => Promise<void>
+
+  // Investigación en línea
+  investigate: (userQuery: string, country: string, language: string) => Promise<InvestigateResult>
+  investigateHealth: () => Promise<{ ok: boolean; message: string }>
 
   // Profile
   getProfile: () => Promise<Profile | null>
