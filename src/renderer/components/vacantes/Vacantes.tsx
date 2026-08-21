@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { Briefcase, Library, Columns, FileText, Loader2, AlertCircle, Layers, Check } from 'lucide-react'
 import { VacancyInput } from './VacancyInput'
 import { ATSReportView } from './ATSReport'
-import { VacancyResearch } from './VacancyResearch'
 import { CoverLetterGenerator } from './CoverLetterGenerator'
 import { CVGenerator } from './CVGenerator'
 import { CategoryCV } from './CategoryCV'
@@ -160,6 +159,9 @@ export function Vacantes() {
   const [confirmingApplied, setConfirmingApplied] = useState(false)
   const [pendingDraft, setPendingDraft] = useState<JobApplication | null>(null)
 
+  // Fases de investigación en vivo
+  const [phases, setPhases] = useState<string[]>([])
+
   useEffect(() => {
     setEditCompany(currentApp?.company || '')
     setEditPosition(currentApp?.position || '')
@@ -264,6 +266,7 @@ export function Vacantes() {
   const handleAnalyze = async (text: string) => {
     if (!window.api) return
     setAnalyzing(true)
+    const unsub = window.api.onInvestigatePhase((p) => setPhases((prev) => [...prev, p.message]))
     setAtsReport(null)
     setCoverLetterA('')
     setCoverLetterB('')
@@ -331,6 +334,8 @@ export function Vacantes() {
       const msg = err instanceof Error ? err.message : t('vacantes.errorUnknown')
       setError(msg)
     } finally {
+      unsub()
+      setPhases([])
       setAnalyzing(false)
       setGeneratingLetters(false)
     }
@@ -507,6 +512,17 @@ export function Vacantes() {
               </div>
             )}
 
+            {phases.length > 0 && (
+              <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40 px-4 py-3 space-y-1.5">
+                {phases.map((p, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs text-[#8A8A93]">
+                    <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+                    <span>{p}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {analyzing && (
               <div className="flex items-center justify-center py-8 text-gray-400">
                 <Loader2 className="w-5 h-5 animate-spin mr-2" />
@@ -549,13 +565,6 @@ export function Vacantes() {
                     report={atsReport}
                     onRefresh={handleUpdateReport}
                     onAddKeywords={handleAddKeywords}
-                  />
-                )}
-
-                {atsReport && (
-                  <VacancyResearch
-                    company={editCompany}
-                    position={editPosition}
                   />
                 )}
 

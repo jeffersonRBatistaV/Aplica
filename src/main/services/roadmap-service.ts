@@ -22,7 +22,10 @@ export async function loadRoadmap(): Promise<Roadmap | null> {
   return readJSON<Roadmap>(ROADMAP_FILE)
 }
 
-export async function refreshRoadmap(profile: Profile | null): Promise<Roadmap | null> {
+export async function refreshRoadmap(
+  profile: Profile | null,
+  onPhase: (message: string) => void = () => {},
+): Promise<Roadmap | null> {
   if (!profile) return null
 
   const config = await getConfig()
@@ -32,6 +35,26 @@ export async function refreshRoadmap(profile: Profile | null): Promise<Roadmap |
   const skillLevelsText = Object.entries(profile.skillLevels || {})
     .map(([skill, level]) => `- ${skill}: ${level}`)
     .join('\n') || 'No especificado'
+
+  let researchedContext = ''
+  try {
+    const { investigateStream } = await import('./investigate-service')
+    const query =
+      `tendencias y demanda del mercado laboral para ${profile.title || 'desarrolladores'} en ${market} 2026, ` +
+      'certificaciones vigentes y salarios'
+    const result = await new Promise<any | null>((resolve) => {
+      investigateStream(query, profile.country || 'DO', 'es', {
+        onPhase: (_phase, message) => onPhase(`[investigación] ${message}`),
+        onDone: (r) => resolve(r),
+        onError: () => resolve(null),
+      })
+    })
+    if (result?.answer) {
+      researchedContext = `\n\n## CONTEXTO INVESTIGADO (fuentes en línea)\n${result.answer}`
+    }
+  } catch {
+    onPhase('[investigación] No se pudo investigar en línea; continuando sin contexto web.')
+  }
 
   const systemPrompt = `Eres un asesor de carrera experto en el mercado laboral de ${market}.
 Tu tarea es generar un roadmap profesional adaptativo para ayudar al usuario a colocarse laboralmente en ${market}.
@@ -95,7 +118,7 @@ ${skillLevelsText}
 ${profile.projects?.map(p => `- ${p.name}: ${p.description}`).join('\n') || 'Ninguno especificado'}
 `
 
-  const userMessage = `${profileSummary}\n\nGenera el roadmap profesional para insertarte en el mercado de ${market} en formato JSON.`
+  const userMessage = `${profileSummary}${researchedContext}\n\nGenera el roadmap profesional para insertarte en el mercado de ${market} en formato JSON. Usa el CONTEXTO INVESTIGADO (si está disponible) como fuente de datos actualizados sobre demanda, certificaciones y salarios.`
 
   try {
     const response = await completeChatCompletion(config, [

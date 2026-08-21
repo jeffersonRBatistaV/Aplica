@@ -128,6 +128,11 @@ const api = {
     ipcRenderer.on('update:progress', handler)
     return () => { ipcRenderer.removeListener('update:progress', handler) }
   },
+  onInvestigatePhase: (callback) => {
+    const handler = (_event, payload) => callback(payload)
+    ipcRenderer.on('investigate:phase', handler)
+    return () => { ipcRenderer.removeListener('investigate:phase', handler) }
+  },
   onUpdateDownloaded: (callback) => {
     const handler = () => callback()
     ipcRenderer.on('update:downloaded', handler)

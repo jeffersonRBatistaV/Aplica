@@ -127,6 +127,7 @@ export interface ElectronAPI {
   // Auto Update
   onUpdateAvailable: (callback: (info: UpdateInfo) => void) => () => void
   onUpdateProgress: (callback: (progress: DownloadProgress) => void) => () => void
+  onInvestigatePhase: (callback: (payload: { message: string }) => void) => () => void
   onUpdateDownloaded: (callback: () => void) => () => void
   startUpdateDownload: () => Promise<void>
   quitAndInstall: () => Promise<void>

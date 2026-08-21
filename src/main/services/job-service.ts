@@ -75,16 +75,56 @@ Debes responder ÚNICAMENTE con un objeto JSON válido, sin texto adicional:
   "subject": "asunto sugerido para el correo basado en la vacante y el puesto"
 }${LANGUAGE_INSTRUCTION}`
 
+function guessVacancyMeta(text: string): { company: string; position: string } {
+  const clean = (s: string) => s.trim().replace(/\s+/g, ' ').replace(/[.,;:]+$/, '').slice(0, 60)
+  const company =
+    text.match(/(?:^|\n)\s*(?:empresa|compañ[íi]a|company|employer|organizaci[óo]n)\s*:\s*(.+)/i)?.[1] || ''
+  const position =
+    text.match(/(?:^|\n)\s*(?:puesto|vacante|posici[óo]n|cargo|position|role|t[íi]tulo(?:\s+del\s+puesto)?)\s*:\s*(.+)/i)?.[1] ||
+    text.match(/(?:buscamos|se busca|se solicita|solicitamos|reclutamos|hiring|looking for)\s+(?:un[ao]?\s+)?([^.,;\n]{3,60})/i)?.[1] ||
+    ''
+  return { company: clean(company), position: clean(position) }
+}
+
 export async function analyzeVacancy(
   vacancyText: string,
   profile: Profile | null,
+  onPhase: (message: string) => void = () => {},
 ): Promise<ATSReport> {
   const config = await getConfig()
+
+  let researchSection = ''
+  const meta = guessVacancyMeta(vacancyText)
+  if (meta.company || meta.position) {
+    try {
+      const { investigateStream } = await import('./investigate-service')
+      const country = profile?.country || 'DO'
+      const query =
+        meta.company && meta.position
+          ? `empresa ${meta.company} en ${country}: tamaño, cultura, reputación como empleador, rango salarial para el puesto ${meta.position}`
+          : meta.company
+            ? `empresa ${meta.company} en ${country}: tamaño, cultura, reputación como empleador y rango salarial`
+            : `puesto ${meta.position} en ${country}: demanda, rango salarial y requisitos habituales`
+      const result = await new Promise<any | null>((resolve) => {
+        investigateStream(query, country, 'es', {
+          onPhase: (_phase, message) => onPhase(`[investigación] ${message}`),
+          onDone: (r) => resolve(r),
+          onError: () => resolve(null),
+        })
+      })
+      if (result?.answer) {
+        researchSection = `\n\n## INVESTIGACIÓN DE EMPRESA (fuentes en línea)\n${result.answer}`
+      }
+    } catch {
+      onPhase('[investigación] No se pudo investigar la empresa; continuando sin contexto web.')
+    }
+  }
+
   const profileSection = profile
     ? `\n\n## PERFIL DEL CANDIDATO\n\`\`\`json\n${JSON.stringify(profile, null, 2)}\n\`\`\``
     : '\n\n## PERFIL DEL CANDIDATO\nNo hay perfil disponible.'
 
-  const userMessage = `## VACANTE\n\n${vacancyText}${profileSection}\n\nGenera el reporte ATS en formato JSON.`
+  const userMessage = `## VACANTE\n\n${vacancyText}${researchSection}${profileSection}\n\nGenera el reporte ATS en formato JSON.${researchSection ? ' Usa la INVESTIGACIÓN DE EMPRESA (si está disponible) como fuente de datos actualizados sobre la empresa y el rango salarial del puesto.' : ''}`
 
   const response = await completeChatCompletion(config, [
     { role: 'system', content: ATS_SYSTEM_PROMPT },
