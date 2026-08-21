@@ -15,6 +15,7 @@ import { getUsage, resetUsage } from '../services/usage-service'
 import { getSeedTemplates, wrapHtml } from '../services/cv-templates-seed'
 import { extractTextFromImage } from '../services/ocr-service'
 import { getExchangeRate } from '../services/currency-service'
+import { investigate, investigateHealth } from '../services/investigate-service'
 
 export function registerAllHandlers(mainWindow: BrowserWindow): void {
   // ── File System ──
@@ -211,6 +212,14 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
   ipcMain.handle('settings:set', async (_event, settings: AppSettings): Promise<void> => {
     await ensureDir(DATA_DIR)
     await writeJSON(SETTINGS_FILE, settings)
+  })
+
+  // ── Investigación en línea (backend remoto) ──
+  ipcMain.handle('investigate:query', async (_event, userQuery: string, country: string, language: string) => {
+    return investigate(userQuery, country, language)
+  })
+  ipcMain.handle('investigate:health', async () => {
+    return investigateHealth()
   })
 
   // ── Profile (Digital Twin) ──

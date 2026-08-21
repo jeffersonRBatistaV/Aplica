@@ -19,7 +19,6 @@
     "messages": "messages",
     "total": "Total"
   },
-
   "sidebar": {
     "title": "Aplica",
     "chat": "Chat",
@@ -48,7 +47,6 @@
     "resultCount": "{{count}} result",
     "resultCount_plural": "{{count}} results"
   },
-
   "mainLayout": {
     "noActiveConversation": "No active conversation",
     "theme": "Theme",
@@ -56,19 +54,20 @@
     "dark": "Dark",
     "system": "System"
   },
-
   "language": {
     "en": "English",
     "es": "Español",
     "language": "Language"
   },
-
   "chatView": {
+    "investigating": "Researching online...",
+    "investigation": "Online Research",
+    "sources": "Sources",
     "selectOrStart": "Select or start a conversation",
     "usePlusButton": "Use the <bold>+</bold> button in the sidebar to get started"
   },
-
   "chatInput": {
+    "investigate": "Research online",
     "placeholder": "Type a message... (Enter to send, Shift+Enter for new line)",
     "attachFile": "Attach file",
     "send": "Send",
@@ -79,7 +78,6 @@
     "fileTypes": ".txt, .md, .csv, .xlsx, .png, .jpg, etc.",
     "filePrefix": "File"
   },
-
   "vacantes": {
     "title": "Jobs",
     "newVacancy": "New Vacancy",
@@ -106,14 +104,18 @@
     "resumeDraftContinue": "Continue",
     "resumeDraftNew": "Create new"
   },
-
+  "vacancyResearch": {
+    "title": "Vacancy Research",
+    "investigate": "Research company & salary",
+    "investigating": "Researching...",
+    "sources": "Sources"
+  },
   "library": {
     "reopenEditorTitle": "Reopen in editor",
     "reopenEditorMessage": "The vacancy will open in the main editor. Your current CV will be preserved. If you want to generate a new CV, you can do it from the editor.",
     "reopenEditorConfirm": "Reopen",
     "reopenEditorCancel": "Cancel"
   },
-
   "categoryCV": {
     "tab": "By Category",
     "title": "CV by Category",
@@ -149,7 +151,6 @@
     "deleteCategoryConfirmButton": "Delete",
     "deleteCategoryCancel": "Cancel"
   },
-
   "atsReport": {
     "title": "ATS Report",
     "reAnalyze": "Re-analyze",
@@ -165,7 +166,6 @@
     "detailedAnalysis": "Detailed Analysis",
     "noData": "No data"
   },
-
   "coverLetter": {
     "title": "Generated Letters",
     "variationA": "Variation A · Cold Email",
@@ -184,7 +184,6 @@
     "willGenerateAfterATS": "Letters will be generated automatically after ATS analysis",
     "emailClientOpened": "Email client opened to send the letter"
   },
-
   "cvGenerator": {
     "title": "Generate CV",
     "selectStyle": "Select a style to generate your CV adapted to this vacancy:",
@@ -226,7 +225,6 @@
     "regenerateConfirm": "Regenerate",
     "regenerateCancel": "Cancel"
   },
-
   "interviewPrep": {
     "title": "Interview Preparation",
     "generate": "Generate Questions",
@@ -236,7 +234,6 @@
     "questionsCount": "{{count}} questions",
     "emptyState": "Generate personalized interview questions for this vacancy based on your profile and ATS report"
   },
-
   "kanban": {
     "columnDraft": "Draft",
     "columnApplied": "Applied",
@@ -258,7 +255,6 @@
     "noCompany": "No company",
     "viewDetail": "View details"
   },
-
   "profile": {
     "editProfile": "Edit Profile",
     "cancel": "Cancel",
@@ -307,7 +303,6 @@
     "at": "at",
     "in": "in"
   },
-
   "currencies": {
     "USD": "US Dollar",
     "EUR": "Euro",
@@ -320,7 +315,6 @@
     "BRL": "Brazilian Real",
     "PEN": "Peruvian Sol"
   },
-
   "settingsPanel": {
     "title": "Settings",
     "tabs": {
@@ -343,7 +337,6 @@
     "savePreferences": "Save preferences",
     "preferencesSaved": "Preferences saved"
   },
-
   "apiConfig": {
     "baseUrl": "Base URL",
     "apiKey": "API Key",
@@ -359,6 +352,11 @@
     "modelsAvailable": "{{count}} model available",
     "modelsAvailable_plural": "{{count}} models available",
     "urlPlaceholder": "http://localhost:11434/v1",
+    "investigateTitle": "Online Research",
+    "investigateDesc": "Use the research backend (SearXNG + LLM) for up-to-date data, localized to your country.",
+    "investigateUrl": "Backend URL",
+    "investigateToken": "API Token",
+    "investigateTest": "Test connection",
     "urlExample": "e.g. https://api.openai.com/v1, https://api.groq.com/openai/v1",
     "consumption": "API Consumption",
     "loadingStats": "Loading statistics...",
@@ -400,7 +398,6 @@
     "timeDaysAgo": "{{count}}d ago",
     "records": "records"
   },
-
   "apiSetupModal": {
     "title": "Configure API",
     "subtitle": "Connect a language model to use Aplica",
@@ -410,7 +407,6 @@
     "saving": "Saving...",
     "error": "Error saving configuration"
   },
-
   "privacy": {
     "storeHistory": "Store local history",
     "storeHistoryDesc": "Conversations are saved on your device. Disabling this will not persist any conversation.",
@@ -418,7 +414,6 @@
     "excludeTrainingDesc": "Request the AI provider not to use your conversations to train their models.",
     "localStorageInfo": "All data is stored locally on your device. No data is sent to external servers besides the AI provider configured in the API tab."
   },
-
   "systemPrompts": {
     "title": "Custom system instructions",
     "placeholder": "Write system instructions...",
@@ -429,7 +424,6 @@
     "save": "Save",
     "defaultPrompt": "You are a skilled professional with experience in technology. ALWAYS respond in FIRST PERSON (I / My / Me). Talk about your experience, projects and skills using your professional profile information. Be conversational, natural and concise. Never repeat the same phrase. If you don't know something, say it once.\n\nLanguage: English."
   },
-
   "dataExport": {
     "exportDescription": "Export all your data (profile, conversations, job applications, CV templates) in JSON or Excel format.",
     "json": "JSON",
@@ -456,7 +450,6 @@
     "importSuccess": "Imported: {{details}}",
     "importErrorMsg": "Error importing data"
   },
-
   "analytics": {
     "title": "Statistics",
     "loading": "Loading statistics...",
@@ -488,9 +481,12 @@
     "statusApplied": "Applied",
     "statusInterview": "Interview",
     "statusOffer": "Offer",
-    "statusRejected": "Rejected"
+    "statusRejected": "Rejected",
+    "investigating": "Researching online...",
+    "investigate": "Research online",
+    "investigation": "Online Research",
+    "sources": "Sources"
   },
-
   "tutorial": {
     "welcomeTitle": "Welcome to Aplica",
     "welcomeDesc": "Your intelligent job search assistant. We'll guide you through the main sections.",
@@ -512,12 +508,10 @@
     "previous": "Previous",
     "skipGuide": "Skip guide"
   },
-
   "confirmDialog": {
     "confirm": "Delete",
     "cancel": "Cancel"
   },
-
   "profileWizard": {
     "title": "Set Up Profile",
     "area": "Area",
@@ -557,7 +551,6 @@
     "educationEnd": "Graduation year?",
     "errorSaving": "Error saving profile"
   },
-
   "questions": {
     "areaNames": {
       "tecnologia": "Technology / IT",

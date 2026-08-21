@@ -4,6 +4,7 @@ import i18n from '../i18n'
 
 const DEFAULT_SETTINGS: AppSettings = {
   api: { baseUrl: 'http://localhost:11434/v1', apiKey: '', model: 'llama3', configured: false },
+  investigate: { baseUrl: '', apiToken: '', configured: false },
   appearance: { mode: 'system' },
   privacy: { storeHistory: true, excludeFromTraining: false },
   systemPrompt: '',
@@ -40,7 +41,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }
     window.api.getSettings().then((saved) => {
       if (saved) {
-        const merged = { ...DEFAULT_SETTINGS, ...saved, appearance: { ...DEFAULT_SETTINGS.appearance, ...saved.appearance } }
+        const merged = { ...DEFAULT_SETTINGS, ...saved, appearance: { ...DEFAULT_SETTINGS.appearance, ...saved.appearance }, investigate: { ...DEFAULT_SETTINGS.investigate, ...saved.investigate } }
         setSettings(merged)
         if (saved.locale) {
           i18n.changeLanguage(saved.locale)
@@ -55,7 +56,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       if (!window.api) return
       window.api.getSettings().then((saved) => {
         if (saved) {
-          const merged = { ...DEFAULT_SETTINGS, ...saved, appearance: { ...DEFAULT_SETTINGS.appearance, ...saved.appearance } }
+          const merged = { ...DEFAULT_SETTINGS, ...saved, appearance: { ...DEFAULT_SETTINGS.appearance, ...saved.appearance }, investigate: { ...DEFAULT_SETTINGS.investigate, ...saved.investigate } }
           setSettings(merged)
           if (saved.locale) {
             i18n.changeLanguage(saved.locale)

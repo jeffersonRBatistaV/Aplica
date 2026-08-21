@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Briefcase, Library, Columns, FileText, Loader2, AlertCircle, Layers, Check } from 'lucide-react'
 import { VacancyInput } from './VacancyInput'
 import { ATSReportView } from './ATSReport'
+import { VacancyResearch } from './VacancyResearch'
 import { CoverLetterGenerator } from './CoverLetterGenerator'
 import { CVGenerator } from './CVGenerator'
 import { CategoryCV } from './CategoryCV'
@@ -548,6 +549,13 @@ export function Vacantes() {
                     report={atsReport}
                     onRefresh={handleUpdateReport}
                     onAddKeywords={handleAddKeywords}
+                  />
+                )}
+
+                {atsReport && (
+                  <VacancyResearch
+                    company={editCompany}
+                    position={editPosition}
                   />
                 )}
 

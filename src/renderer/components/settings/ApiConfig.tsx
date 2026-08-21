@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Eye, EyeOff, RefreshCw, Check, AlertCircle, Trash2, DollarSign, Coins, BarChart3, History, Clock, Filter } from 'lucide-react'
+import { Eye, EyeOff, RefreshCw, Check, AlertCircle, Trash2, DollarSign, Coins, BarChart3, History, Clock, Filter, Globe } from 'lucide-react'
 import type { ModelInfo } from '../../types/ipc'
 import type { UsageStats } from '../../../shared/types'
 import { useTranslation } from 'react-i18next'
@@ -210,6 +210,107 @@ export function ApiConfig({ baseUrl, apiKey, model, onChange }: ApiConfigProps) 
 
       {/* API Consumption */}
       <ConsumptionSection />
+
+      {/* ── Investigación en línea (backend remoto) ── */}
+      <InvestigateSection />
+    </div>
+  )
+}
+
+function InvestigateSection() {
+  const { t } = useTranslation()
+  const { settings, updateSettings } = useSettings()
+  const [localUrl, setLocalUrl] = useState(settings.investigate?.baseUrl ?? '')
+  const [localToken, setLocalToken] = useState(settings.investigate?.apiToken ?? '')
+  const [showToken, setShowToken] = useState(false)
+  const [health, setHealth] = useState<{ ok: boolean; message: string } | null>(null)
+  const [checking, setChecking] = useState(false)
+
+  const save = (partial: { baseUrl?: string; apiToken?: string }) => {
+    const next = {
+      baseUrl: (partial.baseUrl ?? localUrl).trim(),
+      apiToken: (partial.apiToken ?? localToken).trim(),
+    }
+    updateSettings({ investigate: { ...settings.investigate, ...next, configured: !!(next.baseUrl && next.apiToken) } })
+  }
+
+  const checkHealth = async () => {
+    setChecking(true)
+    try {
+      await save({})
+      const result = await window.api.investigateHealth()
+      setHealth(result)
+    } catch (e) {
+      setHealth({ ok: false, message: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  return (
+    <div className="pt-4 mt-2 border-t border-gray-200 dark:border-gray-700">
+      <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1 flex items-center gap-2">
+        <Globe className="w-4 h-4 text-blue-500" />
+        {t('apiConfig.investigateTitle')}
+      </h4>
+      <p className="text-xs text-gray-400 mb-3">{t('apiConfig.investigateDesc')}</p>
+
+      {/* URL del backend */}
+      <div className="mb-3">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          {t('apiConfig.investigateUrl')}
+        </label>
+        <input
+          type="url"
+          value={localUrl}
+          onChange={(e) => setLocalUrl(e.target.value)}
+          onBlur={() => save({ baseUrl: localUrl })}
+          placeholder="https://syncread.207.244.232.191.sslip.io/investigate"
+          className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+        />
+      </div>
+
+      {/* Token */}
+      <div className="mb-3">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          {t('apiConfig.investigateToken')}
+        </label>
+        <div className="relative">
+          <input
+            type={showToken ? 'text' : 'password'}
+            value={localToken}
+            onChange={(e) => setLocalToken(e.target.value)}
+            onBlur={() => save({ apiToken: localToken })}
+            placeholder="X-API-Key"
+            className="w-full px-3 py-2 pr-10 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+          />
+          <button
+            type="button"
+            onClick={() => setShowToken(!showToken)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+          >
+            {showToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        </div>
+      </div>
+
+      {/* Health check */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={checkHealth}
+          disabled={checking}
+          className="text-xs text-blue-500 hover:text-blue-600 flex items-center gap-1 disabled:opacity-50"
+        >
+          <RefreshCw className={`w-3 h-3 ${checking ? 'animate-spin' : ''}`} />
+          {t('apiConfig.investigateTest')}
+        </button>
+        {health && (
+          <span className={`text-xs flex items-center gap-1 ${health.ok ? 'text-green-500' : 'text-red-500'}`}>
+            {health.ok ? <Check className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
+            {health.message}
+          </span>
+        )}
+      </div>
     </div>
   )
 }
