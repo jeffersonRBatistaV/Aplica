@@ -68,7 +68,7 @@ export function RoadmapView() {
   const [hasProfile, setHasProfile] = useState<boolean | null>(null)
 
   // Fases de investigación en vivo
-  const [phases, setPhases] = useState<string[]>([])
+  const [phase, setPhase] = useState<string | null>(null)
 
   const loadRoadmap = useCallback(async () => {
     try {
@@ -121,7 +121,7 @@ export function RoadmapView() {
 
   const handleRefresh = async () => {
     setRefreshing(true)
-    const unsub = window.api.onInvestigatePhase((p) => setPhases((prev) => [...prev, p.message]))
+    const unsub = window.api.onInvestigatePhase((p) => setPhase(p.message))
     try {
       const fresh = await window.api.refreshRoadmap()
       if (fresh) setRoadmap(fresh)
@@ -129,7 +129,7 @@ export function RoadmapView() {
       setError('Error al regenerar el roadmap')
     } finally {
       unsub()
-      setPhases([])
+      setPhase(null)
       setRefreshing(false)
     }
   }
@@ -164,14 +164,12 @@ export function RoadmapView() {
         </div>
       </div>
 
-      {phases.length > 0 && (
-        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40 px-4 py-3 space-y-1.5">
-          {phases.map((p, i) => (
-            <div key={i} className="flex items-center gap-2 text-xs text-[#8A8A93]">
-              <Loader2 className="w-3 h-3 animate-spin shrink-0" />
-              <span>{p}</span>
-            </div>
-          ))}
+      {phase && (
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40 px-4 py-3">
+          <div className="flex items-center gap-2 text-xs text-[#8A8A93]">
+            <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+            <span>{phase}</span>
+          </div>
         </div>
       )}
 
