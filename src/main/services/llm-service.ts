@@ -1,4 +1,4 @@
-import type { Message, Profile } from '../../shared/types'
+import type { Message, Profile, InvestigateResult } from '../../shared/types'
 
 const MAX_INPUT_TOKENS = 900000
 const ESTIMATE_FACTOR = 4
@@ -63,16 +63,26 @@ const INVESTIGATE_TOOL = {
   },
 }
 
-/** Ejecuta la tool investigate_web contra el backend (con auto-registro). */
-async function runInvestigateTool(query: string): Promise<string> {
+/** Ejecuta la tool investigate_web contra el backend (con auto-registro), emitiendo las fases en vivo. */
+async function runInvestigateTool(query: string, onToken: (token: string) => void): Promise<string> {
   try {
-    const { investigate } = await import('./investigate-service')
+    const { investigateStream } = await import('./investigate-service')
     const { readJSON } = await import('./storage')
     const { PROFILE_PATH } = await import('../utils/paths')
     const profile = await readJSON<Profile>(PROFILE_PATH)
     const country = profile?.country || 'DO'
     const lang = /[^\x00-\x7F]/.test(query) ? 'es' : 'en'
-    const result = await investigate(query, country, lang)
+    const result = await new Promise<InvestigateResult>((resolve, reject) => {
+      void investigateStream(query, country, lang, {
+        onPhase: (phase, message) => {
+          if (phase === 'search') onToken(`\n\n🔍 ${message}\n`)
+          else if (phase === 'extract') onToken(`📄 ${message}\n`)
+          else if (phase === 'synthesize') onToken(`✨ ${message}\n`)
+        },
+        onDone: resolve,
+        onError: reject,
+      })
+    })
     const sources = result.sources
       .slice(0, 5)
       .map((s, i) => `[${i + 1}] ${s.title || s.url} — ${s.url}`)
@@ -205,8 +215,7 @@ export async function streamChatCompletion(
         if (parsed.query) query = parsed.query
       } catch { /* args malformados */ }
 
-      callbacks.onToken('\n\n🔍 **Investigando en línea...**\n\n')
-      const toolResult = await runInvestigateTool(query)
+      const toolResult = await runInvestigateTool(query, (t) => callbacks.onToken(t))
       callbacks.onToken(`_Resultado obtenido de ${toolResult.match(/\[1\]/i) ? 'múltiples fuentes' : 'fuentes en línea'}._\n\n`)
 
       // Pasada 2: sin tools, con el resultado como mensaje de sistema

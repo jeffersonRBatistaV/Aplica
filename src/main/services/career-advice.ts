@@ -50,13 +50,36 @@ export async function loadCareerAdvice(): Promise<CareerAdvice | null> {
   return readJSON<CareerAdvice>(CAREER_ADVICE_FILE)
 }
 
-export async function refreshCareerAdvice(profile: Profile | null): Promise<CareerAdvice | null> {
+export async function refreshCareerAdvice(
+  profile: Profile | null,
+  onPhase: (message: string) => void = () => {},
+): Promise<CareerAdvice | null> {
   if (!profile) return null
 
   const config = await getConfig()
   if (!config.baseUrl) return null
 
-  const country = extractCountry(profile.location)
+  const country = profile.country || extractCountry(profile.location)
+  const area = profile.area || profile.title || 'profesionales'
+
+  let researchedContext = ''
+  try {
+    const { investigateStream } = await import('./investigate-service')
+    const query =
+      `salarios promedio, demanda y tendencias del mercado laboral para ${area} en ${country} 2026`
+    const result = await new Promise<any | null>((resolve) => {
+      investigateStream(query, profile.country || 'DO', 'es', {
+        onPhase: (_phase, message) => onPhase(`[investigación] ${message}`),
+        onDone: (r) => resolve(r),
+        onError: () => resolve(null),
+      })
+    })
+    if (result?.answer) {
+      researchedContext = `\n\n## CONTEXTO INVESTIGADO (fuentes en línea)\n${result.answer}`
+    }
+  } catch {
+    onPhase('[investigación] No se pudo investigar en línea; continuando sin contexto web.')
+  }
 
   const systemPrompt = `Eres un asesor de carrera experto en el mercado laboral de ${country}.
 Tu tarea es analizar el perfil del usuario y darle consejos accionables y especificos para mejorar su empleabilidad en ${country}.
@@ -68,7 +91,7 @@ Devuelve SOLO un JSON valido con esta estructura exacta, sin markdown ni delimit
   "planAccion": "Pasos concretos y recomendaciones para mejorar su perfil y aumentar sus oportunidades laborales en ${country}."
 }`
 
-  const userMessage = `## PERFIL DEL USUARIO\n\`\`\`json\n${JSON.stringify(profile, null, 2)}\n\`\`\`\n\nGenera los consejos de carrera para ${country} en formato JSON.`
+  const userMessage = `## PERFIL DEL USUARIO\n\`\`\`json\n${JSON.stringify(profile, null, 2)}\n\`\`\`${researchedContext}\n\nGenera los consejos de carrera para ${country} en formato JSON. Usa el CONTEXTO INVESTIGADO (si está disponible) como fuente de datos actualizados sobre salarios, demanda y tendencias.`
 
   try {
     const response = await completeChatCompletion(config, [

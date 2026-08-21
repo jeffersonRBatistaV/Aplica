@@ -169,9 +169,11 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
   ipcMain.handle('job:correctVacancy', async (_event, rawText: string): Promise<string> => {
     return correctVacancyText(rawText)
   })
-  ipcMain.handle('job:analyze', async (_event, vacancyText: string): Promise<unknown> => {
+  ipcMain.handle('job:analyze', async (event, vacancyText: string): Promise<unknown> => {
     const profile = await loadProfile()
-    return analyzeVacancy(vacancyText, profile)
+    return analyzeVacancy(vacancyText, profile, (msg) => {
+      event.sender.send('investigate:phase', { message: msg })
+    })
   })
   ipcMain.handle('job:generateLetters', async (_event, vacancyText: string, atsReport: unknown): Promise<unknown> => {
     const profile = await loadProfile()
@@ -686,9 +688,11 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
     return loadCareerAdvice()
   })
 
-  ipcMain.handle('refreshCareerAdvice', async (): Promise<unknown> => {
+  ipcMain.handle('refreshCareerAdvice', async (event): Promise<unknown> => {
     const profile = await loadProfile()
-    return refreshCareerAdvice(profile)
+    return refreshCareerAdvice(profile, (msg) => {
+      event.sender.send('investigate:phase', { message: msg })
+    })
   })
 
   // ── Roadmap ──
@@ -696,9 +700,11 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
     return loadRoadmap()
   })
 
-  ipcMain.handle('refreshRoadmap', async (): Promise<unknown> => {
+  ipcMain.handle('refreshRoadmap', async (event): Promise<unknown> => {
     const profile = await loadProfile()
-    return refreshRoadmap(profile)
+    return refreshRoadmap(profile, (msg) => {
+      event.sender.send('investigate:phase', { message: msg })
+    })
   })
 
   // ── CV Download as PDF ──

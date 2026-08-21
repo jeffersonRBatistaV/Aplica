@@ -15,6 +15,7 @@ import { SETTINGS_FILE, DATA_DIR } from '../utils/paths'
 import { ensureDir } from './storage'
 
 const DEFAULT_TIMEOUT_MS = 120_000 // el backend investiga: buscar + extraer + sintetizar
+const STREAM_TIMEOUT_MS = 150_000
 const DEFAULT_BASE_URL = 'https://aplica.207.244.232.191.sslip.io'
 const INSTALL_CODE = 'aplica-2026-install-v1' // rotable en el backend
 
@@ -140,6 +141,91 @@ export async function investigate(
       throw new Error(`Backend de investigación respondió ${res.status}: ${body.slice(0, 200)}`)
     }
     return (await res.json()) as InvestigateResult
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/**
+ * Versión en streaming de investigate(): consume el endpoint SSE
+ * /api/investigate/stream y notifica cada fase (search/extract/synthesize)
+ * en vivo vía callbacks.onPhase. Resuelve con onDone(result) o onError(msg);
+ * nunca lanza excepciones hacia el llamador.
+ */
+export async function investigateStream(
+  userQuery: string,
+  country: string,
+  language: string,
+  callbacks: {
+    onPhase: (phase: string, message: string) => void
+    onDone: (result: any) => void
+    onError: (message: string) => void
+  },
+): Promise<void> {
+  const cfg = await getInvestigateConfig()
+  const base = cfg.baseUrl.replace(/\/+$/, '')
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS)
+
+  try {
+    const res = await fetch(`${base}/api/investigate/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': cfg.apiToken,
+      },
+      body: JSON.stringify({ user_query: userQuery, country, language }),
+      signal: controller.signal,
+    })
+    if (!res.ok) {
+      const body = await res.text().catch(() => '')
+      throw new Error(`Backend de investigación respondió ${res.status}: ${body.slice(0, 200)}`)
+    }
+    if (!res.body) throw new Error('Response body is not readable')
+
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let eventName = ''
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (!trimmed) continue
+        if (trimmed.startsWith('event:')) {
+          eventName = trimmed.slice(6).trim()
+          continue
+        }
+        if (!trimmed.startsWith('data:')) continue
+        const data = trimmed.slice(5).trim()
+        if (!data) continue
+        try {
+          const parsed = JSON.parse(data)
+          if (eventName === 'phase') {
+            callbacks.onPhase(String(parsed.phase || ''), String(parsed.message || ''))
+          } else if (eventName === 'done') {
+            callbacks.onDone(parsed)
+            return
+          } else if (eventName === 'error') {
+            callbacks.onError(String(parsed.message || 'Error desconocido del backend'))
+            return
+          }
+        } catch { /* skip */ }
+        eventName = ''
+      }
+    }
+    callbacks.onError('La conexión terminó antes de completar la investigación')
+  } catch (e) {
+    callbacks.onError(
+      controller.signal.aborted
+        ? `Tiempo de espera agotado (${STREAM_TIMEOUT_MS / 1000}s)`
+        : e instanceof Error ? e.message : String(e),
+    )
   } finally {
     clearTimeout(timer)
   }
