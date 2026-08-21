@@ -84,6 +84,7 @@ export function ProfileView({ profile, onSave, onEdit }: ProfileViewProps) {
           <Field label={t('profile.email')} icon={Mail} value={draft.email} onChange={(v) => setDraft({ ...draft, email: v })} />
           <Field label={t('profile.phone')} icon={Phone} value={draft.phone} onChange={(v) => setDraft({ ...draft, phone: v })} />
           <Field label={t('profile.location')} icon={MapPin} value={draft.location} onChange={(v) => setDraft({ ...draft, location: v })} />
+          <Field label={t('profile.country')} icon={Globe} value={draft.country} onChange={(v) => setDraft({ ...draft, country: v })} />
           <div className="flex items-center gap-2">
             <Target className="w-3.5 h-3.5 text-gray-400 shrink-0" />
             <label className="text-xs font-medium text-gray-500 dark:text-gray-400 min-w-[70px]">{t('profile.targetMarket')}</label>
@@ -312,6 +313,7 @@ export function ProfileView({ profile, onSave, onEdit }: ProfileViewProps) {
         {profile.email && <InfoRow icon={Mail} label={t('profile.email')} value={profile.email} />}
         {profile.phone && <InfoRow icon={Phone} label={t('profile.phone')} value={profile.phone} />}
         {profile.location && <InfoRow icon={MapPin} label={t('profile.location')} value={profile.location} />}
+        {profile.country && <InfoRow icon={Globe} label={t('profile.country')} value={profile.country} />}
         {profile.targetMarket && <InfoRow icon={Target} label={t('profile.targetMarket')} value={profile.targetMarket} />}
         {profile.github && <InfoRow icon={Code2} label={t('profile.github')} value={profile.github} />}
         {profile.linkedin && <InfoRow icon={Link} label={t('profile.linkedin')} value={profile.linkedin} />}

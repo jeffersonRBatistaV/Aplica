@@ -263,6 +263,7 @@ export const questions: Question[] = [
   { id: 'email', text: '¿Cuál es tu correo electrónico?', type: 'text', field: 'email' },
   { id: 'phone', text: '¿Cuál es tu teléfono de contacto?', type: 'text', field: 'phone' },
   { id: 'location', text: '¿En qué ciudad/país te encuentras?', type: 'text', field: 'location' },
+  { id: 'country', text: '¿Código de país (ISO 2 letras)? Ej: DO, US, MX — se usa para localizar investigaciones en línea', type: 'text', field: 'country' },
   { id: 'target_market', text: '¿En qué país o mercado laboral quieres insertarte?', type: 'single', options: ['República Dominicana', 'México', 'Colombia', 'Argentina', 'Chile', 'Perú', 'España', 'Estados Unidos', 'Europa (otro)', 'Latinoamérica (otro)', 'Remoto (internacional)', 'Otro'], field: 'targetMarket' },
   { id: 'github', text: '¿Cuál es la URL de tu perfil de GitHub?', type: 'text', field: 'github' },
   { id: 'linkedin', text: '¿Cuál es la URL de tu perfil de LinkedIn?', type: 'text', field: 'linkedin' },
