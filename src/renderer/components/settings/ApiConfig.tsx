@@ -265,7 +265,7 @@ function InvestigateSection() {
           value={localUrl}
           onChange={(e) => setLocalUrl(e.target.value)}
           onBlur={() => save({ baseUrl: localUrl })}
-          placeholder="https://syncread.207.244.232.191.sslip.io/investigate"
+          placeholder="https://aplica.207.244.232.191.sslip.io"
           className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
         />
       </div>
