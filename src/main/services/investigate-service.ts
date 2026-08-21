@@ -1,40 +1,93 @@
 /**
  * investigate-service.ts — Cliente del backend de investigación en línea.
  *
- * Llama a la API remota (FastAPI en el VPS: SearXNG + Jina/trafilatura + LLM)
- * para obtener respuestas investigadas y localizadas por país.
- *
- * Descubrimiento automático: si no hay URL configurada, consulta el endpoint
- * público /api/discovery de nuestro servidor por defecto para confirmar que
- * responde y es el backend correcto (sin exponer el token).
+ * AUTO-REGISTRO (sin configuración manual):
+ *  - La URL por defecto es nuestro servidor (aplica.sslip.io).
+ *  - En el primer uso, la app se auto-registra con su device_id (persistente)
+ *    + install_code (embebido, rotable) y recibe un token de dispositivo
+ *    con cuota diaria. El token se guarda en settings.
+ *  - El LLM del chat usa la tool "investigate_web" y decide cuándo investigar.
  */
+import { randomUUID } from 'crypto'
 import type { AppSettings, InvestigateConfig, InvestigateResult } from '../../shared/types'
-import { readJSON } from './storage'
-import { SETTINGS_FILE } from '../utils/paths'
+import { readJSON, writeJSON } from './storage'
+import { SETTINGS_FILE, DATA_DIR } from '../utils/paths'
+import { ensureDir } from './storage'
 
 const DEFAULT_TIMEOUT_MS = 120_000 // el backend investiga: buscar + extraer + sintetizar
 const DEFAULT_BASE_URL = 'https://aplica.207.244.232.191.sslip.io'
+const INSTALL_CODE = 'aplica-2026-install-v1' // rotable en el backend
 
-/** Lee la config de investigación guardada en settings. */
-async function getInvestigateConfig(): Promise<InvestigateConfig> {
-  const settings = await readJSON<AppSettings>(SETTINGS_FILE)
-  const cfg = settings?.investigate
-  if (!cfg?.apiToken) {
-    throw new Error('Investigación en línea no configurada. Ve a Ajustes → API e ingresa el token.')
+/** device_id persistente por instalación (archivo aparte, no se borra con settings). */
+async function getDeviceId(): Promise<string> {
+  try {
+    await ensureDir(DATA_DIR)
+    const { readFileSync, writeFileSync, existsSync } = await import('fs')
+    const p = `${DATA_DIR}/device-id.txt`
+    if (existsSync(p)) {
+      const existing = readFileSync(p, 'utf8').trim()
+      if (existing) return existing
+    }
+    const id = randomUUID()
+    writeFileSync(p, id, 'utf8')
+    return id
+  } catch {
+    return randomUUID() // fallback: id efímero
   }
-  // URL por defecto si el usuario no la cambió
-  const baseUrl = cfg.baseUrl?.trim() || DEFAULT_BASE_URL
-  return { baseUrl, apiToken: cfg.apiToken, configured: true }
 }
 
 /**
- * Auto-descubrimiento: verifica que el backend por defecto responde y es el
- * nuestro. Usa solo el endpoint público /api/discovery (sin token).
- * Devuelve la URL canónica a usar, o la default si no responde.
+ * Obtiene la config de investigación; si no hay token, se auto-registra.
+ * Sin errores de "configura": la app siempre tiene el backend disponible.
+ */
+async function getInvestigateConfig(): Promise<InvestigateConfig> {
+  const settings = await readJSON<AppSettings>(SETTINGS_FILE)
+  const cfg = settings?.investigate
+  const baseUrl = cfg?.baseUrl?.trim() || DEFAULT_BASE_URL
+
+  if (cfg?.apiToken) {
+    return { baseUrl, apiToken: cfg.apiToken, configured: true }
+  }
+
+  // Auto-registro transparente
+  try {
+    const deviceId = await getDeviceId()
+    const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/api/device/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_id: deviceId, install_code: INSTALL_CODE }),
+      signal: AbortSignal.timeout(15_000),
+    })
+    if (!res.ok) {
+      throw new Error(`Registro fallido: HTTP ${res.status}`)
+    }
+    const data = (await res.json()) as { token: string; quota_daily: number }
+    const nextSettings: AppSettings = {
+      api: settings?.api ?? { baseUrl: '', apiKey: '', model: '', configured: false },
+      investigate: { baseUrl, apiToken: data.token, configured: true },
+      appearance: settings?.appearance ?? { mode: 'system' },
+      privacy: settings?.privacy ?? { storeHistory: true, excludeFromTraining: false },
+      systemPrompt: settings?.systemPrompt ?? '',
+      locale: settings?.locale ?? 'es',
+      ttsVoice: settings?.ttsVoice ?? '',
+      preferredCurrency: settings?.preferredCurrency ?? 'USD',
+    }
+    await writeJSON(SETTINGS_FILE, nextSettings)
+    return { baseUrl, apiToken: data.token, configured: true }
+  } catch (e) {
+    throw new Error(
+      `No se pudo conectar con el backend de investigación (${e instanceof Error ? e.message : String(e)}). ` +
+        'Verifica tu conexión a internet.',
+    )
+  }
+}
+
+/**
+ * Auto-descubrimiento: verifica que el backend por defecto responde y es el nuestro.
+ * Usa solo el endpoint público /api/discovery (sin token).
  */
 export async function discoverBackend(): Promise<{ baseUrl: string; found: boolean; message: string }> {
   const tryUrls = [DEFAULT_BASE_URL]
-  // Si hay una URL guardada distinta, probarla también
   const settings = await readJSON<AppSettings>(SETTINGS_FILE)
   const saved = settings?.investigate?.baseUrl?.trim()
   if (saved && saved !== DEFAULT_BASE_URL) tryUrls.push(saved)
@@ -94,9 +147,9 @@ export async function investigate(
 
 /** Verifica que el backend de investigación responde (health check). */
 export async function investigateHealth(): Promise<{ ok: boolean; message: string }> {
-  const cfg = await getInvestigateConfig()
-  const base = cfg.baseUrl.replace(/\/+$/, '')
   try {
+    const cfg = await getInvestigateConfig()
+    const base = cfg.baseUrl.replace(/\/+$/, '')
     const res = await fetch(`${base}/api/health`, {
       headers: { 'X-API-Key': cfg.apiToken },
       signal: AbortSignal.timeout(10_000),
