@@ -1,6 +1,6 @@
 {
   "name": "aplica",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "AI Desktop Assistant — Chat + Job Application Hub",
   "type": "module",
   "main": "dist-electron/main.js",
