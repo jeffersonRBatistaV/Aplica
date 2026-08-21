@@ -151,7 +151,7 @@ export function ProfileWizard({ onClose, onComplete }: ProfileWizardProps) {
   const canNext = () => {
     if (step === 0) return areaId !== null
     if (step === 1) return contactFields.every((q) => {
-      if (q.id === 'github' || q.id === 'linkedin' || q.id === 'portfolio' || q.id === 'photo') return true
+      if (q.id === 'github' || q.id === 'linkedin' || q.id === 'portfolio' || q.id === 'photo' || q.id === 'country') return true
       const val = answers[q.id]
       return val && (typeof val === 'string' ? val.trim().length > 0 : val.length > 0)
     })
@@ -274,6 +274,7 @@ export function ProfileWizard({ onClose, onComplete }: ProfileWizardProps) {
       email: (answers['email'] as string) ?? '',
       phone: (answers['phone'] as string) ?? '',
       location: (answers['location'] as string) ?? '',
+      country: (answers['country'] as string) ?? '',
       targetMarket: firstString(answers['target_market']),
       github: (answers['github'] as string) ?? '',
       linkedin: (answers['linkedin'] as string) ?? '',

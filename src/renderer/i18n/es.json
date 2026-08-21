@@ -301,7 +301,8 @@
     "photoAlt": "Foto",
     "addTag": "Agregar {{label}}...",
     "at": "en",
-    "in": "en"
+    "in": "en",
+    "country": "País (ISO 2 letras)"
   },
   "currencies": {
     "USD": "Dólar estadounidense",
