@@ -1,4 +1,4 @@
-import type { Message, Profile, InvestigateResult } from '../../shared/types'
+import type { Message, Profile, InvestigateResult, JobApplication, Roadmap, UsageStats } from '../../shared/types'
 
 const MAX_INPUT_TOKENS = 900000
 const ESTIMATE_FACTOR = 4
@@ -93,6 +93,105 @@ async function runInvestigateTool(query: string, onToken: (token: string) => voi
   }
 }
 
+/**
+ * Definición de la tool get_app_data (OpenAI function-calling).
+ * Permite al modelo consultar los DATOS REALES de la app del usuario
+ * (postulaciones, roadmap, consejos, uso de API, plantillas de CV).
+ */
+const APP_DATA_TOOL = {
+  type: 'function',
+  function: {
+    name: 'get_app_data',
+    description:
+      'Obtiene datos REALES de la aplicación del usuario: postulaciones a empleos (vacantes, empresas, estados, fechas), roadmap profesional, consejos de carrera, estadísticas de uso de API (tokens, costo) y plantillas de CV. Úsala cuando el usuario pregunte sobre su progreso, sus aplicaciones, empresas contactadas, roadmap, consejos, estadísticas, gastos o CVs. NO la uses para preguntas generales o sobre el perfil (el perfil ya está en tu contexto).',
+    parameters: {
+      type: 'object',
+      properties: {
+        data: {
+          type: 'string',
+          enum: ['jobs', 'roadmap', 'career_advice', 'usage', 'cvs', 'all'],
+          description: 'Qué datos consultar: jobs, roadmap, career_advice, usage, cvs o all',
+        },
+      },
+      required: ['data'],
+    },
+  },
+}
+
+/** Ejecuta la tool get_app_data: lee los archivos de datos de la app y devuelve un resumen en JSON. */
+async function runAppDataTool(data: string): Promise<string> {
+  try {
+    const { readJSON } = await import('./storage')
+    const paths = await import('../utils/paths')
+
+    const statusLabel: Record<string, string> = {
+      draft: 'Borrador',
+      applied: 'Aplicado',
+      interview: 'Entrevista',
+      offer: 'Oferta',
+      rejected: 'Rechazado',
+    }
+    const validKeys = ['jobs', 'roadmap', 'career_advice', 'usage', 'cvs'] as const
+    const requested = (validKeys as readonly string[]).includes(data)
+      ? [data]
+      : validKeys // 'all' o valor desconocido
+
+    const payload: Record<string, unknown> = {}
+
+    if (requested.includes('jobs')) {
+      const jobs = (await readJSON<JobApplication[]>(paths.JOBS_FILE)) ?? []
+      payload.postulaciones = jobs.map((j) => ({
+        empresa: j.company,
+        puesto: j.position,
+        estado: statusLabel[j.status] || j.status,
+        categoria: j.category,
+        email: j.recipientEmail,
+        creado: j.createdAt ? new Date(j.createdAt).toLocaleString() : '',
+      }))
+    }
+
+    if (requested.includes('roadmap')) {
+      const roadmap = await readJSON<Roadmap>(paths.ROADMAP_FILE)
+      payload.roadmap = roadmap
+        ? {
+            targetMarket: roadmap.targetMarket,
+            generado: roadmap.generatedAt ? new Date(roadmap.generatedAt).toLocaleString() : '',
+            fases: (roadmap.phases ?? []).map((p) => ({
+              nombre: p.name,
+              plazo: p.timeframe,
+              acciones: (p.actions ?? []).map((a) => ({ titulo: a.title, prioridad: a.priority })),
+            })),
+          }
+        : {}
+    }
+
+    if (requested.includes('career_advice')) {
+      payload.consejos_carrera = (await readJSON(paths.CAREER_ADVICE_FILE)) ?? {}
+    }
+
+    if (requested.includes('usage')) {
+      const usage = await readJSON<UsageStats>(paths.USAGE_FILE)
+      payload.uso_api = {
+        totalPromptTokens: usage?.totalPromptTokens ?? 0,
+        totalCompletionTokens: usage?.totalCompletionTokens ?? 0,
+        costoTotalUSD: Number((usage?.totalCost ?? 0).toFixed(4)),
+        registros: usage?.records?.length ?? 0,
+      }
+    }
+
+    if (requested.includes('cvs')) {
+      const templates = (await readJSON<{ name?: string; style?: string }[]>(paths.CV_TEMPLATES_FILE)) ?? []
+      payload.plantillas_cv = templates.map((t) => ({ name: t.name ?? '', style: t.style ?? '' }))
+    }
+
+    if (Object.keys(payload).length === 0) return `No hay datos de ${data} disponibles.`
+
+    return JSON.stringify(payload, null, 1)
+  } catch {
+    return `No hay datos de ${data} disponibles.`
+  }
+}
+
 function buildSystemPrompt(userPrompt?: string, profile?: Profile | null): string {
   const parts: string[] = []
   if (userPrompt) parts.push(userPrompt)
@@ -156,8 +255,8 @@ export async function streamChatCompletion(
     const truncated = truncateMessages(systemMessage.content, apiMessages.slice(1), MAX_INPUT_TOKENS)
     apiMessages = [systemMessage, ...truncated]
 
-    // ── Pasada 1: con tools (el modelo decide si investigar) ──
-    const response = await fetchCompletion(config, apiMessages, signal, undefined, options?.excludeFromTraining, [INVESTIGATE_TOOL])
+    // ── Pasada 1: con tools (el modelo decide si investigar o consultar datos de la app) ──
+    const response = await fetchCompletion(config, apiMessages, signal, undefined, options?.excludeFromTraining, [INVESTIGATE_TOOL, APP_DATA_TOOL])
     if (!response.ok) {
       const errorText = await response.text().catch(() => 'Unknown error')
       throw new Error(`API ${response.status}: ${errorText}`)
@@ -206,28 +305,48 @@ export async function streamChatCompletion(
       }
     }
 
-    // ── Si el modelo pidió investigar: ejecutar tool y continuar ──
-    const wanted = toolCalls.find(tc => tc.name === 'investigate_web' && tc.args)
-    if (wanted && !signal.aborted) {
-      let query = 'Consulta del usuario'
-      try {
-        const parsed = JSON.parse(wanted.args || '{}')
-        if (parsed.query) query = parsed.query
-      } catch { /* args malformados */ }
+    // ── Si el modelo pidió una tool (investigate_web y/o get_app_data): ejecutar y continuar ──
+    const investigateCall = toolCalls.find(tc => tc.name === 'investigate_web' && tc.args)
+    const appDataCall = toolCalls.find(tc => tc.name === 'get_app_data' && tc.args)
+    if ((investigateCall || appDataCall) && !signal.aborted) {
+      const systemNotes: string[] = []
+      const results: string[] = []
 
-      const toolResult = await runInvestigateTool(query, (t) => callbacks.onToken(t))
-      callbacks.onToken(`_Resultado obtenido de ${toolResult.match(/\[1\]/i) ? 'múltiples fuentes' : 'fuentes en línea'}._\n\n`)
+      if (investigateCall) {
+        let query = 'Consulta del usuario'
+        try {
+          const parsed = JSON.parse(investigateCall.args || '{}')
+          if (parsed.query) query = parsed.query
+        } catch { /* args malformados */ }
 
-      // Pasada 2: sin tools, con el resultado como mensaje de sistema
+        const toolResult = await runInvestigateTool(query, (t) => callbacks.onToken(t))
+        callbacks.onToken(`_Resultado obtenido de ${toolResult.match(/\[1\]/i) ? 'múltiples fuentes' : 'fuentes en línea'}._\n\n`)
+        results.push(toolResult)
+        systemNotes.push(
+          'A continuación tienes el resultado de una investigación en línea. Usa ESTA información (y solo esta) para responder al usuario de forma completa, citando las fuentes entre corchetes [1], [2]... No inventes datos que no estén en el resultado.',
+        )
+      }
+
+      if (appDataCall) {
+        let dataKey = 'all'
+        try {
+          const parsed = JSON.parse(appDataCall.args || '{}')
+          if (parsed.data) dataKey = String(parsed.data)
+        } catch { /* args malformados */ }
+
+        callbacks.onToken('\n\n📊 Consultando tus datos...\n\n')
+        results.push(await runAppDataTool(dataKey))
+        systemNotes.push(
+          'A continuación tienes los datos de la aplicación del usuario. Usa ESTA información (y solo esta) para responder al usuario de forma completa y precisa. No inventes datos que no estén en estos resultados.',
+        )
+      }
+
+      // Pasada 2: sin tools, con los resultados como mensajes de sistema
       apiMessages = [
         ...apiMessages,
         { role: 'assistant', content: fullOutput || '' },
-        {
-          role: 'system',
-          content:
-            'A continuación tienes el resultado de una investigación en línea. Usa ESTA información (y solo esta) para responder al usuario de forma completa, citando las fuentes entre corchetes [1], [2]... No inventes datos que no estén en el resultado.',
-        },
-        { role: 'user', content: toolResult },
+        { role: 'system', content: systemNotes.join('\n\n') },
+        { role: 'user', content: results.join('\n\n---\n\n') },
       ]
       // Re-truncar si hace falta
       const truncated2 = truncateMessages(systemMessage.content, apiMessages.slice(1), MAX_INPUT_TOKENS)
