@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { MessageCircle, ChevronDown, ChevronUp, RefreshCw, Loader2, Sparkles } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '../ui/Button'
@@ -38,7 +40,9 @@ function QuestionCard({ q }: { q: InterviewQuestion }) {
               {q.category}
             </span>
           </div>
-          <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{q.question}</p>
+          <div className="text-sm font-medium text-gray-800 dark:text-gray-200">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{q.question}</ReactMarkdown>
+          </div>
         </div>
         {open ? (
           <ChevronUp className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
@@ -49,7 +53,9 @@ function QuestionCard({ q }: { q: InterviewQuestion }) {
       {open && (
         <div className="px-4 pb-3 pt-0 border-t border-gray-100 dark:border-gray-700/50">
           <div className="pl-7">
-            <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{q.answer}</p>
+            <div className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed prose prose-sm max-w-none dark:prose-invert">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{q.answer}</ReactMarkdown>
+            </div>
           </div>
         </div>
       )}
