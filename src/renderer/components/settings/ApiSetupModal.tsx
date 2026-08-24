@@ -14,13 +14,15 @@ export function ApiSetupModal({ onComplete }: ApiSetupModalProps) {
   const [baseUrl, setBaseUrl] = useState(settings.api.baseUrl)
   const [apiKey, setApiKey] = useState(settings.api.apiKey)
   const [model, setModel] = useState(settings.api.model)
+  const [visionModel, setVisionModel] = useState(settings.api.visionModel)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const handleChange = (config: { baseUrl: string; apiKey: string; model: string }) => {
+  const handleChange = (config: { baseUrl: string; apiKey: string; model: string; visionModel?: string }) => {
     setBaseUrl(config.baseUrl)
     setApiKey(config.apiKey)
     setModel(config.model)
+    setVisionModel(config.visionModel)
   }
 
   const handleSave = async () => {
@@ -28,7 +30,7 @@ export function ApiSetupModal({ onComplete }: ApiSetupModalProps) {
     setError(null)
     try {
       await updateSettings({
-        api: { baseUrl, apiKey, model, configured: true },
+        api: { baseUrl, apiKey, model, visionModel, configured: true },
       })
       onComplete()
     } catch (err) {
@@ -65,6 +67,7 @@ export function ApiSetupModal({ onComplete }: ApiSetupModalProps) {
             baseUrl={baseUrl}
             apiKey={apiKey}
             model={model}
+            visionModel={visionModel}
             onChange={handleChange}
           />
         </div>

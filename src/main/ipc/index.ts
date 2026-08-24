@@ -663,7 +663,7 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
     }
     const raw = base64.replace(/^data:image\/\w+;base64,/, '')
     const buffer = Buffer.from(raw, 'base64')
-    return extractTextFromImage(buffer, base64, llmConfig)
+    return extractTextFromImage(buffer, base64, llmConfig, settings?.api?.visionModel)
   })
 
   // ── Usage ──

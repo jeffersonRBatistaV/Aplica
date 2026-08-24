@@ -82,10 +82,21 @@ export async function extractTextFromImage(
   buffer: Buffer,
   dataUrl: string,
   llmConfig: { baseUrl: string; apiKey: string; model: string } | null,
+  visionModel?: string,
 ): Promise<string> {
   if (llmConfig) {
-    const llmText = await extractTextWithLLM(dataUrl, llmConfig)
-    if (llmText) return llmText
+    const visionConfig = visionModel && visionModel !== llmConfig.model
+      ? { ...llmConfig, model: visionModel }
+      : null
+    const primaryConfig = llmConfig
+
+    if (visionConfig) {
+      const visionText = await extractTextWithLLM(dataUrl, visionConfig)
+      if (visionText) return visionText
+    }
+
+    const primaryText = await extractTextWithLLM(dataUrl, primaryConfig)
+    if (primaryText) return primaryText
   }
 
   const w = await getWorker()

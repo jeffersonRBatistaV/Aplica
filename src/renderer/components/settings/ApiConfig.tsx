@@ -34,10 +34,11 @@ interface ApiConfigProps {
   baseUrl: string
   apiKey: string
   model: string
-  onChange: (config: { baseUrl: string; apiKey: string; model: string; configured?: boolean }) => void
+  visionModel?: string
+  onChange: (config: { baseUrl: string; apiKey: string; model: string; visionModel?: string; configured?: boolean }) => void
 }
 
-export function ApiConfig({ baseUrl, apiKey, model, onChange }: ApiConfigProps) {
+export function ApiConfig({ baseUrl, apiKey, model, visionModel, onChange }: ApiConfigProps) {
   const { t } = useTranslation()
   const [localBaseUrl, setLocalBaseUrl] = useState(baseUrl)
   const [providerId, setProviderId] = useState(() => givenProvider(baseUrl))
@@ -50,6 +51,8 @@ export function ApiConfig({ baseUrl, apiKey, model, onChange }: ApiConfigProps) 
   const prevUrlRef = useRef(baseUrl)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const mountedRef = useRef(false)
+
+  const visionModels = models.filter((m) => /vision/i.test(m.id))
 
   const fetchModels = useCallback(async (url: string, key: string) => {
     if (!window.api || !url.trim()) return
@@ -257,6 +260,31 @@ export function ApiConfig({ baseUrl, apiKey, model, onChange }: ApiConfigProps) 
           </p>
         )}
       </div>
+
+      {/* Vision model selector (OCR) */}
+      {visionModels.length > 0 && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            {t('apiConfig.visionModel')}
+          </label>
+          <select
+            value={visionModel ?? ''}
+            onChange={(e) => onChange({ baseUrl: localBaseUrl, apiKey: localApiKey, model, visionModel: e.target.value || undefined, configured: true })}
+            disabled={loadingModels}
+            className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <option value="">{t('apiConfig.noVisionModel')}</option>
+            {visionModels.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name || m.id}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-400 mt-1">
+            {t('apiConfig.visionModelHelp')}
+          </p>
+        </div>
+      )}
 
       {/* API Consumption */}
       <ConsumptionSection />
