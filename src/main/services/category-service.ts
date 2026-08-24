@@ -1,7 +1,7 @@
 import type { JobCategory } from '../../shared/types'
 import { completeChatCompletion } from './llm-service'
 import { readJSON, writeJSON, ensureDir } from './storage'
-import { CATEGORIES_FILE, DATA_DIR, SETTINGS_FILE } from '../utils/paths'
+import { CATEGORIES_FILE, DATA_DIR, SETTINGS_FILE, FOLDERS_FILE } from '../utils/paths'
 
 interface LLMConfig {
   baseUrl: string
@@ -132,6 +132,37 @@ export async function deleteCategory(id: string): Promise<JobCategory[]> {
   return next
 }
 
+export async function listFolders(): Promise<string[]> {
+  await ensureDir(DATA_DIR)
+  const folders = (await readJSON<string[]>(FOLDERS_FILE)) ?? []
+  return folders
+}
+
+export async function saveFolder(name: string): Promise<string[]> {
+  await ensureDir(DATA_DIR)
+  const folders = (await readJSON<string[]>(FOLDERS_FILE)) ?? []
+  const original = name.trim()
+  if (original && !folders.some((f) => f.toLowerCase() === original.toLowerCase())) {
+    folders.push(original)
+    await writeJSON(FOLDERS_FILE, folders)
+  }
+  return folders
+}
+
+export async function deleteFolder(name: string): Promise<string[]> {
+  await ensureDir(DATA_DIR)
+  const folders = (await readJSON<string[]>(FOLDERS_FILE)) ?? []
+  const nextFolders = folders.filter((f) => f.toLowerCase() !== name.trim().toLowerCase())
+  await writeJSON(FOLDERS_FILE, nextFolders)
+
+  const categories = await readAll()
+  const nextCategories = categories.map((c) =>
+    c.folder && c.folder.toLowerCase() === name.trim().toLowerCase() ? { ...c, folder: undefined } : c,
+  )
+  await writeAll(nextCategories)
+  return nextFolders
+}
+
 const GENERATE_CATEGORIES_PROMPT = `Eres un estratega de empleo experto en el mercado laboral. Tu tarea es proponer categorías de vacante (roles/puestos) que se ofrecen dentro de un área profesional concreta.
 
 Basándote SOLO en el área objetivo indicada, genera entre 8 y 10 categorías de vacante genéricas y representativas de lo que se contrata en esa área: roles habituales, especializaciones y puestos afines.
@@ -145,8 +176,11 @@ Reglas:
 
 Responde ÚNICAMENTE con un JSON array válido, sin markdown ni delimitadores:
 [
-  { "name": "...", "description": "...", "keywords": ["...", "..."] }
-]`
+  { "name": "...", "description": "...", "keywords": ["...", "..."], "folder": "..." }
+]
+
+El campo "folder" es OPCIONAL: si la categoría encaja de forma natural dentro de una de las carpetas existentes que se te indiquen, asígnale ese nombre exacto; en caso contrario, omite el campo o déjalo como cadena vacía.
+`
 
 const FALLBACK_CATEGORIES: Record<string, JobCategory['name'][]> = {
   tecnologia: ['Desarrollo Backend', 'Desarrollo Frontend', 'DevOps / Cloud', 'Ciberseguridad', 'Sistemas / Infraestructura', 'Datos / Analítica', 'QA / Testing', 'Soporte Técnico / Helpdesk'],
@@ -178,7 +212,11 @@ export async function generateCategories(areaId: string): Promise<JobCategory[]>
   const config = await getConfig()
   const area = areaName(areaId)
 
-  const userMessage = `Área objetivo: ${area}.\n\nGenera el JSON array con las categorías de vacante propuestas para esa área.`
+  const folders = await listFolders()
+  const userMessage = `Área objetivo: ${area}.\n\nGenera el JSON array con las categorías de vacante propuestas para esa área.
+
+Carpetas existentes donde puedes organizar: ${JSON.stringify(folders)}.
+Si una categoría encaja en una carpeta existente, asignale el campo "folder" con ese nombre exacto. Si no, deja el campo "folder" vacío o omitelo.`
 
   try {
     const response = await completeChatCompletion(config, [
@@ -188,7 +226,7 @@ export async function generateCategories(areaId: string): Promise<JobCategory[]>
     const clean = response.replace(/```(?:json)?\n?/gi, '').trim()
     const jsonMatch = clean.match(/\[[\s\S]*\]/)
     if (!jsonMatch) return fallbackFor(areaId)
-    const parsed = JSON.parse(jsonMatch[0]) as { name?: string; description?: string; keywords?: string[] }[]
+    const parsed = JSON.parse(jsonMatch[0]) as { name?: string; description?: string; keywords?: string[]; folder?: string }[]
     if (!Array.isArray(parsed) || parsed.length === 0) return fallbackFor(areaId)
 
     const now = Date.now()
@@ -201,6 +239,7 @@ export async function generateCategories(areaId: string): Promise<JobCategory[]>
         name: c.name.trim(),
         description: (c.description || c.name).trim(),
         keywords: Array.isArray(c.keywords) ? c.keywords.slice(0, 12) : [],
+        folder: typeof c.folder === 'string' && c.folder.trim() ? c.folder.trim() : undefined,
         source: 'ai' as const,
         createdAt: now,
       }))

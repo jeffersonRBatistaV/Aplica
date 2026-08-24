@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Sparkles, Plus, Trash2, FileText, ArrowLeft, Loader2, AlertCircle, Check, Briefcase, ChevronDown } from 'lucide-react'
+import { Sparkles, Plus, Trash2, FileText, ArrowLeft, Loader2, AlertCircle, Check, Briefcase, ChevronDown, FolderOpen, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
@@ -39,6 +39,16 @@ export function CategoryCV() {
   const [savedByCategory, setSavedByCategory] = useState<Record<string, JobApplication[]>>({})
   const [pendingDeleteCategory, setPendingDeleteCategory] = useState<JobCategory | null>(null)
 
+  const [folders, setFolders] = useState<string[]>([])
+  const [showAddFolder, setShowAddFolder] = useState(false)
+  const [newFolderName, setNewFolderName] = useState('')
+  const [savedJobs, setSavedJobs] = useState<JobApplication[]>([])
+  const [dragJobId, setDragJobId] = useState<string | null>(null)
+  const [dragOverCat, setDragOverCat] = useState<string | null>(null)
+  const [selectedFolder, setSelectedFolder] = useState<string | null>(null)
+  const [pendingDeleteJob, setPendingDeleteJob] = useState<JobApplication | null>(null)
+  const [pendingDeleteFolder, setPendingDeleteFolder] = useState<string | null>(null)
+
   const reloadSaved = useCallback(async () => {
     if (!window.api) return
     const jobs = await window.api.getJobs()
@@ -49,6 +59,13 @@ export function CategoryCV() {
       }
     }
     setSavedByCategory(map)
+    setSavedJobs(jobs)
+  }, [])
+
+  const reloadFolders = useCallback(async () => {
+    if (!window.api) return
+    const list = await window.api.listFolders()
+    setFolders(list)
   }, [])
 
   const reloadCategories = useCallback(async (area: string) => {
@@ -74,7 +91,8 @@ export function CategoryCV() {
 
   useEffect(() => {
     reloadSaved()
-  }, [reloadSaved])
+    reloadFolders()
+  }, [reloadSaved, reloadFolders])
 
   useEffect(() => {
     reloadCategories(areaId)
@@ -167,6 +185,66 @@ export function CategoryCV() {
       setError(err instanceof Error ? err.message : t('categoryCV.error', { msg: String(err) }))
     } finally {
       setPendingDeleteCategory(null)
+    }
+  }
+
+  const handleAddFolder = async () => {
+    if (!window.api || !newFolderName.trim()) return
+    try {
+      const next = await window.api.saveFolder(newFolderName.trim())
+      setFolders(next)
+      setNewFolderName('')
+      setShowAddFolder(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('categoryCV.error', { msg: String(err) }))
+    }
+  }
+
+  const confirmDeleteFolder = async () => {
+    if (!pendingDeleteFolder || !window.api) return
+    try {
+      const next = await window.api.deleteFolder(pendingDeleteFolder)
+      setFolders(next)
+      if (selectedFolder === pendingDeleteFolder) setSelectedFolder(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('categoryCV.error', { msg: String(err) }))
+    } finally {
+      setPendingDeleteFolder(null)
+    }
+  }
+
+  const confirmDeleteJob = async () => {
+    if (!pendingDeleteJob || !window.api) return
+    try {
+      await window.api.deleteJob(pendingDeleteJob.id)
+      await reloadSaved()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('categoryCV.error', { msg: String(err) }))
+    } finally {
+      setPendingDeleteJob(null)
+    }
+  }
+
+  const handleMoveJob = async (jobId: string, targetCategoryName: string) => {
+    if (!window.api) return
+    const job = savedJobs.find((j) => j.id === jobId)
+    if (!job || job.category === targetCategoryName) return
+    try {
+      const updated: JobApplication = { ...job, category: targetCategoryName, updatedAt: Date.now() }
+      await window.api.saveJob(updated)
+      await reloadSaved()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('categoryCV.error', { msg: String(err) }))
+    }
+  }
+
+  const handleAssignFolder = async (cat: JobCategory, folder: string | undefined) => {
+    if (!window.api) return
+    try {
+      await window.api.saveCategory({ ...cat, folder })
+      await reloadCategories(areaId)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('categoryCV.error', { msg: String(err) }))
     }
   }
 
@@ -366,6 +444,73 @@ export function CategoryCV() {
         </div>
       </div>
 
+      {/* Folders */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">{t('categoryCV.folders')}</label>
+          <button
+            onClick={() => setShowAddFolder(!showAddFolder)}
+            className="p-1 rounded text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+            title={t('categoryCV.addFolder')}
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
+        {showAddFolder && (
+          <div className="flex gap-2 mb-2">
+            <input
+              type="text"
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              placeholder={t('categoryCV.folderPlaceholder')}
+              autoFocus
+              onKeyDown={(e) => { if (e.key === 'Enter') handleAddFolder() }}
+              className="flex-1 px-3 py-1.5 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+            />
+            <Button variant="primary" size="sm" onClick={handleAddFolder} disabled={!newFolderName.trim()}>
+              <Check className="w-3.5 h-3.5" />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => { setShowAddFolder(false); setNewFolderName('') }}>
+              <X className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        )}
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setSelectedFolder(null)}
+            className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
+              selectedFolder === null
+                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300'
+                : 'border-gray-200 dark:border-gray-700 text-gray-500 hover:border-blue-400'
+            }`}
+          >
+            {t('categoryCV.noFolder')}
+          </button>
+          {folders.map((f) => (
+            <div
+              key={f}
+              className={`group/folder flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border transition-colors ${
+                selectedFolder === f
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300'
+                  : 'border-gray-200 dark:border-gray-700 text-gray-500 hover:border-blue-400'
+              }`}
+            >
+              <button onClick={() => setSelectedFolder(f)} className="flex items-center gap-1">
+                <FolderOpen className="w-3 h-3" />
+                {f}
+              </button>
+              <button
+                onClick={() => setPendingDeleteFolder(f)}
+                className="p-0.5 rounded text-gray-300 hover:text-red-500 opacity-0 group-hover/folder:opacity-100 transition-opacity"
+                title={t('categoryCV.deleteFolder')}
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Actions */}
       <div className="flex flex-wrap gap-2">
         <Button variant="primary" size="sm" onClick={handleGenerateAI} disabled={aiGenerating}>
@@ -468,17 +613,33 @@ export function CategoryCV() {
             <Loader2 className="w-4 h-4 animate-spin" />
             <span>{t('categoryCV.generatingAI')}</span>
           </div>
-        ) : categories.length === 0 ? (
+        ) : (selectedFolder === null ? categories : categories.filter((c) => c.folder === selectedFolder)).length === 0 ? (
           <p className="text-sm text-gray-500 dark:text-gray-400 py-6 text-center border border-dashed border-gray-300 dark:border-gray-700 rounded-xl">
             {t('categoryCV.emptyCategories')}
           </p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {categories.map((cat) => {
+            {(selectedFolder === null ? categories : categories.filter((c) => c.folder === selectedFolder)).map((cat) => {
               const saved = savedByCategory[cat.name] ?? []
               const lastSaved = saved[saved.length - 1]
+              const isDragOver = dragOverCat === cat.id
               return (
-                <div key={cat.id} className="p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 flex flex-col gap-2 group relative">
+                <div
+                  key={cat.id}
+                  onDragOver={(e) => { e.preventDefault(); setDragOverCat(cat.id) }}
+                  onDragLeave={() => { if (dragOverCat === cat.id) setDragOverCat(null) }}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    setDragOverCat(null)
+                    const jobId = e.dataTransfer.getData('text/plain')
+                    if (jobId) handleMoveJob(jobId, cat.name)
+                  }}
+                  className={`p-4 rounded-xl border bg-white dark:bg-gray-800/50 flex flex-col gap-2 group relative ${
+                    isDragOver
+                      ? 'border-blue-500 border-dashed ring-2 ring-blue-500/30'
+                      : 'border-gray-200 dark:border-gray-700'
+                  }`}
+                >
                   <button
                     onClick={() => handleDeleteCategory(cat.id)}
                     className="absolute top-2 right-2 p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -495,6 +656,12 @@ export function CategoryCV() {
                       </span>
                     )}
                   </div>
+                  {cat.folder && (
+                    <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 w-fit">
+                      <FolderOpen className="w-3 h-3" />
+                      {cat.folder}
+                    </span>
+                  )}
                   <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 flex-1">{cat.description}</p>
                   <div className="flex flex-wrap gap-1">
                     {cat.keywords.slice(0, 4).map((kw) => (
@@ -504,7 +671,44 @@ export function CategoryCV() {
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-400">+{cat.keywords.length - 4}</span>
                     )}
                   </div>
-                  <div className="flex gap-2">
+
+                  {/* Saved jobs for this category (draggable) */}
+                  {saved.length > 0 && (
+                    <div className="flex flex-col gap-1 mt-1">
+                      {saved.map((job) => (
+                        <div
+                          key={job.id}
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData('text/plain', job.id)
+                            e.dataTransfer.effectAllowed = 'move'
+                            setDragJobId(job.id)
+                          }}
+                          onDragEnd={() => setDragJobId(null)}
+                          className={`flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 ${
+                            dragJobId === job.id ? 'opacity-50' : ''
+                          }`}
+                        >
+                          <button
+                            className="text-left text-xs text-gray-600 dark:text-gray-300 truncate flex-1"
+                            onClick={() => handleOpenSaved(job)}
+                            title={job.position}
+                          >
+                            {job.position || t('categoryCV.openSavedCV')}
+                          </button>
+                          <button
+                            onClick={() => setPendingDeleteJob(job)}
+                            className="p-0.5 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                            title={t('categoryCV.deleteJob')}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between gap-2 mt-1">
                     {lastSaved ? (
                       <Button variant="primary" size="sm" onClick={() => handleOpenSaved(lastSaved)}>
                         <FileText className="w-3.5 h-3.5" />
@@ -516,6 +720,18 @@ export function CategoryCV() {
                         {t('categoryCV.generateCV')}
                       </Button>
                     )}
+                    <select
+                      value={cat.folder || ''}
+                      onChange={(e) => handleAssignFolder(cat, e.target.value || undefined)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-[10px] px-1.5 py-1 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
+                      title={t('categoryCV.moveToFolder')}
+                    >
+                      <option value="">{t('categoryCV.noFolder')}</option>
+                      {folders.map((f) => (
+                        <option key={f} value={f}>{f}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               )
@@ -533,6 +749,28 @@ export function CategoryCV() {
         variant="danger"
         onConfirm={confirmDeleteCategory}
         onCancel={() => setPendingDeleteCategory(null)}
+      />
+
+      <ConfirmDialog
+        open={pendingDeleteFolder !== null}
+        title={t('categoryCV.deleteFolder')}
+        message={t('categoryCV.deleteFolderConfirm', { name: pendingDeleteFolder || '' })}
+        confirmLabel={t('categoryCV.deleteFolderConfirmButton')}
+        cancelLabel={t('categoryCV.deleteCategoryCancel')}
+        variant="danger"
+        onConfirm={confirmDeleteFolder}
+        onCancel={() => setPendingDeleteFolder(null)}
+      />
+
+      <ConfirmDialog
+        open={pendingDeleteJob !== null}
+        title={t('categoryCV.deleteJob')}
+        message={t('categoryCV.deleteJobConfirm')}
+        confirmLabel={t('categoryCV.deleteJobConfirmButton')}
+        cancelLabel={t('categoryCV.deleteCategoryCancel')}
+        variant="danger"
+        onConfirm={confirmDeleteJob}
+        onCancel={() => setPendingDeleteJob(null)}
       />
     </div>
   )

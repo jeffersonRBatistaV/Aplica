@@ -153,7 +153,18 @@
     "deleteCategoryTitle": "Delete category",
     "deleteCategoryConfirm": "Are you sure you want to delete the category {{name}}? This action cannot be undone.",
     "deleteCategoryConfirmButton": "Delete",
-    "deleteCategoryCancel": "Cancel"
+    "deleteCategoryCancel": "Cancel",
+    "folders": "Folders",
+    "addFolder": "New folder",
+    "folderPlaceholder": "Folder name",
+    "deleteFolder": "Delete folder",
+    "deleteFolderConfirm": "Delete folder {{name}}?",
+    "deleteFolderConfirmButton": "Delete",
+    "moveToFolder": "Move to folder",
+    "noFolder": "No folder",
+    "deleteJob": "Delete job",
+    "deleteJobConfirm": "Delete this job?",
+    "deleteJobConfirmButton": "Delete"
   },
   "atsReport": {
     "title": "ATS Report",
