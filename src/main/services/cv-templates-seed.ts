@@ -1,6 +1,6 @@
 import type { CvTemplate } from '../../shared/types'
 
-const SEED_TEMPLATES: Omit<CvTemplate, 'sampleHtml'> & { sampleHtml: string }[] = [
+const SEED_TEMPLATES: (Omit<CvTemplate, 'sampleHtml'> & { sampleHtml: string })[] = [
   {
     id: 'seed-ats',
     name: 'ATS-Friendly',

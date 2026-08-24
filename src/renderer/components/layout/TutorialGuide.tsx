@@ -82,7 +82,6 @@ export function useTutorial() {
       nextBtnText: t('tutorial.continue'),
       prevBtnText: t('tutorial.previous'),
       doneBtnText: t('tutorial.skipGuide'),
-      closeBtnText: t('tutorial.skipGuide'),
       allowClose: true,
       overlayOpacity: 0.6,
       smoothScroll: true,

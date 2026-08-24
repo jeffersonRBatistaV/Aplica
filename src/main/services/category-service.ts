@@ -236,8 +236,8 @@ Si una categoría encaja en una carpeta existente, asignale el campo "folder" co
       .map((c) => ({
         id: `ai-${areaId}-${now}-${Math.random().toString(36).slice(2, 7)}`,
         areaId,
-        name: c.name.trim(),
-        description: (c.description || c.name).trim(),
+        name: (c.name ?? '').trim(),
+        description: ((c.description ?? '') || (c.name ?? '')).trim(),
         keywords: Array.isArray(c.keywords) ? c.keywords.slice(0, 12) : [],
         folder: typeof c.folder === 'string' && c.folder.trim() ? c.folder.trim() : undefined,
         source: 'ai' as const,

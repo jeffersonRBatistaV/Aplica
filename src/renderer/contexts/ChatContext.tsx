@@ -159,7 +159,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     async (content: string) => {
       if (!content.trim() || isStreaming) return
 
-      let conv = findConversation(activeConversationId)
+      let conv = findConversation(activeConversationId ?? '')
       if (!conv) return
 
       const userMsg = createUserMessage(content.trim())
@@ -273,7 +273,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   )
 
   const regenerateLastMessage = useCallback(async () => {
-    const conv = findConversation(activeConversationId)
+    const conv = findConversation(activeConversationId ?? '')
     if (!conv || conv.messages.length < 2) return
 
     const msgs = conv.messages.slice(0, -1)

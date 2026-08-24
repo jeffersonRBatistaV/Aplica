@@ -261,6 +261,8 @@ export function Analytics() {
     color: STATUS_CHART_COLORS[status],
   })).filter(d => d.value > 0)
 
+  const pieTotal = pieData.reduce((sum, d) => sum + d.value, 0)
+
   const barData = STATUS_KEYS.map((status) => ({
     label: STATUS_LABELS(status),
     value: stats.jobsByStatus[status] || 0,
@@ -344,7 +346,7 @@ export function Analytics() {
                   <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: d.color }} />
                   <span className="text-gray-600 dark:text-gray-400">{d.label}</span>
                   <span className="font-medium text-gray-900 dark:text-gray-100">{d.value}</span>
-                  <span className="text-gray-400">({d.pct}%)</span>
+                  <span className="text-gray-400">({pieTotal ? Math.round((d.value / pieTotal) * 100) : 0}%)</span>
                 </div>
               ))}
             </div>

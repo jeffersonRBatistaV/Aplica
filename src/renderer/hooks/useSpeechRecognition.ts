@@ -1,5 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 
+type SpeechRecognition = any
+type SpeechRecognitionEvent = any
+
 interface SpeechRecognitionHook {
   isListening: boolean
   transcript: string
