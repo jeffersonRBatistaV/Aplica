@@ -568,6 +568,10 @@
     "confirm": "Delete",
     "cancel": "Cancel"
   },
+  "whatsNew": {
+    "title": "What's new",
+    "gotIt": "Got it"
+  },
   "profileWizard": {
     "title": "Set Up Profile",
     "area": "Area",

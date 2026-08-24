@@ -11,18 +11,35 @@ import UpdateBanner from './components/updater/UpdateBanner'
 import { ProfileWizard } from './components/profile/ProfileWizard'
 import { ApiSetupModal } from './components/settings/ApiSetupModal'
 import { useTutorial } from './components/layout/TutorialGuide'
+import { WhatsNewModal } from './components/ui/WhatsNewModal'
 import type { Profile } from '../shared/types'
 
 function AppContent() {
   const { currentView } = useNavigation()
-  const { settings, loaded: settingsLoaded } = useSettings()
+  const { settings, loaded: settingsLoaded, setLastSeenVersion } = useSettings()
   const [profile, setProfile] = useState<Profile | null | 'loading'>('loading')
   const [showWizard, setShowWizard] = useState(false)
   const [wizardProfileId, setWizardProfileId] = useState<string | undefined>(undefined)
   const [showApiSetup, setShowApiSetup] = useState(false)
   const [profileJustCreated, setProfileJustCreated] = useState(false)
+  const [whatsNewOpen, setWhatsNewOpen] = useState(false)
+  const [currentVersion, setCurrentVersion] = useState('')
   const startTutorial = useTutorial()
   const tutorialShown = useRef(false)
+
+  useEffect(() => {
+    if (!settingsLoaded) return
+    let cancelled = false
+    if (!window.api) return
+    window.api.getAppVersion().then((v) => {
+      if (cancelled) return
+      setCurrentVersion(v)
+      if (v && v !== settings.lastSeenVersion) {
+        setWhatsNewOpen(true)
+      }
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [settingsLoaded, settings.lastSeenVersion])
 
   useEffect(() => {
     if (window.api) {
@@ -123,6 +140,15 @@ function AppContent() {
 
       <NotificationContainer />
       <UpdateBanner />
+
+      <WhatsNewModal
+        open={whatsNewOpen}
+        version={currentVersion}
+        onClose={() => {
+          setLastSeenVersion(currentVersion)
+          setWhatsNewOpen(false)
+        }}
+      />
     </MainLayout>
   )
 }

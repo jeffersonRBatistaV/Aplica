@@ -35,6 +35,7 @@ export interface AppSettings {
   ttsVoice: string
   preferredCurrency: string
   emailConfig?: EmailConfig
+  lastSeenVersion?: string
 }
 
 export interface EmailPreset {

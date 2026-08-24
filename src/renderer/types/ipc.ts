@@ -72,6 +72,7 @@ export interface ElectronAPI {
 
   // Theme
   getSystemTheme: () => Promise<boolean>
+  getAppVersion: () => Promise<string>
   onSystemThemeChange: (callback: (isDark: boolean) => void) => () => void
 
   // OCR
