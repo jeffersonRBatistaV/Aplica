@@ -8,6 +8,28 @@ import { ConfirmDialog } from '../ui/ConfirmDialog'
 
 const CURRENCIES = ['USD', 'EUR', 'DOP', 'MXN', 'COP', 'ARS', 'CLP', 'BRL', 'GBP', 'PEN'] as const
 
+const PROVIDERS = [
+  { id: 'ollama', label: 'Ollama (local)', baseUrl: 'http://localhost:11434/v1' },
+  { id: 'openai', label: 'OpenAI', baseUrl: 'https://api.openai.com/v1' },
+  { id: 'groq', label: 'Groq', baseUrl: 'https://api.groq.com/openai/v1' },
+  { id: 'openrouter', label: 'OpenRouter', baseUrl: 'https://openrouter.ai/api/v1' },
+  { id: 'mistral', label: 'Mistral', baseUrl: 'https://api.mistral.ai/v1' },
+  { id: 'anthropic', label: 'Anthropic', baseUrl: 'https://api.anthropic.com/v1' },
+  { id: 'deepseek', label: 'DeepSeek', baseUrl: 'https://api.deepseek.com/v1' },
+  { id: 'together', label: 'Together AI', baseUrl: 'https://api.together.xyz/v1' },
+  { id: 'custom', label: 'Personalizado', baseUrl: '' },
+] as const
+
+function givenProvider(url: string): string {
+  const trimmed = (url || '').trim()
+  for (const p of PROVIDERS) {
+    if (p.baseUrl && (trimmed.startsWith(p.baseUrl) || trimmed.includes(p.baseUrl))) {
+      return p.id
+    }
+  }
+  return 'custom'
+}
+
 interface ApiConfigProps {
   baseUrl: string
   apiKey: string
@@ -18,6 +40,7 @@ interface ApiConfigProps {
 export function ApiConfig({ baseUrl, apiKey, model, onChange }: ApiConfigProps) {
   const { t } = useTranslation()
   const [localBaseUrl, setLocalBaseUrl] = useState(baseUrl)
+  const [providerId, setProviderId] = useState(() => givenProvider(baseUrl))
   const [localApiKey, setLocalApiKey] = useState(apiKey)
   const [showKey, setShowKey] = useState(false)
   const [models, setModels] = useState<ModelInfo[]>([])
@@ -89,8 +112,19 @@ export function ApiConfig({ baseUrl, apiKey, model, onChange }: ApiConfigProps) 
 
   const handleUrlChange = (value: string) => {
     setLocalBaseUrl(value)
+    setProviderId(givenProvider(value))
     if (value.trim().startsWith('http://') || value.trim().startsWith('https://')) {
       scheduleFetch(value.trim(), localApiKey)
+    }
+  }
+
+  const handleProviderChange = (id: string) => {
+    setProviderId(id)
+    if (id !== 'custom') {
+      const found = PROVIDERS.find((p) => p.id === id)
+      if (found && found.baseUrl) {
+        handleUrlChange(found.baseUrl)
+      }
     }
   }
 
@@ -105,6 +139,22 @@ export function ApiConfig({ baseUrl, apiKey, model, onChange }: ApiConfigProps) 
 
   return (
     <div className="space-y-4">
+      {/* Provider */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          {t('apiConfig.provider')}
+        </label>
+        <select
+          value={providerId}
+          onChange={(e) => handleProviderChange(e.target.value)}
+          className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+        >
+          {PROVIDERS.map((p) => (
+            <option key={p.id} value={p.id}>{p.label}</option>
+          ))}
+        </select>
+      </div>
+
       {/* Base URL */}
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

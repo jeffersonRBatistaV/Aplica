@@ -339,6 +339,7 @@
     "preferencesSaved": "Preferences saved"
   },
   "apiConfig": {
+    "provider": "Provider",
     "baseUrl": "Base URL",
     "apiKey": "API Key",
     "model": "Model",
