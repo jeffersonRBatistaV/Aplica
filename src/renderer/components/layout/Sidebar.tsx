@@ -13,10 +13,13 @@ import {
   BarChart3,
   GraduationCap,
   Map,
+  ChevronDown,
+  Check,
 } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { useChat, useNavigation } from '../../contexts/AppContext'
+import { useSettings } from '../../contexts/SettingsContext'
 import { useTutorial } from './TutorialGuide'
 import { groupConversations, formatTime } from '../../lib/time'
 import { useTranslation } from 'react-i18next'
@@ -68,6 +71,8 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
   const [contextMenuId, setContextMenuId] = useState<string | null>(null)
   const [confirmDeleteConversation, setConfirmDeleteConversation] = useState<string | null>(null)
   const startTutorial = useTutorial()
+  const { profiles, activeProfileId, setActiveProfile, reloadProfiles } = useSettings()
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false)
 
   // Keyboard shortcut: Cmd+N / Ctrl+N
   useEffect(() => {
@@ -80,6 +85,29 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [newConversation])
+
+  useEffect(() => {
+    const handler = () => reloadProfiles()
+    window.addEventListener('profile:updated', handler)
+    window.addEventListener('profile:imported', handler)
+    return () => {
+      window.removeEventListener('profile:updated', handler)
+      window.removeEventListener('profile:imported', handler)
+    }
+  }, [reloadProfiles])
+
+  const activeProfile = profiles.find((p) => p.id === activeProfileId) ?? null
+
+  const openProfileWizard = (mode: 'edit' | 'new') => {
+    setProfileMenuOpen(false)
+    window.dispatchEvent(new CustomEvent('openProfileWizard', { detail: { mode } }))
+  }
+
+  const handleSelectProfile = async (id: string) => {
+    setProfileMenuOpen(false)
+    if (id === activeProfileId) return
+    await setActiveProfile(id)
+  }
 
   const visible = showArchived ? conversations : conversations.filter((c) => !c.archived)
 
@@ -361,10 +389,62 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
 
       {/* Footer */}
       <div id="sidebar-footer" className="p-2 border-t space-y-1">
-          <Button id="btn-profile" variant="ghost" size="md" className="w-full justify-start" onClick={onOpenProfile}>
-          <User className="w-4 h-4" />
-          {t('sidebar.myProfile')}
-        </Button>
+        <div className="relative">
+          <button
+            id="btn-profile"
+            aria-label={t('profile.switchProfile')}
+            onClick={() => setProfileMenuOpen((o) => !o)}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          >
+            {activeProfile?.photo ? (
+              <img src={activeProfile.photo} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
+            ) : (
+              <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 flex items-center justify-center text-xs font-semibold flex-shrink-0">
+                {(activeProfile?.name || t('sidebar.myProfile')).charAt(0).toUpperCase()}
+              </div>
+            )}
+            <span className="flex-1 truncate text-left">
+              {activeProfile?.name || t('sidebar.myProfile')}
+            </span>
+            <ChevronDown className="w-4 h-4 text-gray-400" />
+          </button>
+
+          {profileMenuOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setProfileMenuOpen(false)} />
+              <div className="absolute bottom-full left-2 right-2 mb-1 z-20 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-lg py-1 animate-in fade-in slide-in-from-bottom-1 duration-150 max-h-72 overflow-y-auto scrollbar-thin">
+                <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                  {t('profile.profiles')}
+                </div>
+                {profiles.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => handleSelectProfile(p.id as string)}
+                    className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                  >
+                    <span className="flex-1 truncate">{p.name || t('sidebar.myProfile')}</span>
+                    {p.id === activeProfileId && <Check className="w-3.5 h-3.5 text-blue-500" />}
+                  </button>
+                ))}
+                <hr className="border-gray-200 dark:border-gray-700 my-1" />
+                <button
+                  onClick={() => openProfileWizard('new')}
+                  className="w-full text-left px-3 py-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  {t('profile.newProfile')}
+                </button>
+                <button
+                  onClick={() => openProfileWizard('edit')}
+                  className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                  {t('profile.editProfile')}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
         <Button id="btn-tutorial" variant="ghost" size="md" className="w-full justify-start" onClick={startTutorial}>
           <GraduationCap className="w-4 h-4" />
           {t('sidebar.tutorial')}

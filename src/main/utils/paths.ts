@@ -10,6 +10,7 @@ export const PROFILE_PATH = path.join(
   '.config/opencode/skills/cover-letter-creator/perfil.json',
 )
 export const USER_PROFILE_PATH = path.join(DATA_DIR, 'profile.json')
+export const PROFILES_FILE = path.join(DATA_DIR, 'profiles.json')
 export const CV_TEMPLATES_FILE = path.join(DATA_DIR, 'cv-templates.json')
 export const CATEGORIES_FILE = path.join(DATA_DIR, 'categories.json')
 export const FOLDERS_FILE = path.join(DATA_DIR, 'folders.json')

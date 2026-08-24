@@ -47,6 +47,8 @@ export interface ElectronAPI {
   // Profile
   getProfile: () => Promise<Profile | null>
   saveProfile: (profile: Profile) => Promise<void>
+  listProfiles: () => Promise<Profile[]>
+  setActiveProfile: (id: string) => Promise<Profile>
 
   // LLM Streaming
   sendChatMessage: (params: StreamParams) => Promise<unknown>
