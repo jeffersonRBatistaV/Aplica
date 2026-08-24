@@ -5,7 +5,7 @@ export function useApiConnection() {
   const { settings } = useSettings()
   const [connected, setConnected] = useState(false)
   const [checking, setChecking] = useState(false)
-  const intervalRef = useRef<ReturnType<typeof setInterval>>()
+  const intervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
   const prevUrlRef = useRef(settings.api.baseUrl)
   const prevKeyRef = useRef(settings.api.apiKey)
 

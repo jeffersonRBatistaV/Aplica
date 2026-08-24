@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type ReactElement } from 'react'
 import {
   Library,
   Search,
@@ -263,7 +263,7 @@ export function DocumentLibrary({ onSelect }: DocumentLibraryProps) {
       )
     }
 
-    const result: JSX.Element[] = []
+    const result: ReactElement[] = []
     for (const [cat, companies] of grouped) {
       const isCatOpen = expandedCategories.has(cat)
       result.push(

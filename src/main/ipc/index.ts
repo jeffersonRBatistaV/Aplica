@@ -2,7 +2,7 @@ import { ipcMain, nativeTheme, clipboard, BrowserWindow } from 'electron'
 import { readJSON, writeJSON, ensureDir } from '../services/storage'
 import { readProfile } from '../services/profile-reader'
 import { CHATS_FILE, SETTINGS_FILE, JOBS_FILE, PROFILE_PATH, USER_PROFILE_PATH, DATA_DIR, CV_TEMPLATES_FILE, CAREER_ADVICE_FILE, ROADMAP_FILE } from '../utils/paths'
-import type { Conversation, AppSettings, StreamParams, JobApplication, Profile, ATSReport, CvTemplate, InterviewQuestion, ImportResult, JobCategory } from '../../shared/types'
+import type { Conversation, AppSettings, StreamParams, JobApplication, Profile, ATSReport, CvTemplate, InterviewQuestion, ImportResult, ImportStats, JobCategory } from '../../shared/types'
 import { streamChatCompletion, abortCurrentStream, listModels } from '../services/llm-service'
 import { ThrottledStream } from '../utils/throttled-stream'
 import { analyzeVacancy, generateCoverLetters, correctVacancyText, generateInterviewQuestions } from '../services/job-service'
@@ -577,7 +577,7 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
     const fs = await import('fs/promises')
     const pathModule = await import('path')
 
-    const { filePath, canceled } = await dialog.showOpenDialog(mainWindow, {
+    const { filePaths, canceled } = await dialog.showOpenDialog(mainWindow, {
       title: 'Importar datos',
       filters: [
         { name: 'JSON o Excel', extensions: ['json', 'xlsx'] },
@@ -585,13 +585,13 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
       ],
       properties: ['openFile'],
     })
-    if (canceled || !filePath || !filePath[0]) return null
+    if (canceled || !filePaths || !filePaths[0]) return null
 
-    const ext = pathModule.extname(filePath[0]).toLowerCase()
+    const ext = pathModule.extname(filePaths[0]).toLowerCase()
     let data: Record<string, unknown>
 
     if (ext === '.json') {
-      const content = await fs.readFile(filePath[0], 'utf-8')
+      const content = await fs.readFile(filePaths[0], 'utf-8')
       try {
         data = JSON.parse(content)
       } catch {
@@ -599,9 +599,9 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
       }
       if (!data.exportedAt) return { ok: false, error: 'El archivo no es una exportación válida de Aplica (falta exportedAt)' }
     } else if (ext === '.xlsx') {
-      const buf = await fs.readFile(filePath[0])
+      const buf = await fs.readFile(filePaths[0])
       const result = await parseImportXLSX(buf)
-      if (result && typeof result === 'object' && 'ok' in result && result.ok === false) return result
+      if (result && typeof result === 'object' && 'ok' in result && result.ok === false) return result as ImportResult
       data = result as Record<string, unknown>
     } else {
       return { ok: false, error: 'Formato de archivo no soportado. Usa .json o .xlsx' }
@@ -609,7 +609,7 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
 
     try {
       const stats = await writeImportData(data)
-      return { ok: true, filePath: filePath[0], stats }
+      return { ok: true, filePath: filePaths[0], stats }
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : String(e) }
     }
@@ -630,7 +630,7 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
     } else if (ext === '.xlsx') {
       const buf = Buffer.from(content, 'base64')
       const result = await parseImportXLSX(buf)
-      if (result && typeof result === 'object' && 'ok' in result && result.ok === false) return result
+      if (result && typeof result === 'object' && 'ok' in result && result.ok === false) return result as ImportResult
       data = result as Record<string, unknown>
     } else {
       return { ok: false, error: 'Formato de archivo no soportado. Usa .json o .xlsx' }

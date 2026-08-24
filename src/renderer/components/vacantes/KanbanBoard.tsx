@@ -99,21 +99,21 @@ export function KanbanBoard({ onSelect }: KanbanBoardProps) {
       {COLUMNS.map((col) => {
         const columnJobs = jobs.filter(j => j.status === col.id)
         const Icon = col.icon
-        const colColor = {
+        const colColor: Record<string, string> = {
           gray: 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/30',
           blue: 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/10',
           amber: 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/10',
           green: 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/10',
           red: 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/10',
         }
-        const headerColor = {
+        const headerColor: Record<string, string> = {
           gray: 'text-gray-600 dark:text-gray-400',
           blue: 'text-blue-600 dark:text-blue-400',
           amber: 'text-amber-600 dark:text-amber-400',
           green: 'text-green-600 dark:text-green-400',
           red: 'text-red-600 dark:text-red-400',
         }
-        const badgeColor = {
+        const badgeColor: Record<string, string> = {
           gray: 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400',
           blue: 'bg-blue-200 dark:bg-blue-800 text-blue-700 dark:text-blue-300',
           amber: 'bg-amber-200 dark:bg-amber-800 text-amber-700 dark:text-amber-300',

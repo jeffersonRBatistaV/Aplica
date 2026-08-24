@@ -48,7 +48,7 @@ export function ApiConfig({ baseUrl, apiKey, model, onChange }: ApiConfigProps) 
   const [modelError, setModelError] = useState<string | null>(null)
   const [confirmReset, setConfirmReset] = useState(false)
   const prevUrlRef = useRef(baseUrl)
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>()
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const mountedRef = useRef(false)
 
   const fetchModels = useCallback(async (url: string, key: string) => {

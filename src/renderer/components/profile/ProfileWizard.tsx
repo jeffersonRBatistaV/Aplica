@@ -27,8 +27,8 @@ export function ProfileWizard({ onClose, onComplete }: ProfileWizardProps) {
   const areaQuestions = selectedArea?.questions ?? []
   const contactFields = commonQuestions
 
-  const prevRoleRef = useRef<string>()
-  const prevAreaRef = useRef<string | null>()
+  const prevRoleRef = useRef<string | undefined>(undefined)
+  const prevAreaRef = useRef<string | null>(null)
 
   useEffect(() => {
     const roleId = areaQuestions[0]?.id
@@ -531,7 +531,7 @@ export function ProfileWizard({ onClose, onComplete }: ProfileWizardProps) {
               const selected = Array.isArray(val) && val.includes(opt)
               const isSkillQ = q.id.endsWith('_langs') || q.id.endsWith('_frameworks') || q.id.endsWith('_tools') || q.id.endsWith('_software') || q.id.endsWith('_subjects')
               const levelsRaw = answers[q.id + '_levels']
-              const levels: Record<string, string> = typeof levelsRaw === 'string' ? (() => { try { return JSON.parse(levelsRaw) } catch { return {} } })() : typeof levelsRaw === 'object' && levelsRaw !== null ? levelsRaw as Record<string, string> : {}
+              const levels: Record<string, string> = typeof levelsRaw === 'string' ? (() => { try { return JSON.parse(levelsRaw) } catch { return {} } })() : typeof levelsRaw === 'object' && levelsRaw !== null ? (levelsRaw as unknown as Record<string, string>) : {}
               const currentLevel = levels[opt] || 'Intermedio'
               const setSkillLevel = (skill: string, level: string) => {
                 const updated = { ...levels, [skill]: level }
