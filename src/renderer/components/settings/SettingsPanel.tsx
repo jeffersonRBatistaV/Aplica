@@ -117,6 +117,7 @@ export function SettingsPanel({ onClose, initialTab = 'profile' }: SettingsPanel
             baseUrl={settings.api.baseUrl}
             apiKey={settings.api.apiKey}
             model={settings.api.model}
+            visionModel={settings.api.visionModel}
             onChange={(api) => updateSettings({ api })}
           />
         )}

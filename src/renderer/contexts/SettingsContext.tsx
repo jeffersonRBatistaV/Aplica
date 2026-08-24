@@ -41,7 +41,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }
     window.api.getSettings().then((saved) => {
       if (saved) {
-        const merged = { ...DEFAULT_SETTINGS, ...saved, appearance: { ...DEFAULT_SETTINGS.appearance, ...saved.appearance }, investigate: { ...DEFAULT_SETTINGS.investigate, ...saved.investigate } }
+        const merged = { ...DEFAULT_SETTINGS, ...saved, api: { ...DEFAULT_SETTINGS.api, ...saved.api }, appearance: { ...DEFAULT_SETTINGS.appearance, ...saved.appearance }, investigate: { ...DEFAULT_SETTINGS.investigate, ...saved.investigate } }
         setSettings(merged)
         if (saved.locale) {
           i18n.changeLanguage(saved.locale)
@@ -56,7 +56,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       if (!window.api) return
       window.api.getSettings().then((saved) => {
         if (saved) {
-          const merged = { ...DEFAULT_SETTINGS, ...saved, appearance: { ...DEFAULT_SETTINGS.appearance, ...saved.appearance }, investigate: { ...DEFAULT_SETTINGS.investigate, ...saved.investigate } }
+          const merged = { ...DEFAULT_SETTINGS, ...saved, api: { ...DEFAULT_SETTINGS.api, ...saved.api }, appearance: { ...DEFAULT_SETTINGS.appearance, ...saved.appearance }, investigate: { ...DEFAULT_SETTINGS.investigate, ...saved.investigate } }
           setSettings(merged)
           if (saved.locale) {
             i18n.changeLanguage(saved.locale)
