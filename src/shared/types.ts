@@ -154,6 +154,12 @@ export interface CvTemplate {
 
 export type JobStatus = 'draft' | 'applied' | 'interview' | 'offer' | 'rejected'
 
+export interface CvVersion {
+  style: string | null
+  content: string
+  createdAt: number
+}
+
 export interface JobApplication {
   id: string
   createdAt: number

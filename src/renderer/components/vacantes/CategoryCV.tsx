@@ -393,6 +393,7 @@ export function CategoryCV() {
           currentStyle={cvStyle}
           currentContent={cvContent}
           onSave={handleSaveCV}
+          jobId={jobApp.id}
         />
       </div>
     )

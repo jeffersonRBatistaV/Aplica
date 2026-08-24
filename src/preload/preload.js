@@ -57,6 +57,7 @@ const api = {
   getJob: (id) => ipcRenderer.invoke('job:get', id),
   saveJob: (job) => ipcRenderer.invoke('job:save', job),
   deleteJob: (id) => ipcRenderer.invoke('job:delete', id),
+  getCvVersions: (jobId) => ipcRenderer.invoke('jobs:getCvVersions', jobId),
   getUpcomingInterviews: () => ipcRenderer.invoke('jobs:getUpcomingInterviews'),
   analyzeVacancy: (vacancyText) => ipcRenderer.invoke('job:analyze', vacancyText),
   correctVacancyText: (rawText) => ipcRenderer.invoke('job:correctVacancy', rawText),

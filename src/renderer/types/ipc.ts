@@ -1,4 +1,4 @@
-import type { Conversation, AppSettings, StreamParams, Profile, JobApplication, ATSReport, CvTemplate, InterviewQuestion, UsageStats, ImportResult, Roadmap, JobCategory, InvestigateResult } from '../../shared/types'
+import type { Conversation, AppSettings, StreamParams, Profile, JobApplication, ATSReport, CvTemplate, InterviewQuestion, UsageStats, ImportResult, Roadmap, JobCategory, InvestigateResult, CvVersion } from '../../shared/types'
 
 export interface UpdateInfo {
   version: string
@@ -63,6 +63,7 @@ export interface ElectronAPI {
   getJob: (id: string) => Promise<JobApplication | null>
   saveJob: (job: JobApplication) => Promise<void>
   deleteJob: (id: string) => Promise<void>
+  getCvVersions: (jobId: string) => Promise<CvVersion[]>
   getUpcomingInterviews: () => Promise<{ company: string; position: string; interviewDate: number }[]>
   analyzeVacancy: (vacancyText: string) => Promise<ATSReport>
   correctVacancyText: (rawText: string) => Promise<string>
