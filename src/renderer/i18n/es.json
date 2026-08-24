@@ -102,7 +102,11 @@
     "resumeDraftTitle": "Vacante en progreso",
     "resumeDraftMessage": "Tienes una vacante en progreso: {{company}} — {{position}}. ¿Quieres continuar donde la dejaste o crear una nueva?",
     "resumeDraftContinue": "Continuar",
-    "resumeDraftNew": "Crear nueva"
+    "resumeDraftNew": "Crear nueva",
+    "viewImage": "Ver imagen",
+    "clickToView": "Haz clic para ver la imagen y el texto extraído",
+    "imageText": "Imagen y texto extraído",
+    "emptyText": "No se extrajo texto de la imagen"
   },
   "vacancyResearch": {
     "title": "Investigación de la vacante",

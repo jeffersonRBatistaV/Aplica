@@ -102,7 +102,11 @@
     "resumeDraftTitle": "Vacancy in progress",
     "resumeDraftMessage": "You have a vacancy in progress: {{company}} — {{position}}. Do you want to continue where you left off or create a new one?",
     "resumeDraftContinue": "Continue",
-    "resumeDraftNew": "Create new"
+    "resumeDraftNew": "Create new",
+    "viewImage": "View image",
+    "clickToView": "Click to view the image and extracted text",
+    "imageText": "Image and extracted text",
+    "emptyText": "No text was extracted from the image"
   },
   "vacancyResearch": {
     "title": "Vacancy Research",
