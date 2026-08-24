@@ -113,6 +113,14 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
     const jobs = (await readJSON<JobApplication[]>(JOBS_FILE)) ?? []
     await writeJSON(JOBS_FILE, jobs.filter((j) => j.id !== id))
   })
+  ipcMain.handle('jobs:getUpcomingInterviews', async (): Promise<{ company: string; position: string; interviewDate: number }[]> => {
+    const jobs = (await readJSON<JobApplication[]>(JOBS_FILE)) ?? []
+    const now = Date.now()
+    const window = 24 * 3600 * 1000
+    return jobs
+      .filter((j) => j.status === 'interview' && j.interviewDate && j.interviewDate > now && j.interviewDate - now < window)
+      .map((j) => ({ company: j.company, position: j.position, interviewDate: j.interviewDate as number }))
+  })
 
   // ── CV Templates ──
   ipcMain.handle('cv:getTemplates', async (): Promise<CvTemplate[]> => {

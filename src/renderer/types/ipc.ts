@@ -61,6 +61,7 @@ export interface ElectronAPI {
   getJob: (id: string) => Promise<JobApplication | null>
   saveJob: (job: JobApplication) => Promise<void>
   deleteJob: (id: string) => Promise<void>
+  getUpcomingInterviews: () => Promise<{ company: string; position: string; interviewDate: number }[]>
   analyzeVacancy: (vacancyText: string) => Promise<ATSReport>
   correctVacancyText: (rawText: string) => Promise<string>
   generateCoverLetters: (vacancyText: string, atsReport: ATSReport) => Promise<{ coverLetterA: string; coverLetterB: string; recruiterEmail: string; subject: string }>

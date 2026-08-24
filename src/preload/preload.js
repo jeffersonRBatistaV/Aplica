@@ -55,6 +55,7 @@ const api = {
   getJob: (id) => ipcRenderer.invoke('job:get', id),
   saveJob: (job) => ipcRenderer.invoke('job:save', job),
   deleteJob: (id) => ipcRenderer.invoke('job:delete', id),
+  getUpcomingInterviews: () => ipcRenderer.invoke('jobs:getUpcomingInterviews'),
   analyzeVacancy: (vacancyText) => ipcRenderer.invoke('job:analyze', vacancyText),
   correctVacancyText: (rawText) => ipcRenderer.invoke('job:correctVacancy', rawText),
   generateCoverLetters: (vacancyText, atsReport) => ipcRenderer.invoke('job:generateLetters', vacancyText, atsReport),

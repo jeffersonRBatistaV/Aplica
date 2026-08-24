@@ -170,6 +170,7 @@ export interface JobApplication {
   recipientEmail: string
   emailSubject: string
   interviewQuestions: InterviewQuestion[]
+  interviewDate?: number
 }
 
 export interface InterviewQuestion {
