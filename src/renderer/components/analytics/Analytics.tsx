@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   MessageSquare,
   Briefcase,
@@ -139,6 +139,7 @@ export function Analytics() {
   const { t } = useTranslation()
   const { setCurrentView } = useNavigation()
   const [stats, setStats] = useState<Stats | null>(null)
+  const [allJobs, setAllJobs] = useState<JobApplication[]>([])
   const [loading, setLoading] = useState(true)
   const [advice, setAdvice] = useState<{ diagnostico: string; areaMejora: string; planAccion: string } | null>(null)
   const [adviceLoading, setAdviceLoading] = useState(true)
@@ -155,6 +156,7 @@ export function Analytics() {
           window.api.getCareerAdvice(),
         ])
         computeStats(conversations, jobs)
+        setAllJobs(jobs)
         if (cachedAdvice) {
           setAdvice(cachedAdvice)
           setAdviceLoading(false)
@@ -187,6 +189,7 @@ export function Analytics() {
           window.api.getJobs(),
         ])
         computeStats(conversations, jobs)
+        setAllJobs(jobs)
       } catch (e) {
         console.error('Failed to refresh analytics data', e)
       }
@@ -274,6 +277,46 @@ export function Analytics() {
     value: m.score,
     color: m.score >= 70 ? '#22c55e' : m.score >= 40 ? '#eab308' : '#ef4444',
   }))
+
+  const SHORT_MONTHS_ES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
+
+  const funnelStats = useMemo(() => {
+    const totalApplied = allJobs.filter(j => j.status !== 'draft').length
+    const interviews = allJobs.filter(j => j.status === 'interview' || j.status === 'offer').length
+    const offers = allJobs.filter(j => j.status === 'offer').length
+    const interviewRate = totalApplied ? Math.round((interviews / totalApplied) * 100) : 0
+    const offerRate = interviews ? Math.round((offers / interviews) * 100) : 0
+    return { totalApplied, interviews, offers, interviewRate, offerRate }
+  }, [allJobs])
+
+  const monthlyTrend = useMemo(() => {
+    const now = new Date()
+    const buckets: { label: string; count: number; key: string }[] = []
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      buckets.push({ label: SHORT_MONTHS_ES[d.getMonth()], count: 0, key: `${d.getFullYear()}-${d.getMonth()}` })
+    }
+    for (const j of allJobs) {
+      if (!j.createdAt) continue
+      const d = new Date(j.createdAt)
+      const key = `${d.getFullYear()}-${d.getMonth()}`
+      const b = buckets.find(bk => bk.key === key)
+      if (b) b.count++
+    }
+    return buckets
+  }, [allJobs])
+
+  const avgResponseDays = useMemo(() => {
+    const responded = allJobs.filter(j => (j.status === 'interview' || j.status === 'offer' || j.status === 'rejected') && j.createdAt && j.updatedAt)
+    if (responded.length === 0) return null
+    const total = responded.reduce((sum, j) => {
+      const days = (new Date(j.updatedAt).getTime() - new Date(j.createdAt).getTime()) / 86400000
+      return sum + days
+    }, 0)
+    return Math.round((total / responded.length) * 10) / 10
+  }, [allJobs])
+
+  const monthlyMax = Math.max(...monthlyTrend.map(m => m.count), 1)
 
   return (
     <div className="flex-1 overflow-y-auto p-6 space-y-6">
@@ -398,6 +441,63 @@ export function Analytics() {
         </div>
       </div>
 
+      {/* Conversion funnel */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 space-y-1">
+          <div className="flex items-center gap-2 text-gray-400">
+            <Briefcase className="w-4 h-4" />
+            <span className="text-xs font-medium uppercase tracking-wider">{t('analytics.totalApplied')}</span>
+          </div>
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{funnelStats.totalApplied}</p>
+        </div>
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 space-y-1">
+          <div className="flex items-center gap-2 text-gray-400">
+            <Calendar className="w-4 h-4" />
+            <span className="text-xs font-medium uppercase tracking-wider">{t('analytics.interviews')}</span>
+          </div>
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{funnelStats.interviews}</p>
+          <p className="text-xs text-gray-400">{t('analytics.interviewRate', { rate: funnelStats.interviewRate })}</p>
+        </div>
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 space-y-1">
+          <div className="flex items-center gap-2 text-gray-400">
+            <CheckCircle2 className="w-4 h-4" />
+            <span className="text-xs font-medium uppercase tracking-wider">{t('analytics.offers')}</span>
+          </div>
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{funnelStats.offers}</p>
+          <p className="text-xs text-gray-400">{t('analytics.offerRate', { rate: funnelStats.offerRate })}</p>
+        </div>
+      </div>
+
+      {/* Monthly trend */}
+      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 sm:p-6 space-y-3">
+        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+          <TrendingUp className="w-4 h-4 text-gray-400" />
+          {t('analytics.monthlyTrend')}
+        </h3>
+        <div className="flex items-end gap-2 h-24">
+          {monthlyTrend.map((m) => (
+            <div key={m.key} className="flex-1 flex flex-col items-center justify-end gap-1 h-full">
+              <div
+                className="w-full rounded-t-md bg-blue-500 transition-all"
+                style={{ height: `${monthlyMax ? (m.count / monthlyMax) * 100 : 0}%`, minHeight: m.count > 0 ? '4px' : '0' }}
+                title={String(m.count)}
+              />
+              <span className="text-[10px] text-gray-400">{m.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Average response time */}
+      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 sm:p-6 space-y-3">
+        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+          <Clock className="w-4 h-4 text-gray-400" />
+          {avgResponseDays != null
+            ? t('analytics.avgResponseDays', { days: avgResponseDays })
+            : t('analytics.noResponseData')}
+        </h3>
+      </div>
+
       {/* Quick insights */}
       <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 sm:p-6 space-y-3">
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
@@ -411,7 +511,7 @@ export function Analytics() {
           </div>
           <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
             <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
-            {t('analytics.offers', { count: stats.offers })}
+            {t('analytics.offersCount', { count: stats.offers })}
           </div>
           <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
             <Clock className="w-3.5 h-3.5 text-yellow-500" />
