@@ -15,9 +15,35 @@ export async function loadProfilesFile(): Promise<ProfilesFile> {
   return { profiles: [], activeId: '' }
 }
 
+function profileHasData(p: Profile | null | undefined): boolean {
+  return !!p && (!!p.name || !!p.email)
+}
+
+export async function migrateLegacyProfile(): Promise<ProfilesFile> {
+  await ensureDir(DATA_DIR)
+  const file = await loadProfilesFile()
+  const hasRealProfiles = file.profiles.some((p) => profileHasData(p))
+
+  if (!hasRealProfiles) {
+    const legacy = await readProfile(USER_PROFILE_PATH)
+    if (profileHasData(legacy)) {
+      const id = legacy?.id || file.activeId || randomUUID()
+      const migrated: Profile = { ...legacy!, id }
+      const result: ProfilesFile = { profiles: [migrated], activeId: id }
+      await writeJSON(PROFILES_FILE, result)
+      await writeJSON(USER_PROFILE_PATH, migrated)
+      return result
+    }
+  }
+  return file
+}
+
 export async function listProfiles(): Promise<Profile[]> {
   const file = await loadProfilesFile()
   if (file.profiles.length > 0) return file.profiles
+
+  const migrated = await migrateLegacyProfile()
+  if (migrated.profiles.length > 0) return migrated.profiles
 
   const current = await readProfile(USER_PROFILE_PATH)
   if (current) {
@@ -49,10 +75,18 @@ export async function saveProfile(profile: Profile): Promise<Profile> {
 
   let id = profile.id
   const exists = id ? file.profiles.some((p: Profile) => p.id === id) : false
+
   if (!id || !exists) {
-    if (!id && file.activeId && file.profiles.some((p: Profile) => p.id === file.activeId)) {
+    const hasPrevProfiles = file.profiles.length > 0
+    const activeExists = !!file.activeId && file.profiles.some((p: Profile) => p.id === file.activeId)
+    if (!id && activeExists) {
+      // Perfil vacío pero hay uno activo previo: reutilizar su id, nunca crear UUID nuevo.
       id = file.activeId
+    } else if (hasPrevProfiles) {
+      // Hay perfiles previos: preservar en lugar de generar un UUID nuevo.
+      id = activeExists ? file.activeId : (file.profiles[0]?.id || randomUUID())
     } else {
+      // Sin perfiles previos: es un perfil nuevo.
       id = profile.id || randomUUID()
     }
   }

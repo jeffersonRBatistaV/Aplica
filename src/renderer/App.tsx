@@ -43,9 +43,15 @@ function AppContent() {
 
   useEffect(() => {
     if (window.api) {
-      window.api.getProfile().then((p) => {
+      window.api.getProfile().then(async (p) => {
         setProfile(p)
-        if (!p) setShowWizard(true)
+        if (!p) {
+          // Solo mostrar el wizard si no existe NINGUN perfil con datos en profiles.json.
+          // Si hay perfiles (aunque el activo esté vacío) se muestra el selector del sidebar.
+          const list = await window.api.listProfiles()
+          const hasData = list.some((pr) => pr.name || pr.email)
+          if (!hasData) setShowWizard(true)
+        }
       })
     } else {
       setProfile(null)
