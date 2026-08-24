@@ -1,10 +1,11 @@
-import { app, BrowserWindow, nativeTheme, Menu } from 'electron'
+import { app, BrowserWindow, nativeTheme, Menu, Notification } from 'electron'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { registerAllHandlers } from './ipc'
-import { ensureDir } from './services/storage'
-import { DATA_DIR } from './utils/paths'
+import { ensureDir, readJSON } from './services/storage'
+import { DATA_DIR, JOBS_FILE } from './utils/paths'
 import { initUpdater } from './services/updater'
+import type { JobApplication } from '../shared/types'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -61,10 +62,33 @@ app.whenReady().then(async () => {
     initUpdater(mainWindow)
   }
 
+  setTimeout(checkUpcomingInterviews, 5000)
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
+
+async function checkUpcomingInterviews(): Promise<void> {
+  if (!Notification.isSupported()) return
+  try {
+    const jobs = (await readJSON<JobApplication[]>(JOBS_FILE)) ?? []
+    const now = Date.now()
+    const windowMs = 24 * 3600 * 1000
+    const upcoming = jobs.filter(
+      (j) => j.status === 'interview' && j.interviewDate && j.interviewDate > now && j.interviewDate - now < windowMs,
+    )
+    if (upcoming.length === 0) return
+    const next = upcoming.sort((a, b) => (a.interviewDate as number) - (b.interviewDate as number))[0]
+    const date = new Date(next.interviewDate as number)
+    new Notification({
+      title: 'Aplica — Entrevista próxima',
+      body: `${next.position} en ${next.company} — ${date.toLocaleString()}`,
+    }).show()
+  } catch (e) {
+    console.error('[checkUpcomingInterviews]', e)
+  }
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()

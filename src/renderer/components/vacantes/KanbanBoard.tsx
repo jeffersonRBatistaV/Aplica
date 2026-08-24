@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Clock, Send, Calendar, Briefcase, XCircle, Eye, MoreHorizontal, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
+import { Button } from '../ui/Button'
 import type { JobApplication, JobStatus } from '../../../shared/types'
 
 interface KanbanBoardProps {
@@ -15,6 +16,8 @@ export function KanbanBoard({ onSelect }: KanbanBoardProps) {
   const [menuOpen, setMenuOpen] = useState<string | null>(null)
   const [menuRect, setMenuRect] = useState<{ top: number; left: number } | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [pendingInterviewJob, setPendingInterviewJob] = useState<JobApplication | null>(null)
+  const [interviewDateInput, setInterviewDateInput] = useState('')
 
   const COLUMNS = useMemo(() => [
     { id: 'draft' as JobStatus, label: t('kanban.columnDraft'), icon: Clock, color: 'gray' },
@@ -55,11 +58,28 @@ export function KanbanBoard({ onSelect }: KanbanBoardProps) {
     if (!window.api) return
     const job = jobs.find(j => j.id === id)
     if (!job) return
-    const updated = { ...job, status: newStatus, updatedAt: Date.now() }
+    if (newStatus === 'interview' && !job.interviewDate) {
+      setPendingInterviewJob(job)
+      setInterviewDateInput('')
+      setMenuOpen(null)
+      setMenuRect(null)
+      return
+    }
+    const updated = { ...job, status: newStatus, interviewDate: newStatus === 'interview' ? job.interviewDate : undefined, updatedAt: Date.now() }
     await window.api.saveJob(updated)
     setJobs(prev => prev.map(j => j.id === id ? updated : j))
     setMenuOpen(null)
     setMenuRect(null)
+  }
+
+  const handleConfirmInterview = async () => {
+    if (!window.api || !pendingInterviewJob) return
+    const ts = new Date(interviewDateInput).getTime()
+    const updated = { ...pendingInterviewJob, status: 'interview' as JobStatus, interviewDate: ts, updatedAt: Date.now() }
+    await window.api.saveJob(updated)
+    setJobs(prev => prev.map(j => j.id === pendingInterviewJob.id ? updated : j))
+    setPendingInterviewJob(null)
+    setInterviewDateInput('')
   }
 
   const handleDelete = async (id: string) => {
@@ -166,6 +186,14 @@ export function KanbanBoard({ onSelect }: KanbanBoardProps) {
                               {job.atsReport.matchScore}% match
                             </span>
                           )}
+                          {job.status === 'interview' && job.interviewDate && (
+                            <span className="inline-flex items-center gap-1 mt-1 text-xs font-medium px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
+                              <Calendar className="w-3 h-3" />
+                              {t('kanban.interviewOn', {
+                                date: new Date(job.interviewDate).toLocaleDateString() + ' ' + new Date(job.interviewDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                              })}
+                            </span>
+                          )}
                         </div>
 
                         <div>
@@ -224,6 +252,36 @@ export function KanbanBoard({ onSelect }: KanbanBoardProps) {
             </button>
           </div>
         </>
+      )}
+
+      {pendingInterviewJob && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setPendingInterviewJob(null)}>
+          <div
+            className="w-full max-w-sm bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl p-5 mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+              {t('kanban.scheduleInterview')}
+            </h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {t('kanban.scheduleInterviewDesc')}
+            </p>
+            <input
+              type="datetime-local"
+              value={interviewDateInput}
+              onChange={(e) => setInterviewDateInput(e.target.value)}
+              className="mt-3 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="secondary" size="sm" onClick={() => setPendingInterviewJob(null)}>
+                {t('common.cancel')}
+              </Button>
+              <Button variant="primary" size="sm" onClick={handleConfirmInterview} disabled={!interviewDateInput}>
+                {t('kanban.saveInterview')}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
       <ConfirmDialog

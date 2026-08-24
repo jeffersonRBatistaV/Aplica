@@ -268,7 +268,11 @@
     "noApplications": "Sin postulaciones",
     "noPosition": "Sin puesto",
     "noCompany": "Sin empresa",
-    "viewDetail": "Ver detalle"
+    "viewDetail": "Ver detalle",
+    "scheduleInterview": "Agendar entrevista",
+    "scheduleInterviewDesc": "¿Cuándo es la entrevista? Te recordaremos al abrir la app.",
+    "saveInterview": "Guardar",
+    "interviewOn": "Entrevista: {{date}}"
   },
   "profile": {
     "editProfile": "Editar Perfil",
