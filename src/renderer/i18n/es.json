@@ -252,7 +252,9 @@
     "restore": "Restaurar",
     "view": "Ver",
     "versionsTitle": "Versiones del CV",
-    "versionRestored": "Versión restaurada"
+    "versionRestored": "Versión restaurada",
+    "editText": "Editar texto",
+    "doneEditing": "Listo"
   },
   "interviewPrep": {
     "title": "Preparación para la Entrevista",

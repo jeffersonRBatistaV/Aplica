@@ -252,7 +252,9 @@
     "restore": "Restore",
     "view": "View",
     "versionsTitle": "CV versions",
-    "versionRestored": "Version restored"
+    "versionRestored": "Version restored",
+    "editText": "Edit text",
+    "doneEditing": "Done"
   },
   "interviewPrep": {
     "title": "Interview Preparation",

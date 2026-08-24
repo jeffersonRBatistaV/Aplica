@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { FileText, Copy, Check, Download, Sparkles, BarChart3, ScrollText, Loader2, Eye, EyeOff, Wand2, AlertCircle, Plus, Trash2, ChevronDown, ChevronRight, ArrowLeft, History, X } from 'lucide-react'
+import type { FormEvent } from 'react'
+import { FileText, Copy, Check, Download, Sparkles, BarChart3, ScrollText, Loader2, Eye, EyeOff, Wand2, AlertCircle, Plus, Trash2, ChevronDown, ChevronRight, ArrowLeft, History, X, Pencil } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useNotification } from '../../contexts/NotificationContext'
 import { Button } from '../ui/Button'
@@ -68,6 +69,9 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
   const [applying, setApplying] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const previewRef = useRef<HTMLDivElement>(null)
+  const editRef = useRef<HTMLDivElement>(null)
+  const lastEditedHtmlRef = useRef<string>('')
+  const [editMode, setEditMode] = useState(false)
 
   const [customTemplates, setCustomTemplates] = useState<CvTemplate[]>([])
   const [showCreateForm, setShowCreateForm] = useState(false)
@@ -91,6 +95,33 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
 
   useEffect(() => { setContent(currentContent) }, [currentContent])
   useEffect(() => { setSelectedStyle(currentStyle) }, [currentStyle])
+
+  useEffect(() => {
+    if (!editRef.current) return
+    if (editMode) {
+      lastEditedHtmlRef.current = content
+      editRef.current.innerHTML = content
+    } else {
+      const edited = editRef.current.innerHTML
+      lastEditedHtmlRef.current = edited
+      if (edited !== content) {
+        setContent(edited)
+        if (selectedStyle) onSave(selectedStyle, edited)
+      }
+    }
+  }, [editMode])
+
+  const handlePreviewInput = (e: FormEvent<HTMLDivElement>) => {
+    lastEditedHtmlRef.current = e.currentTarget.innerHTML
+  }
+
+  const toggleEditMode = () => setEditMode((prev) => !prev)
+
+  useEffect(() => {
+    if (tab === 'preview' && editMode && editRef.current) {
+      editRef.current.innerHTML = lastEditedHtmlRef.current || content
+    }
+  }, [tab])
 
   useEffect(() => {
     if (!currentStyle) return
@@ -626,6 +657,17 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
               </button>
             </div>
             <div className="flex items-center gap-1 pb-2">
+              {tab === 'preview' && (
+                <Button
+                  variant={editMode ? 'primary' : 'ghost'}
+                  size="sm"
+                  onClick={toggleEditMode}
+                  title={editMode ? t('cvGenerator.doneEditing') : t('cvGenerator.editText')}
+                >
+                  {editMode ? <Check className="w-4 h-4" /> : <Pencil className="w-4 h-4" />}
+                  {editMode ? t('cvGenerator.doneEditing') : t('cvGenerator.editText')}
+                </Button>
+              )}
               <Button variant="ghost" size="sm" onClick={handleCopy} title={t('cvGenerator.copy')}>
                 {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
               </Button>
@@ -649,7 +691,14 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
                 .cv-preview p, .cv-preview li, .cv-preview h1, .cv-preview h2, .cv-preview h3,
                 .cv-preview div, .cv-preview span, .cv-preview td, .cv-preview th { overflow-wrap: anywhere; }
               `}</style>
-              <div className="w-full max-w-full" dangerouslySetInnerHTML={{ __html: content }} />
+              <div
+                ref={editRef}
+                className={`w-full max-w-full ${editMode ? 'cursor-text outline-2 outline-dashed outline-blue-400 outline-offset-4' : 'cursor-default'}`}
+                contentEditable={editMode}
+                suppressContentEditableWarning={true}
+                onInput={handlePreviewInput}
+                {...(!editMode ? { dangerouslySetInnerHTML: { __html: content } } : {})}
+              />
             </div>
           )}
 
