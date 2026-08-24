@@ -7,6 +7,7 @@ interface LLMConfig {
   baseUrl: string
   apiKey: string
   model: string
+  excludeFromTraining?: boolean
 }
 
 async function getConfig(): Promise<LLMConfig> {
@@ -15,6 +16,7 @@ async function getConfig(): Promise<LLMConfig> {
     baseUrl: settings?.api?.baseUrl || 'http://localhost:11434/v1',
     apiKey: settings?.api?.apiKey || '',
     model: settings?.api?.model || 'llama3',
+    excludeFromTraining: settings?.privacy?.excludeFromTraining,
   }
 }
 
@@ -129,7 +131,7 @@ export async function analyzeVacancy(
   const response = await completeChatCompletion(config, [
     { role: 'system', content: ATS_SYSTEM_PROMPT },
     { role: 'user', content: userMessage },
-  ], undefined, 'ats_analysis')
+  ], undefined, 'ats_analysis', config.excludeFromTraining)
 
   // Try to parse JSON from response
   const jsonMatch = response.match(/\{[\s\S]*\}/)
@@ -186,7 +188,7 @@ export async function generateCoverLetters(
   const response = await completeChatCompletion(config, [
     { role: 'system', content: COVER_LETTER_SYSTEM_PROMPT },
     { role: 'user', content: userMessage },
-  ], undefined, 'cover_letters')
+  ], undefined, 'cover_letters', config.excludeFromTraining)
 
   // Strip markdown code fences
   let clean = response.replace(/```(?:json)?\n?/gi, '').trim()
@@ -278,7 +280,7 @@ export async function correctVacancyText(raw: string): Promise<string> {
   const response = await completeChatCompletion(config, [
     { role: 'system', content: CORRECT_VACANCY_PROMPT },
     { role: 'user', content: raw },
-  ], undefined, 'correct_text')
+  ], undefined, 'correct_text', config.excludeFromTraining)
 
   return response.trim()
 }
@@ -325,7 +327,7 @@ export async function generateInterviewQuestions(
   const response = await completeChatCompletion(config, [
     { role: 'system', content: INTERVIEW_QUESTIONS_PROMPT },
     { role: 'user', content: userMessage },
-  ], undefined, 'interview_questions')
+  ], undefined, 'interview_questions', config.excludeFromTraining)
 
   let clean = response.replace(/```(?:json)?\n?/gi, '').trim()
 

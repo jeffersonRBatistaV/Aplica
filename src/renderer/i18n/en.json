@@ -411,9 +411,9 @@
   },
   "privacy": {
     "storeHistory": "Store local history",
-    "storeHistoryDesc": "Conversations are saved on your device. Disabling this will not persist any conversation.",
+    "storeHistoryDesc": "When disabled, new conversations are not saved to your device and are lost when closing the app. Previous conversations are not deleted.",
     "excludeTraining": "Exclude from training",
-    "excludeTrainingDesc": "Request the AI provider not to use your conversations to train their models.",
+    "excludeFromTrainingDesc": "Sends the X-Exclude-From-Training header to your AI provider on ALL calls (chat, CV, cover letters, analysis, OCR). Note: depends on your provider honoring it.",
     "localStorageInfo": "All data is stored locally on your device. No data is sent to external servers besides the AI provider configured in the API tab."
   },
   "systemPrompts": {

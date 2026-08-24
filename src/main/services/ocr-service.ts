@@ -1,5 +1,8 @@
 import { createWorker, PSM } from 'tesseract.js'
 import { Jimp } from 'jimp'
+import { readJSON } from './storage'
+import { SETTINGS_FILE } from '../utils/paths'
+import type { AppSettings } from '../../shared/types'
 
 let worker: Awaited<ReturnType<typeof createWorker>> | null = null
 
@@ -30,6 +33,11 @@ async function extractTextWithLLM(
   try {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' }
     if (config.apiKey) headers['Authorization'] = `Bearer ${config.apiKey}`
+
+    const settings = await readJSON<AppSettings>(SETTINGS_FILE)
+    if (settings?.privacy?.excludeFromTraining) {
+      headers['X-Exclude-From-Training'] = 'true'
+    }
 
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 20000)

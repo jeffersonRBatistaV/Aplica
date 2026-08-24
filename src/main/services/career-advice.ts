@@ -7,6 +7,7 @@ interface LLMConfig {
   baseUrl: string
   apiKey: string
   model: string
+  excludeFromTraining?: boolean
 }
 
 export interface CareerAdvice {
@@ -21,6 +22,7 @@ async function getConfig(): Promise<LLMConfig> {
     baseUrl: settings?.api?.baseUrl || 'http://localhost:11434/v1',
     apiKey: settings?.api?.apiKey || '',
     model: settings?.api?.model || 'llama3',
+    excludeFromTraining: settings?.privacy?.excludeFromTraining,
   }
 }
 
@@ -97,7 +99,7 @@ Devuelve SOLO un JSON valido con esta estructura exacta, sin markdown ni delimit
     const response = await completeChatCompletion(config, [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userMessage },
-    ], undefined, 'career_advice')
+    ], undefined, 'career_advice', config.excludeFromTraining)
     const parsed: CareerAdvice = JSON.parse(response.trim())
     if (!parsed.diagnostico || !parsed.areaMejora || !parsed.planAccion) {
       throw new Error('Missing fields')

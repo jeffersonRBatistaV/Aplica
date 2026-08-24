@@ -411,9 +411,9 @@
   },
   "privacy": {
     "storeHistory": "Almacenar historial local",
-    "storeHistoryDesc": "Las conversaciones se guardan en tu equipo. Al desactivarlo, no se persistirá ninguna conversación.",
+    "storeHistoryDesc": "Cuando está desactivado, las conversaciones nuevas no se guardan en tu dispositivo y se pierden al cerrar la app. Las conversaciones anteriores no se borran.",
     "excludeTraining": "Excluir datos de entrenamiento",
-    "excludeTrainingDesc": "Solicita al proveedor de IA que no use tus conversaciones para entrenar sus modelos.",
+    "excludeFromTrainingDesc": "Envía la cabecera X-Exclude-From-Training a tu proveedor de IA en TODAS las llamadas (chat, CV, cartas, análisis, OCR). Nota: depende de que tu proveedor la respete.",
     "localStorageInfo": "Todos los datos se almacenan localmente en tu equipo. No se envían a servidores externos aparte del proveedor de IA configurado en la pestaña API."
   },
   "systemPrompts": {
