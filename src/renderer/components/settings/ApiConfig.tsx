@@ -21,9 +21,11 @@ const PROVIDERS = [
 ] as const
 
 function givenProvider(url: string): string {
-  const trimmed = (url || '').trim()
+  const trimmed = (url || '').trim().replace(/\/+$/, '')
   for (const p of PROVIDERS) {
-    if (p.baseUrl && (trimmed.startsWith(p.baseUrl) || trimmed.includes(p.baseUrl))) {
+    if (!p.baseUrl) continue
+    const base = p.baseUrl.replace(/\/+$/, '')
+    if (trimmed === base || trimmed.startsWith(base + '/') || trimmed.startsWith(base)) {
       return p.id
     }
   }
@@ -306,11 +308,11 @@ function InvestigateSection() {
   const [discovering, setDiscovering] = useState(false)
 
   const save = (partial: { baseUrl?: string; apiToken?: string }) => {
-    const next = {
-      baseUrl: (partial.baseUrl ?? localUrl).trim(),
-      apiToken: (partial.apiToken ?? localToken).trim(),
-    }
-    updateSettings({ investigate: { ...settings.investigate, ...next, configured: !!(next.baseUrl && next.apiToken) } })
+    const rawBase = (partial.baseUrl ?? localUrl).trim()
+    const apiToken = (partial.apiToken ?? localToken).trim()
+    // La investigación SIEMPRE usa el server del usuario; si está vacío se usa el default.
+    const baseUrl = rawBase || 'https://aplica.207.244.232.191.sslip.io'
+    updateSettings({ investigate: { ...settings.investigate, baseUrl, apiToken, configured: true } })
   }
 
   const checkHealth = async () => {

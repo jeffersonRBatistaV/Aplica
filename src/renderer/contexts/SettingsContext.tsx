@@ -4,7 +4,7 @@ import i18n from '../i18n'
 
 const DEFAULT_SETTINGS: AppSettings = {
   api: { baseUrl: 'http://localhost:11434/v1', apiKey: '', model: 'llama3', configured: false },
-  investigate: { baseUrl: 'https://aplica.207.244.232.191.sslip.io', apiToken: '', configured: false },
+  investigate: { baseUrl: 'https://aplica.207.244.232.191.sslip.io', apiToken: '', configured: true },
   appearance: { mode: 'system' },
   privacy: { storeHistory: true, excludeFromTraining: false },
   systemPrompt: '',
@@ -14,13 +14,32 @@ const DEFAULT_SETTINGS: AppSettings = {
   lastSeenVersion: '',
   emailConfig: { provider: 'gmail', host: '', port: 587, secure: false, user: '', pass: '', fromName: '', configured: false },
 }
-
 export function useLocale() {
   const locale = i18n.language?.startsWith('es') ? 'es' : 'en'
   const setLocale = async (lng: string) => {
     await i18n.changeLanguage(lng)
   }
   return { locale, setLocale }
+}
+
+// Merge de la configuración de API preservando los valores guardados del usuario.
+// Si saved.api está ausente/vacío pero settings.json viejo tiene baseUrl en el
+// nivel raíz, se respeta esa URL en lugar de pisarla con el default.
+function mergeApi(saved: Partial<AppSettings> | null | undefined): AppSettings['api'] {
+  const savedApi = saved?.api
+  const hasSavedApi = !!savedApi && (!!savedApi.baseUrl || !!savedApi.apiKey || !!savedApi.model)
+  if (hasSavedApi) return { ...DEFAULT_SETTINGS.api, ...savedApi }
+  const root = saved as Record<string, unknown> | null | undefined
+  if (root && typeof root.baseUrl === 'string' && root.baseUrl.trim()) {
+    return {
+      ...DEFAULT_SETTINGS.api,
+      baseUrl: root.baseUrl,
+      apiKey: typeof root.apiKey === 'string' ? root.apiKey : '',
+      model: typeof root.model === 'string' ? root.model : DEFAULT_SETTINGS.api.model,
+      visionModel: typeof root.visionModel === 'string' ? root.visionModel : undefined,
+    }
+  }
+  return DEFAULT_SETTINGS.api
 }
 
 interface SettingsContextValue {
@@ -63,7 +82,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         const merged = {
           ...DEFAULT_SETTINGS,
           ...saved,
-          api: { ...DEFAULT_SETTINGS.api, ...saved.api },
+          api: mergeApi(saved),
           appearance: { ...DEFAULT_SETTINGS.appearance, ...saved.appearance },
           investigate: { ...DEFAULT_SETTINGS.investigate, ...saved.investigate },
           emailConfig: { ...DEFAULT_SETTINGS.emailConfig, ...(saved.emailConfig ?? {}) },
@@ -88,7 +107,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           const merged = {
             ...DEFAULT_SETTINGS,
             ...saved,
-            api: { ...DEFAULT_SETTINGS.api, ...saved.api },
+            api: mergeApi(saved),
             appearance: { ...DEFAULT_SETTINGS.appearance, ...saved.appearance },
             investigate: { ...DEFAULT_SETTINGS.investigate, ...saved.investigate },
             emailConfig: { ...DEFAULT_SETTINGS.emailConfig, ...(saved.emailConfig ?? {}) },

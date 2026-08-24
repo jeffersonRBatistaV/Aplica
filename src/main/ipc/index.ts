@@ -11,7 +11,7 @@ import { startUpdateDownload, quitAndInstall } from '../services/updater'
 import { listCategories, saveCategory, deleteCategory, generateCategories, listFolders, saveFolder, deleteFolder } from '../services/category-service'
 import { loadCareerAdvice, refreshCareerAdvice } from '../services/career-advice'
 import { loadRoadmap, refreshRoadmap } from '../services/roadmap-service'
-import { listProfiles, setActiveProfile, saveProfile } from '../services/profile-service'
+import { listProfiles, setActiveProfile, saveProfile, migrateLegacyProfile, loadProfilesFile } from '../services/profile-service'
 import { getUsage, resetUsage } from '../services/usage-service'
 import { testEmailConnection, sendEmail, SMTP_PRESETS } from '../services/email-service'
 import type { EmailConfig, EmailPayload } from '../../shared/types'
@@ -287,6 +287,15 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
   safeHandle('profile:get', async (): Promise<Profile | null> => {
     const internal = await readProfile(USER_PROFILE_PATH)
     if (internal) return internal
+    // Tras actualizar: si no hay perfil en USER_PROFILE_PATH pero sí un activo con datos en profiles.json, usarlo.
+    const file = await loadProfilesFile()
+    const active = file.activeId
+      ? file.profiles.find((p) => p.id === file.activeId)
+      : file.profiles.find((p) => !!p.name || !!p.email)
+    if (active) {
+      await writeJSON(USER_PROFILE_PATH, active)
+      return active
+    }
     return readProfile(PROFILE_PATH)
   })
   safeHandle('profile:save', async (_event, profile: Profile): Promise<void> => {
@@ -297,6 +306,12 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
   })
   safeHandle('profile:setActive', async (_event, profileId: string): Promise<Profile> => {
     return setActiveProfile(profileId)
+  })
+  safeHandle('profile:migrate', async (): Promise<Profile | null> => {
+    const file = await migrateLegacyProfile()
+    const active = file.profiles.find((p) => p.id === file.activeId) ?? file.profiles[0] ?? null
+    if (active) await writeJSON(USER_PROFILE_PATH, active)
+    return active
   })
 
   // ── LLM Chat (real streaming) ──
