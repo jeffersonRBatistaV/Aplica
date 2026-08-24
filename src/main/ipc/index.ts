@@ -1,7 +1,7 @@
 import { ipcMain, nativeTheme, clipboard, BrowserWindow } from 'electron'
 import { readJSON, writeJSON, ensureDir } from '../services/storage'
 import { readProfile } from '../services/profile-reader'
-import { CHATS_FILE, SETTINGS_FILE, JOBS_FILE, PROFILE_PATH, USER_PROFILE_PATH, DATA_DIR, CV_TEMPLATES_FILE, CAREER_ADVICE_FILE, ROADMAP_FILE } from '../utils/paths'
+import { CHATS_FILE, SETTINGS_FILE, JOBS_FILE, PROFILE_PATH, USER_PROFILE_PATH, PROFILES_FILE, DATA_DIR, CV_TEMPLATES_FILE, CAREER_ADVICE_FILE, ROADMAP_FILE } from '../utils/paths'
 import type { Conversation, AppSettings, StreamParams, JobApplication, Profile, ATSReport, CvTemplate, InterviewQuestion, ImportResult, ImportStats, JobCategory } from '../../shared/types'
 import { streamChatCompletion, abortCurrentStream, listModels } from '../services/llm-service'
 import { ThrottledStream } from '../utils/throttled-stream'
@@ -11,6 +11,7 @@ import { startUpdateDownload, quitAndInstall } from '../services/updater'
 import { listCategories, saveCategory, deleteCategory, generateCategories, listFolders, saveFolder, deleteFolder } from '../services/category-service'
 import { loadCareerAdvice, refreshCareerAdvice } from '../services/career-advice'
 import { loadRoadmap, refreshRoadmap } from '../services/roadmap-service'
+import { listProfiles, setActiveProfile, saveProfile } from '../services/profile-service'
 import { getUsage, resetUsage } from '../services/usage-service'
 import { getSeedTemplates, wrapHtml } from '../services/cv-templates-seed'
 import { extractTextFromImage } from '../services/ocr-service'
@@ -251,8 +252,13 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
     return readProfile(PROFILE_PATH)
   })
   ipcMain.handle('profile:save', async (_event, profile: Profile): Promise<void> => {
-    await ensureDir(DATA_DIR)
-    await writeJSON(USER_PROFILE_PATH, profile)
+    await saveProfile(profile)
+  })
+  ipcMain.handle('profile:list', async (): Promise<Profile[]> => {
+    return listProfiles()
+  })
+  ipcMain.handle('profile:setActive', async (_event, profileId: string): Promise<Profile> => {
+    return setActiveProfile(profileId)
   })
 
   // ── LLM Chat (real streaming) ──

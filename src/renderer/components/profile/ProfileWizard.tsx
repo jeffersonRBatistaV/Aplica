@@ -6,6 +6,7 @@ import type { Profile, Project } from '../../../shared/types'
 interface ProfileWizardProps {
   onClose: () => void
   onComplete: (profile: Profile) => void
+  profileId?: string
 }
 
 function firstString(val: string | string[] | undefined): string {
@@ -14,7 +15,7 @@ function firstString(val: string | string[] | undefined): string {
   return val.find(v => v !== 'Otro' && v !== 'Otra') ?? val[0] ?? ''
 }
 
-export function ProfileWizard({ onClose, onComplete }: ProfileWizardProps) {
+export function ProfileWizard({ onClose, onComplete, profileId }: ProfileWizardProps) {
   const [step, setStep] = useState(0)
   const [areaId, setAreaId] = useState<string | null>(null)
   const [answers, setAnswers] = useState<Record<string, string | string[]>>({})
@@ -270,6 +271,7 @@ export function ProfileWizard({ onClose, onComplete }: ProfileWizardProps) {
     })
 
     const profile: Profile = {
+      id: profileId ?? '',
       name: (answers['name'] as string) ?? '',
       email: (answers['email'] as string) ?? '',
       phone: (answers['phone'] as string) ?? '',

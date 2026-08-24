@@ -29,6 +29,8 @@ const api = {
   // ── Profile ──
   getProfile: () => ipcRenderer.invoke('profile:get'),
   saveProfile: (profile) => ipcRenderer.invoke('profile:save', profile),
+  listProfiles: () => ipcRenderer.invoke('profile:list'),
+  setActiveProfile: (id) => ipcRenderer.invoke('profile:setActive', id),
 
   // ── LLM Streaming ──
   sendChatMessage: (params) => ipcRenderer.invoke('llm:chat', params),

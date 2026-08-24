@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react'
-import type { AppSettings, ThemeMode } from '../../shared/types'
+import type { AppSettings, ThemeMode, Profile } from '../../shared/types'
 import i18n from '../i18n'
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -26,6 +26,10 @@ interface SettingsContextValue {
   updateSettings: (partial: Partial<AppSettings>) => Promise<void>
   setThemeMode: (mode: ThemeMode) => Promise<void>
   loaded: boolean
+  profiles: Profile[]
+  activeProfileId: string | null
+  setActiveProfile: (id: string) => Promise<void>
+  reloadProfiles: () => Promise<void>
 }
 
 const SettingsContext = createContext<SettingsContextValue | null>(null)
@@ -33,6 +37,18 @@ const SettingsContext = createContext<SettingsContextValue | null>(null)
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS)
   const [loaded, setLoaded] = useState(false)
+  const [profiles, setProfiles] = useState<Profile[]>([])
+  const [activeProfileId, setActiveProfileId] = useState<string | null>(null)
+
+  const reloadProfiles = useCallback(async () => {
+    if (!window.api) return
+    const [list, active] = await Promise.all([
+      window.api.listProfiles(),
+      window.api.getProfile(),
+    ])
+    setProfiles(list)
+    setActiveProfileId(active?.id ?? null)
+  }, [])
 
   useEffect(() => {
     if (!window.api) {
@@ -49,7 +65,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       }
       setLoaded(true)
     })
-  }, [])
+    reloadProfiles()
+  }, [reloadProfiles])
 
   useEffect(() => {
     const handler = () => {
@@ -62,11 +79,24 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
             i18n.changeLanguage(saved.locale)
           }
         }
+        setLoaded(true)
       })
     }
     window.addEventListener('data:imported', handler)
     return () => window.removeEventListener('data:imported', handler)
   }, [])
+
+  useEffect(() => {
+    const handler = () => {
+      reloadProfiles()
+    }
+    window.addEventListener('profile:updated', handler)
+    window.addEventListener('profile:imported', handler)
+    return () => {
+      window.removeEventListener('profile:updated', handler)
+      window.removeEventListener('profile:imported', handler)
+    }
+  }, [reloadProfiles])
 
   const persist = useCallback(async (next: AppSettings) => {
     setSettings(next)
@@ -93,8 +123,20 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     [updateSettings, settings.appearance],
   )
 
+  const setActiveProfile = useCallback(
+    async (id: string) => {
+      if (!window.api) return
+      const profile = await window.api.setActiveProfile(id)
+      setActiveProfileId(profile.id ?? null)
+      window.dispatchEvent(new Event('profile:updated'))
+      window.dispatchEvent(new Event('profile:imported'))
+      reloadProfiles()
+    },
+    [reloadProfiles],
+  )
+
   return (
-    <SettingsContext.Provider value={{ settings, updateSettings, setThemeMode, loaded }}>
+    <SettingsContext.Provider value={{ settings, updateSettings, setThemeMode, loaded, profiles, activeProfileId, setActiveProfile, reloadProfiles }}>
       {children}
     </SettingsContext.Provider>
   )

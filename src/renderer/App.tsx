@@ -18,6 +18,7 @@ function AppContent() {
   const { settings, loaded: settingsLoaded } = useSettings()
   const [profile, setProfile] = useState<Profile | null | 'loading'>('loading')
   const [showWizard, setShowWizard] = useState(false)
+  const [wizardProfileId, setWizardProfileId] = useState<string | undefined>(undefined)
   const [showApiSetup, setShowApiSetup] = useState(false)
   const [profileJustCreated, setProfileJustCreated] = useState(false)
   const startTutorial = useTutorial()
@@ -51,6 +52,20 @@ function AppContent() {
     }
     window.addEventListener('profile:imported', handler)
     return () => window.removeEventListener('profile:imported', handler)
+  }, [])
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const mode = (e as CustomEvent<{ mode?: 'edit' | 'new' }>).detail?.mode
+      if (mode === 'new') {
+        setWizardProfileId(crypto.randomUUID())
+      } else {
+        setWizardProfileId(undefined)
+      }
+      setShowWizard(true)
+    }
+    window.addEventListener('openProfileWizard', handler)
+    return () => window.removeEventListener('openProfileWizard', handler)
   }, [])
 
   const handleWizardComplete = (p: Profile) => {
@@ -98,6 +113,7 @@ function AppContent() {
         <ProfileWizard
           onClose={() => setShowWizard(false)}
           onComplete={handleWizardComplete}
+          profileId={wizardProfileId}
         />
       )}
 

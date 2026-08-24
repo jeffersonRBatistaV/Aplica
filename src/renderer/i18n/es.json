@@ -284,6 +284,9 @@
   },
   "profile": {
     "editProfile": "Editar Perfil",
+    "switchProfile": "Cambiar perfil",
+    "newProfile": "Nuevo perfil",
+    "profiles": "Perfiles",
     "cancel": "Cancelar",
     "saveChanges": "Guardar Cambios",
     "photo": "Foto de perfil (opcional)",
