@@ -11,6 +11,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   locale: 'en',
   ttsVoice: '',
   preferredCurrency: 'USD',
+  lastSeenVersion: '',
   emailConfig: { provider: 'gmail', host: '', port: 587, secure: false, user: '', pass: '', fromName: '', configured: false },
 }
 
@@ -31,6 +32,7 @@ interface SettingsContextValue {
   activeProfileId: string | null
   setActiveProfile: (id: string) => Promise<void>
   reloadProfiles: () => Promise<void>
+  setLastSeenVersion: (version: string) => Promise<void>
 }
 
 const SettingsContext = createContext<SettingsContextValue | null>(null)
@@ -65,6 +67,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           appearance: { ...DEFAULT_SETTINGS.appearance, ...saved.appearance },
           investigate: { ...DEFAULT_SETTINGS.investigate, ...saved.investigate },
           emailConfig: { ...DEFAULT_SETTINGS.emailConfig, ...(saved.emailConfig ?? {}) },
+          lastSeenVersion: saved.lastSeenVersion ?? DEFAULT_SETTINGS.lastSeenVersion,
         } as AppSettings
         setSettings(merged)
         if (saved.locale) {
@@ -89,6 +92,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
             appearance: { ...DEFAULT_SETTINGS.appearance, ...saved.appearance },
             investigate: { ...DEFAULT_SETTINGS.investigate, ...saved.investigate },
             emailConfig: { ...DEFAULT_SETTINGS.emailConfig, ...(saved.emailConfig ?? {}) },
+            lastSeenVersion: saved.lastSeenVersion ?? DEFAULT_SETTINGS.lastSeenVersion,
           } as AppSettings
           setSettings(merged)
           if (saved.locale) {
@@ -121,6 +125,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const setLastSeenVersion = useCallback(
+    async (version: string) => {
+      await persist({ ...settings, lastSeenVersion: version })
+    },
+    [settings, persist],
+  )
+
   const updateSettings = useCallback(
     async (partial: Partial<AppSettings>) => {
       const next = { ...settings, ...partial }
@@ -152,7 +163,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   )
 
   return (
-    <SettingsContext.Provider value={{ settings, updateSettings, setThemeMode, loaded, profiles, activeProfileId, setActiveProfile, reloadProfiles }}>
+    <SettingsContext.Provider value={{ settings, updateSettings, setThemeMode, loaded, profiles, activeProfileId, setActiveProfile, reloadProfiles, setLastSeenVersion }}>
       {children}
     </SettingsContext.Provider>
   )

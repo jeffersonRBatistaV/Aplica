@@ -1,4 +1,4 @@
-import { ipcMain, nativeTheme, clipboard, BrowserWindow } from 'electron'
+import { ipcMain, nativeTheme, clipboard, BrowserWindow, app } from 'electron'
 import { readJSON, writeJSON, ensureDir } from '../services/storage'
 import { readProfile } from '../services/profile-reader'
 import { CHATS_FILE, SETTINGS_FILE, JOBS_FILE, PROFILE_PATH, USER_PROFILE_PATH, PROFILES_FILE, DATA_DIR, CV_TEMPLATES_FILE, CAREER_ADVICE_FILE, ROADMAP_FILE, CV_VERSIONS_FILE } from '../utils/paths'
@@ -737,6 +737,9 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
 
   // ── System Theme ──
   safeHandle('system:getTheme', () => nativeTheme.shouldUseDarkColors)
+
+  // ── App Version ──
+  safeHandle('app:getVersion', () => app.getVersion())
 
   // ── Email (SMTP) ──
   safeHandle('email:presets', async () => SMTP_PRESETS)

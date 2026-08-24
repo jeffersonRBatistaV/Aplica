@@ -66,6 +66,7 @@ const api = {
 
   // ── Theme ──
   getSystemTheme: () => ipcRenderer.invoke('system:getTheme'),
+  getAppVersion: () => ipcRenderer.invoke('app:getVersion'),
   onSystemThemeChange: (callback) => {
     const handler = (_event, isDark) => callback(isDark)
     ipcRenderer.on('system:themeChanged', handler)
