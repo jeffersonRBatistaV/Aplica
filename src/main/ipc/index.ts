@@ -32,7 +32,7 @@ const isTrustedSender = (event: Electron.IpcMainInvokeEvent): boolean => {
 }
 
 function safeHandle(channel: string, handler: (event: Electron.IpcMainInvokeEvent, ...args: any[]) => Promise<any> | any) {
-  safeHandle(channel, async (event, ...args) => {
+  ipcMain.handle(channel, async (event, ...args) => {
     if (!isTrustedSender(event)) throw new Error('Untrusted sender')
     return handler(event, ...args)
   })
