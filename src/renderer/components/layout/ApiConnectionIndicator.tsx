@@ -1,14 +1,15 @@
-import { Wifi, WifiOff, Loader2 } from 'lucide-react'
 import { useApiConnection } from '../../hooks/useApiConnection'
+import { useTranslation } from 'react-i18next'
 
 export function ApiConnectionIndicator() {
   const { connected, checking } = useApiConnection()
+  const { t } = useTranslation()
 
   if (checking) {
     return (
-      <div className="flex items-center gap-1.5 px-2 py-1" title="Verificando conexión...">
-        <Loader2 className="w-3 h-3 text-gray-400 animate-spin" />
-        <span className="text-[10px] text-gray-400">Verificando...</span>
+      <div className="flex items-center gap-1.5 px-2 py-1" title={t('layout.checking')}>
+        <span className="w-2 h-2 rounded-full bg-gray-400 animate-pulse" />
+        <span className="text-[10px] text-gray-400">{t('layout.checking')}</span>
       </div>
     )
   }
@@ -16,19 +17,16 @@ export function ApiConnectionIndicator() {
   return (
     <div
       className="flex items-center gap-1.5 px-2 py-1"
-      title={connected ? 'API conectada' : 'API desconectada'}
+      title={connected ? t('layout.online') : t('layout.offline')}
     >
-      {connected ? (
-        <>
-          <Wifi className="w-3 h-3 text-green-500" />
-          <span className="text-[10px] text-green-600 dark:text-green-400">Conectado</span>
-        </>
-      ) : (
-        <>
-          <WifiOff className="w-3 h-3 text-red-500" />
-          <span className="text-[10px] text-red-500">Desconectado</span>
-        </>
-      )}
+      <span
+        className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`}
+      />
+      <span
+        className={`text-[10px] ${connected ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}
+      >
+        {connected ? t('layout.online') : t('layout.offline')}
+      </span>
     </div>
   )
 }
