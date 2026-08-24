@@ -54,6 +54,14 @@
     "dark": "Oscuro",
     "system": "Sistema"
   },
+  "layout": {
+    "online": "En línea",
+    "offline": "Sin conexión",
+    "checking": "Verificando..."
+  },
+  "chat": {
+    "offlineError": "Sin conexión. Tus datos están seguros localmente, pero el chat necesita internet."
+  },
   "language": {
     "en": "English",
     "es": "Español",

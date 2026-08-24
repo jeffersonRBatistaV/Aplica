@@ -16,7 +16,6 @@ import {
 } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
-import { ApiConnectionIndicator } from './ApiConnectionIndicator'
 import { useChat, useNavigation } from '../../contexts/AppContext'
 import { useTutorial } from './TutorialGuide'
 import { groupConversations, formatTime } from '../../lib/time'
@@ -374,7 +373,6 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
           <Settings className="w-4 h-4" />
           {t('sidebar.settings')}
         </Button>
-        <ApiConnectionIndicator />
       </div>
 
       <ConfirmDialog

@@ -7,6 +7,7 @@ import { useSettings } from '../../contexts/SettingsContext'
 import { useNavigation } from '../../contexts/NavigationContext'
 import { Button } from '../ui/Button'
 import { SettingsPanel } from '../settings/SettingsPanel'
+import { ApiConnectionIndicator } from './ApiConnectionIndicator'
 import { useTranslation } from 'react-i18next'
 
 interface MainLayoutProps {
@@ -66,6 +67,7 @@ export function MainLayout({ children }: MainLayoutProps) {
           </div>
 
           <div className="flex items-center gap-1">
+            <ApiConnectionIndicator />
             <Button
               variant="ghost"
               size="icon"

@@ -10,8 +10,12 @@ import {
 import type { Conversation, Message } from '../../shared/types'
 import { useSettings } from './SettingsContext'
 import { useStreaming } from '../hooks/useStreaming'
+import { useTranslation } from 'react-i18next'
 
 const MAX_TITLE_WORDS = 4
+
+const NETWORK_ERROR_RE =
+  /fetch failed|Failed to fetch|ECONNREFUSED|network|ENOTFOUND|load failed/i
 
 function generateTitle(content: string): string {
   const words = content.trim().split(/\s+/).filter(Boolean)
@@ -75,6 +79,7 @@ const ChatContext = createContext<ChatContextValue | null>(null)
 export function ChatProvider({ children }: { children: ReactNode }) {
   const { settings } = useSettings()
   const { subscribe } = useStreaming()
+  const { t } = useTranslation()
 
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
@@ -124,6 +129,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     : null
 
   // ── Helpers ──
+  const formatChatError = useCallback(
+    (err: string): string => {
+      if (NETWORK_ERROR_RE.test(err)) return t('chat.offlineError')
+      return err
+    },
+    [t],
+  )
+
   const persistConversation = useCallback(
     async (conversation: Conversation) => {
       if (!window.api) return
@@ -201,7 +214,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           streamContentRef.current = ''
         },
         onError: (err) => {
-          setError(err)
+          setError(formatChatError(err))
           setIsStreaming(false)
           setStreamingContent('')
           streamContentRef.current = ''
@@ -307,7 +320,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         streamContentRef.current = ''
       },
       onError: (err) => {
-        setError(err)
+        setError(formatChatError(err))
         setIsStreaming(false)
         setStreamingContent('')
         streamContentRef.current = ''
