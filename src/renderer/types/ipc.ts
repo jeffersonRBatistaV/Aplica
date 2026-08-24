@@ -1,4 +1,4 @@
-import type { Conversation, AppSettings, StreamParams, Profile, JobApplication, ATSReport, CvTemplate, InterviewQuestion, UsageStats, ImportResult, Roadmap, JobCategory, InvestigateResult, CvVersion } from '../../shared/types'
+import type { Conversation, AppSettings, StreamParams, Profile, JobApplication, ATSReport, CvTemplate, InterviewQuestion, UsageStats, ImportResult, Roadmap, JobCategory, InvestigateResult, CvVersion, EmailConfig, EmailPayload, EmailPreset, EmailResult } from '../../shared/types'
 
 export interface UpdateInfo {
   version: string
@@ -138,6 +138,11 @@ export interface ElectronAPI {
   onUpdateDownloaded: (callback: () => void) => () => void
   startUpdateDownload: () => Promise<void>
   quitAndInstall: () => Promise<void>
+
+  // Email (SMTP)
+  getEmailPresets: () => Promise<Record<string, EmailPreset>>
+  testEmailConnection: (config: EmailConfig) => Promise<EmailResult>
+  sendEmail: (config: EmailConfig, payload: EmailPayload) => Promise<EmailResult>
 }
 
 declare global {

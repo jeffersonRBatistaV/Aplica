@@ -13,6 +13,8 @@ import { loadCareerAdvice, refreshCareerAdvice } from '../services/career-advice
 import { loadRoadmap, refreshRoadmap } from '../services/roadmap-service'
 import { listProfiles, setActiveProfile, saveProfile } from '../services/profile-service'
 import { getUsage, resetUsage } from '../services/usage-service'
+import { testEmailConnection, sendEmail, SMTP_PRESETS } from '../services/email-service'
+import type { EmailConfig, EmailPayload } from '../../shared/types'
 import { getSeedTemplates, wrapHtml } from '../services/cv-templates-seed'
 import { extractTextFromImage } from '../services/ocr-service'
 import { getExchangeRate } from '../services/currency-service'
@@ -735,6 +737,15 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
 
   // ── System Theme ──
   safeHandle('system:getTheme', () => nativeTheme.shouldUseDarkColors)
+
+  // ── Email (SMTP) ──
+  safeHandle('email:presets', async () => SMTP_PRESETS)
+  safeHandle('email:test', async (_event, config: EmailConfig): Promise<{ ok: boolean; error?: string }> => {
+    return testEmailConnection(config)
+  })
+  safeHandle('email:send', async (_event, config: EmailConfig, payload: EmailPayload): Promise<{ ok: boolean; error?: string }> => {
+    return sendEmail(config, payload)
+  })
 
   // ── CV Summary Options ──
   safeHandle('cv:generateSummaryOptions', async (_event, vacancyText: string, atsReport: unknown): Promise<unknown> => {
