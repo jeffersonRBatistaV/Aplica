@@ -518,7 +518,11 @@
     "investigating": "Investigando en línea...",
     "investigate": "Investigar en línea",
     "investigation": "Investigación en línea",
-    "sources": "Fuentes"
+    "sources": "Fuentes",
+    "salaryTitle": "Comparador Salarial",
+    "salaryPlaceholder": "Ej: React Developer",
+    "checkSalary": "Consultar salario",
+    "salaryChecking": "Consultando..."
   },
   "tutorial": {
     "welcomeTitle": "Bienvenido a Aplica",

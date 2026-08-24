@@ -14,9 +14,29 @@ import {
   Map,
   ArrowRight,
 } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import type { Conversation, JobApplication, JobStatus } from '../../../shared/types'
 import { useTranslation } from 'react-i18next'
 import { useNavigation } from '../../contexts/AppContext'
+
+const COUNTRY_NAMES: Record<string, string> = {
+  DO: 'Republica Dominicana',
+  US: 'Estados Unidos',
+  ES: 'España',
+  MX: 'Mexico',
+  CO: 'Colombia',
+  AR: 'Argentina',
+  CL: 'Chile',
+  PE: 'Peru',
+  BR: 'Brasil',
+  GB: 'Reino Unido',
+  FR: 'Francia',
+  DE: 'Alemania',
+  IT: 'Italia',
+  PT: 'Portugal',
+  CA: 'Canada',
+}
 
 interface Stats {
   totalConversations: number
@@ -147,14 +167,24 @@ export function Analytics() {
   // Fases de investigación en vivo
   const [phase, setPhase] = useState<string | null>(null)
 
+  // Comparador salarial
+  const [salaryRole, setSalaryRole] = useState('')
+  const [salaryResult, setSalaryResult] = useState<string | null>(null)
+  const [salarySources, setSalarySources] = useState<{ url: string; title: string }[]>([])
+  const [salaryLoading, setSalaryLoading] = useState(false)
+  const [salaryPhase, setSalaryPhase] = useState<string | null>(null)
+  const [country, setCountry] = useState<string | null>(null)
+
   useEffect(() => {
     async function load() {
       try {
-        const [conversations, jobs, cachedAdvice] = await Promise.all([
+        const [conversations, jobs, cachedAdvice, profile] = await Promise.all([
           window.api.getConversations(),
           window.api.getJobs(),
           window.api.getCareerAdvice(),
+          window.api.getProfile(),
         ])
+        if (profile?.country) setCountry(profile.country)
         computeStats(conversations, jobs)
         setAllJobs(jobs)
         if (cachedAdvice) {
@@ -238,6 +268,35 @@ export function Analytics() {
       offers,
       matchScores,
     })
+  }
+
+  const countryCode = country || ''
+  const countryName = country ? (COUNTRY_NAMES[country] || country) : 'tu pais'
+
+  async function handleCheckSalary() {
+    if (!salaryRole.trim()) return
+    setSalaryLoading(true)
+    setSalaryResult(null)
+    setSalarySources([])
+    setSalaryPhase(null)
+    const unsub = window.api.onInvestigatePhase((p) => setSalaryPhase(p.message))
+    try {
+      const res = await window.api.investigate(
+        `salario promedio de ${salaryRole} en ${countryName} 2026, rango junior a senior, mensual y anual`,
+        countryCode,
+        'es',
+      )
+      setSalaryResult(res.answer)
+      setSalarySources(res.sources || [])
+    } catch (e) {
+      console.error('Failed to check salary', e)
+      setSalaryResult(null)
+      setSalarySources([])
+    } finally {
+      unsub()
+      setSalaryLoading(false)
+      setSalaryPhase(null)
+    }
   }
 
   if (loading) {
@@ -585,6 +644,74 @@ export function Analytics() {
             {stats.totalJobs === 0
               ? t('analytics.noJobsAdvice')
               : t('analytics.configureAPIAdvice')}
+          </div>
+        )}
+      </div>
+
+      {/* Comparador Salarial */}
+      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 sm:p-6 space-y-4">
+        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+          <TrendingUp className="w-4 h-4 text-blue-500" />
+          {t('analytics.salaryTitle')}
+        </h3>
+
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={salaryRole}
+            onChange={(e) => setSalaryRole(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleCheckSalary() }}
+            placeholder={t('analytics.salaryPlaceholder')}
+            className="flex-1 px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <button
+            onClick={handleCheckSalary}
+            disabled={salaryLoading || !salaryRole.trim()}
+            className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors"
+          >
+            {salaryLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : null}
+            {salaryLoading ? t('analytics.salaryChecking') : t('analytics.checkSalary')}
+          </button>
+        </div>
+
+        {salaryPhase && (
+          <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40 px-4 py-3">
+            <div className="flex items-center gap-2 text-xs text-[#8A8A93]">
+              <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+              <span>{salaryPhase}</span>
+            </div>
+          </div>
+        )}
+
+        {salaryResult && (
+          <div className="space-y-3">
+            <div className="prose prose-sm dark:prose-invert max-w-none prose-pre:p-0">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{salaryResult}</ReactMarkdown>
+            </div>
+
+            {salarySources.length > 0 && (
+              <div className="space-y-1.5">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  {t('analytics.sources')}
+                </h4>
+                <ul className="space-y-1">
+                  {salarySources.map((s, i) => {
+                    let domain = ''
+                    if (s.url) {
+                      try { domain = new URL(s.url).hostname } catch { domain = '' }
+                    }
+                    return (
+                      <li key={i} className="text-xs text-gray-600 dark:text-gray-400">
+                        <span className="font-medium">{s.title || s.url}</span>
+                        {domain && <span className="text-gray-400"> — {domain}</span>}
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            )}
           </div>
         )}
       </div>
