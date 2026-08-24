@@ -7,6 +7,7 @@ interface LLMConfig {
   baseUrl: string
   apiKey: string
   model: string
+  excludeFromTraining?: boolean
 }
 
 async function getConfig(): Promise<LLMConfig> {
@@ -15,6 +16,7 @@ async function getConfig(): Promise<LLMConfig> {
     baseUrl: settings?.api?.baseUrl || 'http://localhost:11434/v1',
     apiKey: settings?.api?.apiKey || '',
     model: settings?.api?.model || 'llama3',
+    excludeFromTraining: settings?.privacy?.excludeFromTraining,
   }
 }
 
@@ -124,7 +126,7 @@ ${profile.projects?.map(p => `- ${p.name}: ${p.description}`).join('\n') || 'Nin
     const response = await completeChatCompletion(config, [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userMessage },
-    ], undefined, 'roadmap')
+    ], undefined, 'roadmap', config.excludeFromTraining)
     const parsed = JSON.parse(response.trim())
     if (!parsed.phases || !Array.isArray(parsed.phases) || parsed.phases.length === 0) {
       throw new Error('Invalid roadmap structure')

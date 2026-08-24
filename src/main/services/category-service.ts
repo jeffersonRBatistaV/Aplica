@@ -7,14 +7,16 @@ interface LLMConfig {
   baseUrl: string
   apiKey: string
   model: string
+  excludeFromTraining?: boolean
 }
 
 async function getConfig(): Promise<LLMConfig> {
-  const settings = await readJSON<{ api?: { baseUrl?: string; apiKey?: string; model?: string } }>(SETTINGS_FILE)
+  const settings = await readJSON<{ api?: { baseUrl?: string; apiKey?: string; model?: string }; privacy?: { excludeFromTraining?: boolean } }>(SETTINGS_FILE)
   return {
     baseUrl: settings?.api?.baseUrl || 'http://localhost:11434/v1',
     apiKey: settings?.api?.apiKey || '',
     model: settings?.api?.model || 'llama3',
+    excludeFromTraining: settings?.privacy?.excludeFromTraining,
   }
 }
 
@@ -182,7 +184,7 @@ export async function generateCategories(areaId: string): Promise<JobCategory[]>
     const response = await completeChatCompletion(config, [
       { role: 'system', content: GENERATE_CATEGORIES_PROMPT },
       { role: 'user', content: userMessage },
-    ], undefined, 'categories')
+    ], undefined, 'categories', config.excludeFromTraining)
     const clean = response.replace(/```(?:json)?\n?/gi, '').trim()
     const jsonMatch = clean.match(/\[[\s\S]*\]/)
     if (!jsonMatch) return fallbackFor(areaId)

@@ -20,7 +20,7 @@ export function PrivacySettings({
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
             {t('privacy.storeHistory')}
           </label>
-          <p className="text-xs text-gray-400 mt-0.5">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
             {t('privacy.storeHistoryDesc')}
           </p>
         </div>
@@ -42,8 +42,8 @@ export function PrivacySettings({
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
             {t('privacy.excludeTraining')}
           </label>
-          <p className="text-xs text-gray-400 mt-0.5">
-            {t('privacy.excludeTrainingDesc')}
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            {t('privacy.excludeFromTrainingDesc')}
           </p>
         </div>
         <label className="relative inline-flex items-center cursor-pointer">

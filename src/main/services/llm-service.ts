@@ -415,13 +415,14 @@ export async function completeChatCompletion(
   messages: { role: string; content: string }[],
   signal?: AbortSignal,
   action?: string,
+  excludeFromTraining?: boolean,
 ): Promise<string> {
   const systemMsg = messages.find(m => m.role === 'system')
   const otherMessages = messages.filter(m => m.role !== 'system')
   const systemContent = systemMsg?.content ?? ''
   const truncated = truncateMessages(systemContent, otherMessages, MAX_INPUT_TOKENS)
   const finalMessages = systemMsg ? [systemMsg, ...truncated] : truncated
-  const response = await fetchCompletion(config, finalMessages, signal)
+  const response = await fetchCompletion(config, finalMessages, signal, undefined, excludeFromTraining)
   if (!response.ok) {
     const errorText = await response.text().catch(() => 'Unknown error')
     throw new Error(`API ${response.status}: ${errorText}`)

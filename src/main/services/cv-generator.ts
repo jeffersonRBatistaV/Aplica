@@ -25,6 +25,7 @@ interface LLMConfig {
   baseUrl: string
   apiKey: string
   model: string
+  excludeFromTraining?: boolean
 }
 
 async function getConfig(): Promise<LLMConfig> {
@@ -33,6 +34,7 @@ async function getConfig(): Promise<LLMConfig> {
     baseUrl: settings?.api?.baseUrl || 'http://localhost:11434/v1',
     apiKey: settings?.api?.apiKey || '',
     model: settings?.api?.model || 'llama3',
+    excludeFromTraining: settings?.privacy?.excludeFromTraining,
   }
 }
 
@@ -275,7 +277,7 @@ Devuelve SOLO un JSON array valido con esta estructura exacta, sin markdown ni d
   const response = await completeChatCompletion(config, [
     { role: 'system', content: systemPrompt },
     { role: 'user', content: userMessage },
-  ], undefined, 'summary_options')
+  ], undefined, 'summary_options', config.excludeFromTraining)
 
   try {
     const parsed = JSON.parse(response.trim())
@@ -324,7 +326,7 @@ export async function generateCV(
   const response = await completeChatCompletion(config, [
     { role: 'system', content: fullPrompt },
     { role: 'user', content: userMessage },
-  ])
+  ], undefined, undefined, config.excludeFromTraining)
 
   return response.trim()
 }
@@ -358,7 +360,7 @@ export async function regenerateCV(
   const response = await completeChatCompletion(config, [
     { role: 'system', content: fullPrompt },
     { role: 'user', content: userMessage },
-  ])
+  ], undefined, undefined, config.excludeFromTraining)
 
   return response.trim()
 }
@@ -397,7 +399,7 @@ ${profileJson}
   const response = await completeChatCompletion(config, [
     { role: 'system', content: prompt },
     { role: 'user', content: userMessage },
-  ], undefined, 'cv_sample')
+  ], undefined, 'cv_sample', config.excludeFromTraining)
 
   return response.trim()
 }
