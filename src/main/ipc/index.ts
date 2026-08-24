@@ -18,25 +18,43 @@ import { extractTextFromImage } from '../services/ocr-service'
 import { getExchangeRate } from '../services/currency-service'
 import { investigate, investigateHealth, discoverBackend } from '../services/investigate-service'
 
+const isTrustedSender = (event: Electron.IpcMainInvokeEvent): boolean => {
+  try {
+    const frame = event.senderFrame
+    if (!frame) return false
+    // Solo confiar en el frame principal de nuestra propia ventana
+    return frame.url.startsWith('file://') || frame.url.startsWith('http://localhost') || frame.url.startsWith('https://localhost')
+  } catch {
+    return false
+  }
+}
+
+function safeHandle(channel: string, handler: (event: Electron.IpcMainInvokeEvent, ...args: any[]) => Promise<any> | any) {
+  safeHandle(channel, async (event, ...args) => {
+    if (!isTrustedSender(event)) throw new Error('Untrusted sender')
+    return handler(event, ...args)
+  })
+}
+
 export function registerAllHandlers(mainWindow: BrowserWindow): void {
   // ── File System ──
-  ipcMain.handle('fs:readFile', async (_event, filePath: string) => {
+  safeHandle('fs:readFile', async (_event, filePath: string) => {
     const fs = await import('fs/promises')
     return await fs.readFile(filePath, 'utf-8')
   })
-  ipcMain.handle('fs:writeFile', async (_event, filePath: string, data: string) => {
+  safeHandle('fs:writeFile', async (_event, filePath: string, data: string) => {
     const fs = await import('fs/promises')
     await fs.writeFile(filePath, data, 'utf-8')
   })
-  ipcMain.handle('fs:deleteFile', async (_event, filePath: string) => {
+  safeHandle('fs:deleteFile', async (_event, filePath: string) => {
     const fs = await import('fs/promises')
     await fs.unlink(filePath)
   })
-  ipcMain.handle('fs:readDirectory', async (_event, dirPath: string) => {
+  safeHandle('fs:readDirectory', async (_event, dirPath: string) => {
     const fs = await import('fs/promises')
     return await fs.readdir(dirPath)
   })
-  ipcMain.handle('fs:fileExists', async (_event, filePath: string) => {
+  safeHandle('fs:fileExists', async (_event, filePath: string) => {
     const fs = await import('fs/promises')
     try {
       await fs.access(filePath)
@@ -47,14 +65,14 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
   })
 
   // ── Chat CRUD ──
-  ipcMain.handle('chat:getAll', async (): Promise<Conversation[]> => {
+  safeHandle('chat:getAll', async (): Promise<Conversation[]> => {
     return (await readJSON<Conversation[]>(CHATS_FILE)) ?? []
   })
-  ipcMain.handle('chat:get', async (_event, id: string): Promise<Conversation | null> => {
+  safeHandle('chat:get', async (_event, id: string): Promise<Conversation | null> => {
     const chats = await readJSON<Conversation[]>(CHATS_FILE)
     return chats?.find((c) => c.id === id) ?? null
   })
-  ipcMain.handle('chat:save', async (_event, conversation: Conversation): Promise<void> => {
+  safeHandle('chat:save', async (_event, conversation: Conversation): Promise<void> => {
     await ensureDir(DATA_DIR)
     const chats = (await readJSON<Conversation[]>(CHATS_FILE)) ?? []
     const idx = chats.findIndex((c) => c.id === conversation.id)
@@ -62,23 +80,23 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
     else chats.push(conversation)
     await writeJSON(CHATS_FILE, chats)
   })
-  ipcMain.handle('chat:delete', async (_event, id: string): Promise<void> => {
+  safeHandle('chat:delete', async (_event, id: string): Promise<void> => {
     const chats = (await readJSON<Conversation[]>(CHATS_FILE)) ?? []
     await writeJSON(CHATS_FILE, chats.filter((c) => c.id !== id))
   })
-  ipcMain.handle('chat:rename', async (_event, id: string, title: string): Promise<void> => {
+  safeHandle('chat:rename', async (_event, id: string, title: string): Promise<void> => {
     const chats = (await readJSON<Conversation[]>(CHATS_FILE)) ?? []
     const chat = chats.find((c) => c.id === id)
     if (chat) chat.title = title
     await writeJSON(CHATS_FILE, chats)
   })
-  ipcMain.handle('chat:archive', async (_event, id: string): Promise<void> => {
+  safeHandle('chat:archive', async (_event, id: string): Promise<void> => {
     const chats = (await readJSON<Conversation[]>(CHATS_FILE)) ?? []
     const chat = chats.find((c) => c.id === id)
     if (chat) chat.archived = true
     await writeJSON(CHATS_FILE, chats)
   })
-  ipcMain.handle('chat:search', async (_event, query: string): Promise<Conversation[]> => {
+  safeHandle('chat:search', async (_event, query: string): Promise<Conversation[]> => {
     const chats = (await readJSON<Conversation[]>(CHATS_FILE)) ?? []
     const q = query.toLowerCase()
     return chats.filter(
@@ -93,16 +111,16 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
     return { ...job, status: job.status || 'draft' }
   }
 
-  ipcMain.handle('job:getAll', async (): Promise<JobApplication[]> => {
+  safeHandle('job:getAll', async (): Promise<JobApplication[]> => {
     const jobs = (await readJSON<JobApplication[]>(JOBS_FILE)) ?? []
     return jobs.map(normalizeJob)
   })
-  ipcMain.handle('job:get', async (_event, id: string): Promise<JobApplication | null> => {
+  safeHandle('job:get', async (_event, id: string): Promise<JobApplication | null> => {
     const jobs = await readJSON<JobApplication[]>(JOBS_FILE)
     const job = jobs?.find((j) => j.id === id) ?? null
     return job ? normalizeJob(job) : null
   })
-  ipcMain.handle('job:save', async (_event, job: JobApplication): Promise<void> => {
+  safeHandle('job:save', async (_event, job: JobApplication): Promise<void> => {
     await ensureDir(DATA_DIR)
     const jobs = (await readJSON<JobApplication[]>(JOBS_FILE)) ?? []
     const idx = jobs.findIndex((j) => j.id === job.id)
@@ -124,11 +142,11 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
     else jobs.push(job)
     await writeJSON(JOBS_FILE, jobs)
   })
-  ipcMain.handle('job:delete', async (_event, id: string): Promise<void> => {
+  safeHandle('job:delete', async (_event, id: string): Promise<void> => {
     const jobs = (await readJSON<JobApplication[]>(JOBS_FILE)) ?? []
     await writeJSON(JOBS_FILE, jobs.filter((j) => j.id !== id))
   })
-  ipcMain.handle('jobs:getUpcomingInterviews', async (): Promise<{ company: string; position: string; interviewDate: number }[]> => {
+  safeHandle('jobs:getUpcomingInterviews', async (): Promise<{ company: string; position: string; interviewDate: number }[]> => {
     const jobs = (await readJSON<JobApplication[]>(JOBS_FILE)) ?? []
     const now = Date.now()
     const window = 24 * 3600 * 1000
@@ -136,13 +154,13 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
       .filter((j) => j.status === 'interview' && j.interviewDate && j.interviewDate > now && j.interviewDate - now < window)
       .map((j) => ({ company: j.company, position: j.position, interviewDate: j.interviewDate as number }))
   })
-  ipcMain.handle('jobs:getCvVersions', async (_event, jobId: string): Promise<CvVersion[]> => {
+  safeHandle('jobs:getCvVersions', async (_event, jobId: string): Promise<CvVersion[]> => {
     const versions = (await readJSON<Record<string, CvVersion[]>>(CV_VERSIONS_FILE)) ?? {}
     return versions[jobId] || []
   })
 
   // ── CV Templates ──
-  ipcMain.handle('cv:getTemplates', async (): Promise<CvTemplate[]> => {
+  safeHandle('cv:getTemplates', async (): Promise<CvTemplate[]> => {
     await ensureDir(DATA_DIR)
     const templates = await readJSON<CvTemplate[]>(CV_TEMPLATES_FILE)
     if (!templates || templates.length === 0) {
@@ -152,7 +170,7 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
     }
     return templates
   })
-  ipcMain.handle('cv:saveTemplate', async (_event, template: CvTemplate): Promise<void> => {
+  safeHandle('cv:saveTemplate', async (_event, template: CvTemplate): Promise<void> => {
     await ensureDir(DATA_DIR)
     const templates = (await readJSON<CvTemplate[]>(CV_TEMPLATES_FILE)) ?? []
     const idx = templates.findIndex((t) => t.id === template.id)
@@ -160,39 +178,39 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
     else templates.push(template)
     await writeJSON(CV_TEMPLATES_FILE, templates)
   })
-  ipcMain.handle('cv:deleteTemplate', async (_event, id: string): Promise<void> => {
+  safeHandle('cv:deleteTemplate', async (_event, id: string): Promise<void> => {
     const templates = (await readJSON<CvTemplate[]>(CV_TEMPLATES_FILE)) ?? []
     await writeJSON(CV_TEMPLATES_FILE, templates.filter((t) => t.id !== id))
   })
-  ipcMain.handle('cv:resetTemplates', async (): Promise<void> => {
+  safeHandle('cv:resetTemplates', async (): Promise<void> => {
     const seeds = getSeedTemplates()
     await writeJSON(CV_TEMPLATES_FILE, seeds)
   })
-  ipcMain.handle('cv:generateSample', async (_event, prompt: string): Promise<string> => {
+  safeHandle('cv:generateSample', async (_event, prompt: string): Promise<string> => {
     const html = await generateSampleCv(prompt)
     return wrapHtml(html)
   })
 
   // ── Job Categories (CV por categoría) ──
-  ipcMain.handle('category:list', async (_event, areaId?: string): Promise<JobCategory[]> => {
+  safeHandle('category:list', async (_event, areaId?: string): Promise<JobCategory[]> => {
     return listCategories(areaId)
   })
-  ipcMain.handle('category:save', async (_event, category: JobCategory): Promise<JobCategory[]> => {
+  safeHandle('category:save', async (_event, category: JobCategory): Promise<JobCategory[]> => {
     return saveCategory(category)
   })
-  ipcMain.handle('category:delete', async (_event, id: string): Promise<JobCategory[]> => {
+  safeHandle('category:delete', async (_event, id: string): Promise<JobCategory[]> => {
     return deleteCategory(id)
   })
-  ipcMain.handle('category:generate', async (_event, areaId?: string): Promise<JobCategory[]> => {
+  safeHandle('category:generate', async (_event, areaId?: string): Promise<JobCategory[]> => {
     return generateCategories(areaId || 'tecnologia')
   })
-  ipcMain.handle('categories:listFolders', async (): Promise<string[]> => {
+  safeHandle('categories:listFolders', async (): Promise<string[]> => {
     return listFolders()
   })
-  ipcMain.handle('categories:saveFolder', async (_event, name: string): Promise<string[]> => {
+  safeHandle('categories:saveFolder', async (_event, name: string): Promise<string[]> => {
     return saveFolder(name)
   })
-  ipcMain.handle('categories:deleteFolder', async (_event, name: string): Promise<string[]> => {
+  safeHandle('categories:deleteFolder', async (_event, name: string): Promise<string[]> => {
     return deleteFolder(name)
   })
 
@@ -202,28 +220,28 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
     if (internal) return internal
     return readProfile(PROFILE_PATH)
   }
-  ipcMain.handle('job:correctVacancy', async (_event, rawText: string): Promise<string> => {
+  safeHandle('job:correctVacancy', async (_event, rawText: string): Promise<string> => {
     return correctVacancyText(rawText)
   })
-  ipcMain.handle('job:analyze', async (event, vacancyText: string): Promise<unknown> => {
+  safeHandle('job:analyze', async (event, vacancyText: string): Promise<unknown> => {
     const profile = await loadProfile()
     return analyzeVacancy(vacancyText, profile, (msg) => {
       event.sender.send('investigate:phase', { message: msg })
     })
   })
-  ipcMain.handle('job:generateLetters', async (_event, vacancyText: string, atsReport: unknown): Promise<unknown> => {
+  safeHandle('job:generateLetters', async (_event, vacancyText: string, atsReport: unknown): Promise<unknown> => {
     const profile = await loadProfile()
     return generateCoverLetters(vacancyText, profile, atsReport as any)
   })
-  ipcMain.handle('job:generateQuestions', async (_event, vacancyText: string, atsReport: unknown): Promise<unknown> => {
+  safeHandle('job:generateQuestions', async (_event, vacancyText: string, atsReport: unknown): Promise<unknown> => {
     const profile = await loadProfile()
     return generateInterviewQuestions(vacancyText, profile, atsReport as ATSReport | null)
   })
-  ipcMain.handle('job:generateCV', async (_event, vacancyText: string, atsReport: unknown, style: string, customPrompt?: string, chosenSummary?: string): Promise<string> => {
+  safeHandle('job:generateCV', async (_event, vacancyText: string, atsReport: unknown, style: string, customPrompt?: string, chosenSummary?: string): Promise<string> => {
     const profile = await loadProfile()
     return generateCV(vacancyText, profile, atsReport as ATSReport | null, style, customPrompt, chosenSummary)
   })
-  ipcMain.handle('job:regenerateCV', async (_event, params: {
+  safeHandle('job:regenerateCV', async (_event, params: {
     currentCv: string
     style: string
     vacancyText: string
@@ -244,43 +262,43 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
   })
 
   // ── Settings ──
-  ipcMain.handle('settings:get', async (): Promise<AppSettings | null> => {
+  safeHandle('settings:get', async (): Promise<AppSettings | null> => {
     return readJSON<AppSettings>(SETTINGS_FILE)
   })
-  ipcMain.handle('settings:set', async (_event, settings: AppSettings): Promise<void> => {
+  safeHandle('settings:set', async (_event, settings: AppSettings): Promise<void> => {
     await ensureDir(DATA_DIR)
     await writeJSON(SETTINGS_FILE, settings)
   })
 
   // ── Investigación en línea (backend remoto) ──
-  ipcMain.handle('investigate:query', async (_event, userQuery: string, country: string, language: string) => {
+  safeHandle('investigate:query', async (_event, userQuery: string, country: string, language: string) => {
     return investigate(userQuery, country, language)
   })
-  ipcMain.handle('investigate:health', async () => {
+  safeHandle('investigate:health', async () => {
     return investigateHealth()
   })
-  ipcMain.handle('investigate:discover', async () => {
+  safeHandle('investigate:discover', async () => {
     return discoverBackend()
   })
 
   // ── Profile (Digital Twin) ──
-  ipcMain.handle('profile:get', async (): Promise<Profile | null> => {
+  safeHandle('profile:get', async (): Promise<Profile | null> => {
     const internal = await readProfile(USER_PROFILE_PATH)
     if (internal) return internal
     return readProfile(PROFILE_PATH)
   })
-  ipcMain.handle('profile:save', async (_event, profile: Profile): Promise<void> => {
+  safeHandle('profile:save', async (_event, profile: Profile): Promise<void> => {
     await saveProfile(profile)
   })
-  ipcMain.handle('profile:list', async (): Promise<Profile[]> => {
+  safeHandle('profile:list', async (): Promise<Profile[]> => {
     return listProfiles()
   })
-  ipcMain.handle('profile:setActive', async (_event, profileId: string): Promise<Profile> => {
+  safeHandle('profile:setActive', async (_event, profileId: string): Promise<Profile> => {
     return setActiveProfile(profileId)
   })
 
   // ── LLM Chat (real streaming) ──
-  ipcMain.handle('llm:chat', async (_event, params: StreamParams): Promise<void> => {
+  safeHandle('llm:chat', async (_event, params: StreamParams): Promise<void> => {
     const settings = await readJSON<AppSettings>(SETTINGS_FILE)
     const config = {
       baseUrl: settings?.api?.baseUrl || 'http://localhost:11434/v1',
@@ -307,12 +325,12 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
     )
   })
 
-  ipcMain.handle('llm:abort', async () => {
+  safeHandle('llm:abort', async () => {
     abortCurrentStream()
   })
 
   // ── List Models ──
-  ipcMain.handle('llm:listModels', async (_event, params?: { baseUrl?: string; apiKey?: string }): Promise<{ id: string; name?: string }[]> => {
+  safeHandle('llm:listModels', async (_event, params?: { baseUrl?: string; apiKey?: string }): Promise<{ id: string; name?: string }[]> => {
     const settings = await readJSON<AppSettings>(SETTINGS_FILE)
     const config = {
       baseUrl: params?.baseUrl || settings?.api?.baseUrl || 'http://localhost:11434/v1',
@@ -322,7 +340,7 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
   })
 
   // ── Data Export ──
-  ipcMain.handle('data:exportAll', async (): Promise<unknown> => {
+  safeHandle('data:exportAll', async (): Promise<unknown> => {
     const [conversations, jobs, profile, settings, cvTemplates] = await Promise.all([
       readJSON<Conversation[]>(CHATS_FILE),
       readJSON<JobApplication[]>(JOBS_FILE),
@@ -351,7 +369,7 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
     return result
   })
 
-  ipcMain.handle('data:saveExportFile', async (_event, data: unknown, format: 'json' | 'xlsx'): Promise<string | null> => {
+  safeHandle('data:saveExportFile', async (_event, data: unknown, format: 'json' | 'xlsx'): Promise<string | null> => {
     const { dialog, shell } = await import('electron')
     const fs = await import('fs/promises')
     const bundle = data as Record<string, unknown>
@@ -604,7 +622,7 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
     return data
   }
 
-  ipcMain.handle('data:importFromFile', async (): Promise<ImportResult> => {
+  safeHandle('data:importFromFile', async (): Promise<ImportResult> => {
     const { dialog } = await import('electron')
     const fs = await import('fs/promises')
     const pathModule = await import('path')
@@ -647,7 +665,7 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
     }
   })
 
-  ipcMain.handle('data:processImportData', async (_event, fileName: string, content: string): Promise<ImportResult> => {
+  safeHandle('data:processImportData', async (_event, fileName: string, content: string): Promise<ImportResult> => {
     const pathModule = await import('path')
     const ext = pathModule.extname(fileName).toLowerCase()
     let data: Record<string, unknown>
@@ -677,17 +695,17 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
   })
 
   // ── Clipboard ──
-  ipcMain.handle('clipboard:copy', async (_event, text: string) => {
+  safeHandle('clipboard:copy', async (_event, text: string) => {
     clipboard.writeText(text)
   })
-  ipcMain.handle('clipboard:readImage', async (): Promise<string | null> => {
+  safeHandle('clipboard:readImage', async (): Promise<string | null> => {
     const image = clipboard.readImage()
     if (image.isEmpty()) return null
     return image.toDataURL()
   })
 
   // ── OCR ──
-  ipcMain.handle('ocr:imageToText', async (_event, base64: string): Promise<string> => {
+  safeHandle('ocr:imageToText', async (_event, base64: string): Promise<string> => {
     const settings = await readJSON<AppSettings>(SETTINGS_FILE)
     let llmConfig: { baseUrl: string; apiKey: string; model: string } | null = null
     if (settings?.api?.baseUrl) {
@@ -699,37 +717,37 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
   })
 
   // ── Usage ──
-  ipcMain.handle('usage:get', async () => getUsage())
-  ipcMain.handle('usage:reset', async () => resetUsage())
+  safeHandle('usage:get', async () => getUsage())
+  safeHandle('usage:reset', async () => resetUsage())
 
   // ── Currency Exchange ──
-  ipcMain.handle('currency:getRate', async (_event, from: string, to: string): Promise<number> => {
+  safeHandle('currency:getRate', async (_event, from: string, to: string): Promise<number> => {
     return getExchangeRate(from, to)
   })
 
   // ── Update ──
-  ipcMain.handle('update:start-download', async () => {
+  safeHandle('update:start-download', async () => {
     await startUpdateDownload()
   })
-  ipcMain.handle('update:quit-and-install', () => {
+  safeHandle('update:quit-and-install', () => {
     quitAndInstall()
   })
 
   // ── System Theme ──
-  ipcMain.handle('system:getTheme', () => nativeTheme.shouldUseDarkColors)
+  safeHandle('system:getTheme', () => nativeTheme.shouldUseDarkColors)
 
   // ── CV Summary Options ──
-  ipcMain.handle('cv:generateSummaryOptions', async (_event, vacancyText: string, atsReport: unknown): Promise<unknown> => {
+  safeHandle('cv:generateSummaryOptions', async (_event, vacancyText: string, atsReport: unknown): Promise<unknown> => {
     const profile = await loadProfile()
     return generateSummaryOptions(vacancyText, profile, atsReport as ATSReport | null)
   })
 
   // ── Career Advice ──
-  ipcMain.handle('getCareerAdvice', async (): Promise<unknown> => {
+  safeHandle('getCareerAdvice', async (): Promise<unknown> => {
     return loadCareerAdvice()
   })
 
-  ipcMain.handle('refreshCareerAdvice', async (event): Promise<unknown> => {
+  safeHandle('refreshCareerAdvice', async (event): Promise<unknown> => {
     const profile = await loadProfile()
     return refreshCareerAdvice(profile, (msg) => {
       event.sender.send('investigate:phase', { message: msg })
@@ -737,11 +755,11 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
   })
 
   // ── Roadmap ──
-  ipcMain.handle('getRoadmap', async (): Promise<unknown> => {
+  safeHandle('getRoadmap', async (): Promise<unknown> => {
     return loadRoadmap()
   })
 
-  ipcMain.handle('refreshRoadmap', async (event): Promise<unknown> => {
+  safeHandle('refreshRoadmap', async (event): Promise<unknown> => {
     const profile = await loadProfile()
     return refreshRoadmap(profile, (msg) => {
       event.sender.send('investigate:phase', { message: msg })
@@ -749,7 +767,7 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
   })
 
   // ── CV Download as PDF ──
-  ipcMain.handle('cv:downloadPdf', async (_event, htmlContent: string, styleName: string): Promise<string | null> => {
+  safeHandle('cv:downloadPdf', async (_event, htmlContent: string, styleName: string): Promise<string | null> => {
     const { dialog, shell } = await import('electron')
     const fs = await import('fs/promises')
 
@@ -760,7 +778,7 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
       await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
       const pdfBuffer = await pdfWindow.webContents.printToPDF({
         printBackground: true,
-        margins: { marginType: 'custom', top: 0, bottom: 0, left: 0, right: 0 },
+        margins: { top: 0, bottom: 0, left: 0, right: 0 },
         pageSize: 'A4',
       })
       const { filePath, canceled } = await dialog.showSaveDialog(pdfWindow, {
