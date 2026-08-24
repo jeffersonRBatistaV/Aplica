@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { Upload, FileText, Loader2, Scan } from 'lucide-react'
+import { Upload, FileText, Loader2, Scan, X, ArrowLeft } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { isImageType } from '../../types/attachments'
 import { useTranslation } from 'react-i18next'
@@ -16,6 +16,8 @@ export function VacancyInput({ onAnalyze, analyzing, initialText }: VacancyInput
   const [dragOver, setDragOver] = useState(false)
   const [ocrProcessing, setOcrProcessing] = useState(false)
   const [ocrError, setOcrError] = useState<string | null>(null)
+  const [pastedImage, setPastedImage] = useState<string | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
 
   useEffect(() => {
     setText(initialText || '')
@@ -33,6 +35,7 @@ export function VacancyInput({ onAnalyze, analyzing, initialText }: VacancyInput
           reader.onerror = reject
           reader.readAsDataURL(file)
         })
+        setPastedImage(base64)
         const result = await window.api?.imageToText(base64)
         if (result) {
           setText(result)
@@ -63,6 +66,13 @@ export function VacancyInput({ onAnalyze, analyzing, initialText }: VacancyInput
       } else if (item.kind === 'file' && isImageType(item.type)) {
         const file = item.getAsFile()
         if (file) {
+          const reader = new FileReader()
+          const dataUrl = await new Promise<string>((resolve, reject) => {
+            reader.onload = () => resolve(reader.result as string)
+            reader.onerror = reject
+            reader.readAsDataURL(file)
+          })
+          setPastedImage(dataUrl)
           setOcrProcessing(true)
           handleFile(file).finally(() => setOcrProcessing(false))
         }
@@ -74,6 +84,7 @@ export function VacancyInput({ onAnalyze, analyzing, initialText }: VacancyInput
     if (!window.api) return
     const dataUrl = await window.api.readClipboardImage()
     if (!dataUrl) return
+    setPastedImage(dataUrl)
     setOcrProcessing(true)
     try {
       const result = await window.api.imageToText?.(dataUrl)
@@ -118,6 +129,7 @@ export function VacancyInput({ onAnalyze, analyzing, initialText }: VacancyInput
   )
 
   return (
+    <>
     <div
       className={`rounded-xl border-2 transition-colors ${
         dragOver
@@ -149,8 +161,35 @@ export function VacancyInput({ onAnalyze, analyzing, initialText }: VacancyInput
               <FileText className="w-3.5 h-3.5" />
               {t('vacantes.uploadFile')}
             </label>
-          </div>
         </div>
+      </div>
+
+      {pastedImage && (
+        <div className="relative mb-3 inline-block group">
+          <img
+            src={pastedImage}
+            alt={t('vacantes.viewImage')}
+            onClick={() => setModalOpen(true)}
+            className="max-h-40 rounded-lg cursor-pointer border border-gray-200 dark:border-gray-700"
+          />
+          {ocrProcessing && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg">
+              <Loader2 className="w-6 h-6 text-white animate-spin" />
+            </div>
+          )}
+          {!ocrProcessing && (
+            <button
+              type="button"
+              onClick={() => setPastedImage(null)}
+              aria-label={t('common.close')}
+              className="absolute top-1 right-1 p-1 rounded-full bg-black/60 text-white hover:bg-black/80"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+          <span className="sr-only">{t('vacantes.clickToView')}</span>
+        </div>
+      )}
 
         <div className="relative">
           <textarea
@@ -207,5 +246,43 @@ export function VacancyInput({ onAnalyze, analyzing, initialText }: VacancyInput
         </div>
       </div>
     </div>
+
+    {modalOpen && pastedImage && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70" onClick={() => setModalOpen(false)} />
+        <div className="relative bg-white dark:bg-gray-950 rounded-xl shadow-2xl w-full max-w-3xl mx-4 p-6 flex flex-col">
+          <button
+            type="button"
+            onClick={() => setModalOpen(false)}
+            className="absolute top-3 left-3 p-1.5 rounded-full text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-1"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="text-sm">{t('common.back')}</span>
+          </button>
+          <h3 className="text-center text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
+            {t('vacantes.imageText')}
+          </h3>
+          <div className="flex flex-col md:flex-row gap-4 min-h-0">
+            <div className="flex-1 flex items-center justify-center bg-gray-100 dark:bg-gray-900 rounded-lg p-2">
+              <img
+                src={pastedImage}
+                alt={t('vacantes.viewImage')}
+                className="max-h-[50vh] rounded-lg"
+              />
+            </div>
+            <div className="flex-1 overflow-auto">
+              {text.trim() ? (
+                <pre className="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300 font-mono">
+                  {text}
+                </pre>
+              ) : (
+                <p className="text-sm text-gray-400">{t('vacantes.emptyText')}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }
