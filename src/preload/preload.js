@@ -125,6 +125,11 @@ const api = {
   // ── Update ──
   startUpdateDownload: () => ipcRenderer.invoke('update:start-download'),
   quitAndInstall: () => ipcRenderer.invoke('update:quit-and-install'),
+
+  // ── Email (SMTP) ──
+  getEmailPresets: () => ipcRenderer.invoke('email:presets'),
+  testEmailConnection: (config) => ipcRenderer.invoke('email:test', config),
+  sendEmail: (config, payload) => ipcRenderer.invoke('email:send', config, payload),
   onUpdateAvailable: (callback) => {
     const handler = (_event, info) => callback(info)
     ipcRenderer.on('update:available', handler)

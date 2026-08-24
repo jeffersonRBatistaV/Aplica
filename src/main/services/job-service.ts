@@ -75,7 +75,12 @@ Debes responder ÚNICAMENTE con un objeto JSON válido, sin texto adicional:
   "coverLetterB": "solo el cuerpo de la cover letter en texto plano",
   "recruiterEmail": "email extraído de la vacante o cadena vacía si no aparece",
   "subject": "asunto sugerido para el correo basado en la vacante y el puesto"
-}${LANGUAGE_INSTRUCTION}`
+}
+
+REGLAS ANTI-ALUCINACION (OBLIGATORIAS, PRIORIDAD ABSOLUTA):
+1. CERO ALUCINACIONES: Prohibido inventar, inferir o agregar tecnologias, habilidades, logros, años de experiencia, certificaciones o datos que no esten explicitamente en el perfil JSON del candidato.
+2. PROHIBICION DE ADAPTACION: Si la vacante pide una habilidad que el candidato NO tiene (ej. "experiencia en OBS Studio"), NO la afirmes ni la disfraces con "disponible para aprender", "habil para aprender rapidamente", "familiarizado con", "conocimientos basicos de" o similares. La carta solo menciona lo que el candidato ya sabe y ha hecho.
+3. CERO JUSTIFICACIONES: No escribas notas, parentesis ni meta-comentarios como "(no tengo experiencia en esto)". Si no puedes afirmar algo con el perfil, no lo escribas.${LANGUAGE_INSTRUCTION}`
 
 function guessVacancyMeta(text: string): { company: string; position: string } {
   const clean = (s: string) => s.trim().replace(/\s+/g, ' ').replace(/[.,;:]+$/, '').slice(0, 60)

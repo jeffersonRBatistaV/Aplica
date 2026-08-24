@@ -14,6 +14,17 @@ export interface Conversation {
   messages: Message[]
 }
 
+export interface EmailConfig {
+  provider: 'gmail' | 'outlook' | 'yahoo' | 'icloud' | 'zoho' | 'custom'
+  host: string
+  port: number
+  secure: boolean
+  user: string
+  pass: string
+  fromName: string
+  configured: boolean
+}
+
 export interface AppSettings {
   api: ApiConfig
   investigate: InvestigateConfig
@@ -23,6 +34,30 @@ export interface AppSettings {
   locale: string
   ttsVoice: string
   preferredCurrency: string
+  emailConfig?: EmailConfig
+}
+
+export interface EmailPreset {
+  host: string
+  port: number
+  secure: boolean
+}
+
+export interface EmailAttachment {
+  filename: string
+  contentBase64: string
+}
+
+export interface EmailPayload {
+  to: string
+  subject: string
+  body: string
+  attachments?: EmailAttachment[]
+}
+
+export interface EmailResult {
+  ok: boolean
+  error?: string
 }
 
 export interface ApiConfig {

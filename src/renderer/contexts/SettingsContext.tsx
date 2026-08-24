@@ -11,6 +11,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   locale: 'en',
   ttsVoice: '',
   preferredCurrency: 'USD',
+  emailConfig: { provider: 'gmail', host: '', port: 587, secure: false, user: '', pass: '', fromName: '', configured: false },
 }
 
 export function useLocale() {
@@ -57,7 +58,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }
     window.api.getSettings().then((saved) => {
       if (saved) {
-        const merged = { ...DEFAULT_SETTINGS, ...saved, api: { ...DEFAULT_SETTINGS.api, ...saved.api }, appearance: { ...DEFAULT_SETTINGS.appearance, ...saved.appearance }, investigate: { ...DEFAULT_SETTINGS.investigate, ...saved.investigate } }
+        const merged = {
+          ...DEFAULT_SETTINGS,
+          ...saved,
+          api: { ...DEFAULT_SETTINGS.api, ...saved.api },
+          appearance: { ...DEFAULT_SETTINGS.appearance, ...saved.appearance },
+          investigate: { ...DEFAULT_SETTINGS.investigate, ...saved.investigate },
+          emailConfig: { ...DEFAULT_SETTINGS.emailConfig, ...(saved.emailConfig ?? {}) },
+        } as AppSettings
         setSettings(merged)
         if (saved.locale) {
           i18n.changeLanguage(saved.locale)
@@ -71,9 +79,17 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const handler = () => {
       if (!window.api) return
-      window.api.getSettings().then((saved) => {
+      window.api.getSettings().then((r) => {
+        const saved = r
         if (saved) {
-          const merged = { ...DEFAULT_SETTINGS, ...saved, api: { ...DEFAULT_SETTINGS.api, ...saved.api }, appearance: { ...DEFAULT_SETTINGS.appearance, ...saved.appearance }, investigate: { ...DEFAULT_SETTINGS.investigate, ...saved.investigate } }
+          const merged = {
+            ...DEFAULT_SETTINGS,
+            ...saved,
+            api: { ...DEFAULT_SETTINGS.api, ...saved.api },
+            appearance: { ...DEFAULT_SETTINGS.appearance, ...saved.appearance },
+            investigate: { ...DEFAULT_SETTINGS.investigate, ...saved.investigate },
+            emailConfig: { ...DEFAULT_SETTINGS.emailConfig, ...(saved.emailConfig ?? {}) },
+          } as AppSettings
           setSettings(merged)
           if (saved.locale) {
             i18n.changeLanguage(saved.locale)

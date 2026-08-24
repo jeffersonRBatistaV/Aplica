@@ -53,6 +53,7 @@
   "devDependencies": {
     "@rollup/plugin-replace": "^6.0.3",
     "@tailwindcss/typography": "^0.5.15",
+    "@types/nodemailer": "^8.0.1",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.4",
@@ -77,6 +78,7 @@
     "jimp": "^1.6.1",
     "lucide-react": "^1.21.0",
     "marked": "^18.0.5",
+    "nodemailer": "^9.0.5",
     "react-i18next": "^17.0.8",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",

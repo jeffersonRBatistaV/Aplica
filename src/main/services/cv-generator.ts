@@ -10,6 +10,8 @@ const LAYOUT_RULES = `
 REGLAS ANTI-ALUCINACION (OBLIGATORIAS, tienen PRIORIDAD ABSOLUTA):
 1. CERO ALUCINACIONES: Esta estrictamente prohibido inventar, inferir, adivinar o agregar cualquier dato, tecnologia, habilidad, fecha, empresa o cargo que no este explicitamente escrito en el JSON de entrada.
 2. PROHIBICION DE RELLENO: Si una tecnologia (ej. Oracle, Docker, etc.), una fecha o una descripcion esta vacia o ausente en el JSON, dejalo en blanco o ignoralo. No asumas nada ni uses "conocimiento general de la industria" para completar el perfil.
+3. PROHIBICION DE ADAPTACION A LA VACANTE: La vacante puede pedir tecnologias o habilidades (ej. "experiencia en OBS Studio", "manejo de equipos audiovisuales", "conocimiento de Python") que el candidato NO tiene en su perfil. NUNCA las incluyas en el CV ni las disfraces con frases como "disponible para aprender", "habil para aprender rapidamente", "familiarizado con", "conocimientos basicos de" o similares. Si una habilidad no esta en el JSON del perfil, NO se menciona en el CV, ni siquiera como disposicion a aprenderla. El CV solo refleja lo que el candidato ya sabe y ha hecho.
+4. CERO JUSTIFICACIONES: No escribas notas, parentesis, aclaraciones ni meta-comentarios en el CV (ej. "(no tengo experiencia en esto)", "aunque la vacante pida..."). Si no puedes afirmar algo con los datos del perfil, simplemente no lo escribas.
 
 REGLAS DE TIPOGRAFIA Y MARGENES (tienen PRIORIDAD sobre cualquier tamaño mostrado en el ejemplo de formato):
 - Cuerpo del CV: 9.5pt maximo. Nombre (h1): 16pt maximo. Titulos de seccion (h2): 11pt maximo. Subtitulos: 10pt maximo. Detalles y fechas: 8.5pt maximo.
