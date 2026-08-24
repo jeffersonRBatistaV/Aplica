@@ -518,7 +518,11 @@
     "investigating": "Researching online...",
     "investigate": "Research online",
     "investigation": "Online Research",
-    "sources": "Sources"
+    "sources": "Sources",
+    "salaryTitle": "Salary Comparator",
+    "salaryPlaceholder": "E.g. React Developer",
+    "checkSalary": "Check salary",
+    "salaryChecking": "Checking..."
   },
   "tutorial": {
     "welcomeTitle": "Welcome to Aplica",
