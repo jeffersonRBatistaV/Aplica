@@ -185,6 +185,7 @@ export interface JobCategory {
   keywords: string[]
   source: 'seed' | 'ai' | 'custom'
   createdAt: number
+  folder?: string
 }
 
 export type AppView = 'chat' | 'jobs' | 'analytics' | 'roadmap'

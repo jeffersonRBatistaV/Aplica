@@ -8,7 +8,7 @@ import { ThrottledStream } from '../utils/throttled-stream'
 import { analyzeVacancy, generateCoverLetters, correctVacancyText, generateInterviewQuestions } from '../services/job-service'
 import { generateCV, regenerateCV, generateSummaryOptions, generateSampleCv } from '../services/cv-generator'
 import { startUpdateDownload, quitAndInstall } from '../services/updater'
-import { listCategories, saveCategory, deleteCategory, generateCategories } from '../services/category-service'
+import { listCategories, saveCategory, deleteCategory, generateCategories, listFolders, saveFolder, deleteFolder } from '../services/category-service'
 import { loadCareerAdvice, refreshCareerAdvice } from '../services/career-advice'
 import { loadRoadmap, refreshRoadmap } from '../services/roadmap-service'
 import { getUsage, resetUsage } from '../services/usage-service'
@@ -158,6 +158,15 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
   })
   ipcMain.handle('category:generate', async (_event, areaId?: string): Promise<JobCategory[]> => {
     return generateCategories(areaId || 'tecnologia')
+  })
+  ipcMain.handle('categories:listFolders', async (): Promise<string[]> => {
+    return listFolders()
+  })
+  ipcMain.handle('categories:saveFolder', async (_event, name: string): Promise<string[]> => {
+    return saveFolder(name)
+  })
+  ipcMain.handle('categories:deleteFolder', async (_event, name: string): Promise<string[]> => {
+    return deleteFolder(name)
   })
 
   // ── Job Analysis (LLM) ──

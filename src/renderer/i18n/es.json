@@ -153,7 +153,18 @@
     "deleteCategoryTitle": "Eliminar categoría",
     "deleteCategoryConfirm": "¿Estás seguro de eliminar la categoría {{name}}? Esta acción no se puede deshacer.",
     "deleteCategoryConfirmButton": "Eliminar",
-    "deleteCategoryCancel": "Cancelar"
+    "deleteCategoryCancel": "Cancelar",
+    "folders": "Carpetas",
+    "addFolder": "Nueva carpeta",
+    "folderPlaceholder": "Nombre de la carpeta",
+    "deleteFolder": "Eliminar carpeta",
+    "deleteFolderConfirm": "¿Eliminar la carpeta {{name}}?",
+    "deleteFolderConfirmButton": "Eliminar",
+    "moveToFolder": "Mover a carpeta",
+    "noFolder": "Sin carpeta",
+    "deleteJob": "Eliminar vacante",
+    "deleteJobConfirm": "¿Eliminar esta vacante?",
+    "deleteJobConfirmButton": "Eliminar"
   },
   "atsReport": {
     "title": "Reporte ATS",

@@ -89,6 +89,9 @@ const api = {
   saveCategory: (category) => ipcRenderer.invoke('category:save', category),
   deleteCategory: (id) => ipcRenderer.invoke('category:delete', id),
   generateCategories: (areaId) => ipcRenderer.invoke('category:generate', areaId),
+  listFolders: () => ipcRenderer.invoke('categories:listFolders'),
+  saveFolder: (name) => ipcRenderer.invoke('categories:saveFolder', name),
+  deleteFolder: (name) => ipcRenderer.invoke('categories:deleteFolder', name),
 
   // ── Career Advice ──
   getCareerAdvice: () => ipcRenderer.invoke('getCareerAdvice'),

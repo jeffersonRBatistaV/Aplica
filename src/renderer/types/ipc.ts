@@ -98,6 +98,9 @@ export interface ElectronAPI {
   saveCategory: (category: JobCategory) => Promise<JobCategory[]>
   deleteCategory: (id: string) => Promise<JobCategory[]>
   generateCategories: (areaId?: string) => Promise<JobCategory[]>
+  listFolders: () => Promise<string[]>
+  saveFolder: (name: string) => Promise<string[]>
+  deleteFolder: (name: string) => Promise<string[]>
 
   // Usage
   getUsage: () => Promise<UsageStats>
