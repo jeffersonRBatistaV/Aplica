@@ -246,7 +246,13 @@
     "regenerateTitle": "Regenerate CV",
     "regenerateMessage": "A new CV will be generated with the selected style. The current CV will be replaced.",
     "regenerateConfirm": "Regenerate",
-    "regenerateCancel": "Cancel"
+    "regenerateCancel": "Cancel",
+    "history": "History",
+    "noVersions": "No previous versions",
+    "restore": "Restore",
+    "view": "View",
+    "versionsTitle": "CV versions",
+    "versionRestored": "Version restored"
   },
   "interviewPrep": {
     "title": "Interview Preparation",

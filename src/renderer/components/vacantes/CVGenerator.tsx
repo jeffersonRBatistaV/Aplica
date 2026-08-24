@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { FileText, Copy, Check, Download, Sparkles, BarChart3, ScrollText, Loader2, Eye, EyeOff, Wand2, AlertCircle, Plus, Trash2, ChevronDown, ChevronRight, ArrowLeft } from 'lucide-react'
+import { FileText, Copy, Check, Download, Sparkles, BarChart3, ScrollText, Loader2, Eye, EyeOff, Wand2, AlertCircle, Plus, Trash2, ChevronDown, ChevronRight, ArrowLeft, History, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useNotification } from '../../contexts/NotificationContext'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
-import type { ATSReport, CvTemplate } from '../../../shared/types'
+import type { ATSReport, CvTemplate, CvVersion } from '../../../shared/types'
 
 interface SummaryOption {
   id: string
@@ -18,6 +18,7 @@ interface CVGeneratorProps {
   currentStyle: string | null
   currentContent: string
   onSave: (style: string, content: string) => void
+  jobId?: string
 }
 
 type CvTab = 'preview' | 'edit'
@@ -36,7 +37,7 @@ const colorClasses: Record<string, { bg: string; border: string; text: string; h
   slate: { bg: 'bg-slate-50 dark:bg-slate-900/20', border: 'border-slate-500', text: 'text-slate-700 dark:text-slate-300', hover: 'hover:border-slate-400' },
 }
 
-export function CVGenerator({ vacancyText, atsReport, currentStyle, currentContent, onSave }: CVGeneratorProps) {
+export function CVGenerator({ vacancyText, atsReport, currentStyle, currentContent, onSave, jobId }: CVGeneratorProps) {
   const { t } = useTranslation()
   const { notify } = useNotification()
 
@@ -78,6 +79,11 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
   const [loadingSummaries, setLoadingSummaries] = useState(false)
   const autoSelectedRef = useRef<string | null>(null)
   const [pendingRegenerate, setPendingRegenerate] = useState<string | null>(null)
+
+  const [showHistory, setShowHistory] = useState(false)
+  const [versions, setVersions] = useState<CvVersion[]>([])
+  const [loadingVersions, setLoadingVersions] = useState(false)
+  const [viewingContent, setViewingContent] = useState<string | null>(null)
 
   useEffect(() => {
     window.api?.getCvTemplates().then(setCustomTemplates)
@@ -212,6 +218,28 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
     } finally {
       setApplying(false)
     }
+  }
+
+  const openHistory = async () => {
+    if (!jobId || !window.api) return
+    setShowHistory(true)
+    setViewingContent(null)
+    setLoadingVersions(true)
+    try {
+      const result = await window.api.getCvVersions(jobId)
+      setVersions(result)
+    } catch {
+      setVersions([])
+    } finally {
+      setLoadingVersions(false)
+    }
+  }
+
+  const handleRestore = (version: CvVersion) => {
+    onSave(version.style ?? selectedStyle ?? '', version.content)
+    setShowHistory(false)
+    setViewingContent(null)
+    notify(t('cvGenerator.versionRestored'), 'success')
   }
 
   const handleCopy = async () => {
@@ -498,6 +526,12 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
           {t('cvGenerator.cvPrefix')}{getStyleName(selectedStyle, customTemplates)}
         </h3>
         <div className="flex items-center gap-2">
+          {jobId && (
+            <Button variant="ghost" size="sm" onClick={openHistory} title={t('cvGenerator.history')}>
+              <History className="w-4 h-4" />
+              {t('cvGenerator.history')}
+            </Button>
+          )}
           <div className="flex gap-1 flex-wrap">
             {BUILTIN_STYLES.map((s) => {
               const cc = colorClasses[s.color]
@@ -667,6 +701,76 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
             </div>
           )}
         </>
+      )}
+
+      {showHistory && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="w-full max-w-2xl max-h-[85vh] flex flex-col bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 flex items-center gap-2">
+                <History className="w-4 h-4" />
+                {t('cvGenerator.versionsTitle')}
+              </h3>
+              <button
+                onClick={() => { setShowHistory(false); setViewingContent(null) }}
+                className="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4">
+              {viewingContent ? (
+                <div className="space-y-3">
+                  <button
+                    onClick={() => setViewingContent(null)}
+                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    ← {t('cvGenerator.versionsTitle')}
+                  </button>
+                  <pre className="whitespace-pre-wrap text-xs font-mono bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 max-h-[60vh] overflow-auto">
+                    {viewingContent}
+                  </pre>
+                </div>
+              ) : loadingVersions ? (
+                <div className="flex items-center gap-2 text-sm text-gray-400 py-6">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {t('cvGenerator.regenerating')}
+                </div>
+              ) : versions.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400 py-6 text-center">
+                  {t('cvGenerator.noVersions')}
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {versions.map((v, i) => (
+                    <li
+                      key={`${v.createdAt}-${i}`}
+                      className="flex items-center justify-between gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-sm text-gray-800 dark:text-gray-200">
+                          {new Date(v.createdAt).toLocaleString()}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {getStyleName(v.style, customTemplates)}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button variant="ghost" size="sm" onClick={() => setViewingContent(v.content)}>
+                          {t('cvGenerator.view')}
+                        </Button>
+                        <Button variant="secondary" size="sm" onClick={() => handleRestore(v)}>
+                          {t('cvGenerator.restore')}
+                        </Button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       <ConfirmDialog

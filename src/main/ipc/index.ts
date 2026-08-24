@@ -1,8 +1,8 @@
 import { ipcMain, nativeTheme, clipboard, BrowserWindow } from 'electron'
 import { readJSON, writeJSON, ensureDir } from '../services/storage'
 import { readProfile } from '../services/profile-reader'
-import { CHATS_FILE, SETTINGS_FILE, JOBS_FILE, PROFILE_PATH, USER_PROFILE_PATH, PROFILES_FILE, DATA_DIR, CV_TEMPLATES_FILE, CAREER_ADVICE_FILE, ROADMAP_FILE } from '../utils/paths'
-import type { Conversation, AppSettings, StreamParams, JobApplication, Profile, ATSReport, CvTemplate, InterviewQuestion, ImportResult, ImportStats, JobCategory } from '../../shared/types'
+import { CHATS_FILE, SETTINGS_FILE, JOBS_FILE, PROFILE_PATH, USER_PROFILE_PATH, PROFILES_FILE, DATA_DIR, CV_TEMPLATES_FILE, CAREER_ADVICE_FILE, ROADMAP_FILE, CV_VERSIONS_FILE } from '../utils/paths'
+import type { Conversation, AppSettings, StreamParams, JobApplication, Profile, ATSReport, CvTemplate, InterviewQuestion, ImportResult, ImportStats, JobCategory, CvVersion } from '../../shared/types'
 import { streamChatCompletion, abortCurrentStream, listModels } from '../services/llm-service'
 import { ThrottledStream } from '../utils/throttled-stream'
 import { analyzeVacancy, generateCoverLetters, correctVacancyText, generateInterviewQuestions } from '../services/job-service'
@@ -106,6 +106,20 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
     await ensureDir(DATA_DIR)
     const jobs = (await readJSON<JobApplication[]>(JOBS_FILE)) ?? []
     const idx = jobs.findIndex((j) => j.id === job.id)
+    // Snapshot the previous CV content before overwriting it
+    try {
+      const prev = idx >= 0 ? jobs[idx] : null
+      if (prev && prev.cvContent && job.cvContent && prev.cvContent !== job.cvContent) {
+        const versions = (await readJSON<Record<string, CvVersion[]>>(CV_VERSIONS_FILE)) ?? {}
+        versions[job.id] = [
+          { style: prev.cvStyle ?? null, content: prev.cvContent, createdAt: Date.now() },
+          ...(versions[job.id] || []),
+        ].slice(0, 10)
+        await writeJSON(CV_VERSIONS_FILE, versions)
+      }
+    } catch (e) {
+      console.error('[job:save] failed to snapshot cv version', e)
+    }
     if (idx >= 0) jobs[idx] = job
     else jobs.push(job)
     await writeJSON(JOBS_FILE, jobs)
@@ -121,6 +135,10 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
     return jobs
       .filter((j) => j.status === 'interview' && j.interviewDate && j.interviewDate > now && j.interviewDate - now < window)
       .map((j) => ({ company: j.company, position: j.position, interviewDate: j.interviewDate as number }))
+  })
+  ipcMain.handle('jobs:getCvVersions', async (_event, jobId: string): Promise<CvVersion[]> => {
+    const versions = (await readJSON<Record<string, CvVersion[]>>(CV_VERSIONS_FILE)) ?? {}
+    return versions[jobId] || []
   })
 
   // ── CV Templates ──

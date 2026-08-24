@@ -246,7 +246,13 @@
     "regenerateTitle": "Regenerar CV",
     "regenerateMessage": "Se generará un nuevo CV con el estilo seleccionado. El CV actual será reemplazado.",
     "regenerateConfirm": "Regenerar",
-    "regenerateCancel": "Cancelar"
+    "regenerateCancel": "Cancelar",
+    "history": "Historial",
+    "noVersions": "Sin versiones anteriores",
+    "restore": "Restaurar",
+    "view": "Ver",
+    "versionsTitle": "Versiones del CV",
+    "versionRestored": "Versión restaurada"
   },
   "interviewPrep": {
     "title": "Preparación para la Entrevista",
