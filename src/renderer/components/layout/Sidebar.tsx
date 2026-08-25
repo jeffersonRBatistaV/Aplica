@@ -73,6 +73,12 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
   const startTutorial = useTutorial()
   const { profiles, activeProfileId, setActiveProfile, reloadProfiles } = useSettings()
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
+  const [appVersion, setAppVersion] = useState('')
+
+  useEffect(() => {
+    if (!window.api) return
+    window.api.getAppVersion().then((v) => setAppVersion(v)).catch(() => {})
+  }, [])
 
   // Keyboard shortcut: Cmd+N / Ctrl+N
   useEffect(() => {
@@ -435,7 +441,7 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
                   {t('profile.newProfile')}
                 </button>
                 <button
-                  onClick={() => openProfileWizard('edit')}
+                  onClick={onOpenProfile}
                   className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
                 >
                   <Pencil className="w-3.5 h-3.5" />
@@ -453,6 +459,11 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
           <Settings className="w-4 h-4" />
           {t('sidebar.settings')}
         </Button>
+        {appVersion && (
+          <p className="text-center text-[10px] text-gray-400 dark:text-gray-500 select-none">
+            v{appVersion}
+          </p>
+        )}
       </div>
 
       <ConfirmDialog
