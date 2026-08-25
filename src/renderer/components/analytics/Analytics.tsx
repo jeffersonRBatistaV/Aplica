@@ -299,44 +299,6 @@ export function Analytics() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-sm text-gray-400">{t('analytics.loading')}</div>
-      </div>
-    )
-  }
-
-  if (!stats) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-sm text-gray-400">{t('analytics.loadError')}</div>
-      </div>
-    )
-  }
-
-  const STATUS_LABELS = (s: JobStatus) => t(`analytics.status${s.charAt(0).toUpperCase() + s.slice(1)}`)
-
-  const pieData = STATUS_KEYS.map((status) => ({
-    label: STATUS_LABELS(status),
-    value: stats.jobsByStatus[status] || 0,
-    color: STATUS_CHART_COLORS[status],
-  })).filter(d => d.value > 0)
-
-  const pieTotal = pieData.reduce((sum, d) => sum + d.value, 0)
-
-  const barData = STATUS_KEYS.map((status) => ({
-    label: STATUS_LABELS(status),
-    value: stats.jobsByStatus[status] || 0,
-    color: STATUS_CHART_COLORS[status],
-  }))
-
-  const matchBarData = stats.matchScores.slice(0, 8).map(m => ({
-    label: m.position.split(' ').slice(0, 2).join(' '),
-    value: m.score,
-    color: m.score >= 70 ? '#22c55e' : m.score >= 40 ? '#eab308' : '#ef4444',
-  }))
-
   const SHORT_MONTHS_ES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 
   const funnelStats = useMemo(() => {
@@ -374,6 +336,44 @@ export function Analytics() {
     }, 0)
     return Math.round((total / responded.length) * 10) / 10
   }, [allJobs])
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-sm text-gray-400">{t('analytics.loading')}</div>
+      </div>
+    )
+  }
+
+  if (!stats) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-sm text-gray-400">{t('analytics.loadError')}</div>
+      </div>
+    )
+  }
+
+  const STATUS_LABELS = (s: JobStatus) => t(`analytics.status${s.charAt(0).toUpperCase() + s.slice(1)}`)
+
+  const pieData = STATUS_KEYS.map((status) => ({
+    label: STATUS_LABELS(status),
+    value: stats.jobsByStatus[status] || 0,
+    color: STATUS_CHART_COLORS[status],
+  })).filter(d => d.value > 0)
+
+  const pieTotal = pieData.reduce((sum, d) => sum + d.value, 0)
+
+  const barData = STATUS_KEYS.map((status) => ({
+    label: STATUS_LABELS(status),
+    value: stats.jobsByStatus[status] || 0,
+    color: STATUS_CHART_COLORS[status],
+  }))
+
+  const matchBarData = stats.matchScores.slice(0, 8).map(m => ({
+    label: m.position.split(' ').slice(0, 2).join(' '),
+    value: m.score,
+    color: m.score >= 70 ? '#22c55e' : m.score >= 40 ? '#eab308' : '#ef4444',
+  }))
 
   const monthlyMax = Math.max(...monthlyTrend.map(m => m.count), 1)
 
