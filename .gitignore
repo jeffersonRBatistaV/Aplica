@@ -14,3 +14,5 @@ cv-*.pdf
 *.tar.gz
 *.traineddata
 .wwebjs_cache/
+aplica-export.json
+*-export.json
