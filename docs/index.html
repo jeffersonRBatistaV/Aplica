@@ -269,11 +269,11 @@
       const exe = find(/\.exe$/)
       document.getElementById("download-version").textContent = "Versión " + tag + " disponible para Windows y Linux."
       const btn = document.getElementById("release-btn")
-      btn.href = release.html_url
+      btn.href = exe ? exe.url : (appimage ? appimage.url : release.html_url)
       btn.textContent = "Descargar v" + tag
       const links = []
-      if (appimage) links.push("<a href=\"" + appimage.url + "\" style=\"color:#8a8f98;text-decoration:underline\">Linux (.AppImage)</a>")
       if (exe) links.push("<a href=\"" + exe.url + "\" style=\"color:#8a8f98;text-decoration:underline\">Windows (.exe)</a>")
+      if (appimage) links.push("<a href=\"" + appimage.url + "\" style=\"color:#8a8f98;text-decoration:underline\">Linux (.AppImage)</a>")
       document.getElementById("download-platforms").innerHTML = links.join(" · ")
     })
     .catch(() => {
