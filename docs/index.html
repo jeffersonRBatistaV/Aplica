@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Aplica</title>
+  <title>Aplica — Asistente de IA para tu búsqueda de trabajo</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
@@ -49,6 +49,16 @@
       max-width: 480px;
       margin: 16px auto 0;
       line-height: 1.7;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 6px 14px;
+      border: 1px solid #2a2b2e;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      color: #a0a2a6;
+      margin-top: 28px;
     }
 
     h2 {
@@ -168,10 +178,11 @@
         </svg>
         <h1>Aplica</h1>
         <p>
-          Aplicación de escritorio para crear currículums con IA.
-          Ejecuta modelos de lenguaje localmente, genera documentos PDF
-          adaptados a cada oferta y organiza tu búsqueda laboral.
+          Asistente de escritorio con IA para encontrar trabajo.
+          Detecta vacantes en WhatsApp, investiga el mercado, genera CV,
+          cartas de presentación y gestiona tus postulaciones.
         </p>
+        <span class="badge">Español e inglés</span>
       </div>
     </section>
 
@@ -180,20 +191,36 @@
         <h2>Funciones</h2>
         <div class="features-grid">
           <div class="feature">
-            <h3>Chat con IA local</h3>
-            <p>Conversaciones con modelos vía Ollama. Sin datos en la nube, sin suscripciones.</p>
+            <h3>Detección de vacantes en WhatsApp</h3>
+            <p>Conecta tu WhatsApp con QR, escanea grupos y canales, y detecta ofertas con OCR de imágenes en tiempo real.</p>
           </div>
           <div class="feature">
-            <h3>Generación de CV</h3>
-            <p>Construye tu perfil con un asistente paso a paso. Exporta a PDF listo para enviar.</p>
+            <h3>Chat con IA</h3>
+            <p>Modelos locales vía Ollama o cualquier API compatible. Tu chat con herramientas de investigación web y tus datos reales.</p>
           </div>
           <div class="feature">
-            <h3>Análisis ATS</h3>
-            <p>Evalúa qué tan bien calza tu currículum con los requisitos de una oferta específica.</p>
+            <h3>Generación de CV y cartas</h3>
+            <p>Perfil guiado paso a paso, múltiples estilos, preview editable y exportación a PDF listo para enviar.</p>
           </div>
           <div class="feature">
-            <h3>Kanban de ofertas</h3>
-            <p>Organiza postulaciones por etapa: pendiente, en proceso, entrevista, cerrada.</p>
+            <h3>Análisis ATS y entrevistas</h3>
+            <p>Califica qué tan bien calza tu CV con cada oferta y prepárate con preguntas de entrevista generadas con IA.</p>
+          </div>
+          <div class="feature">
+            <h3>Investigación web local</h3>
+            <p>Búsqueda multi-proveedor y síntesis con IA para estudiar empresas, sueldos y oportunidades sin depender de servicios remotos.</p>
+          </div>
+          <div class="feature">
+            <h3>Kanban de postulaciones</h3>
+            <p>Organiza ofertas por etapa, envía correos con CV adjunto vía SMTP y mantén el historial de cada vacante.</p>
+          </div>
+          <div class="feature">
+            <h3>Perfiles múltiples</h3>
+            <p>Cada perfil con sus chats, vacantes, CV, categorías y credenciales de correo aisladas.</p>
+          </div>
+          <div class="feature">
+            <h3>Privacidad local</h3>
+            <p>Todo se guarda en tu equipo. Sin suscripciones ni cuentas; tú eliges el modelo de IA que usas.</p>
           </div>
         </div>
       </div>
@@ -208,8 +235,9 @@
           <span>TypeScript</span>
           <span>Vite</span>
           <span>Tailwind CSS</span>
-          <span>SQLite</span>
           <span>Ollama</span>
+          <span>WhatsApp</span>
+          <span>OCR</span>
         </div>
       </div>
     </section>
