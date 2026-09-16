@@ -2,9 +2,23 @@ import { createWorker, PSM } from 'tesseract.js'
 import { Jimp } from 'jimp'
 import { readJSON } from './storage'
 import { SETTINGS_FILE } from '../utils/paths'
-import type { AppSettings } from '../../shared/types'
+import type { AppSettings, OcrMethod } from '../../shared/types'
 
 let worker: Awaited<ReturnType<typeof createWorker>> | null = null
+
+const visionFailedCache = new Set<string>()
+
+const VISION_PROVIDER_HINTS = [
+  'openai', 'anthropic', 'googleapis', 'generativelanguage', 'groq',
+  'mistral', 'x.ai', 'together', 'fireworks', 'openrouter', 'deepinfra',
+  'novita', 'cerebras', 'vsegpt',
+]
+
+function isVisionCapableEndpoint(baseUrl: string): boolean {
+  const host = baseUrl.toLowerCase()
+  if (host.includes('localhost') || host.includes('127.0.0.1')) return true
+  return VISION_PROVIDER_HINTS.some((h) => host.includes(h))
+}
 
 async function getWorker() {
   if (!worker) {
@@ -16,13 +30,14 @@ async function getWorker() {
 
 export async function preprocessImage(buffer: Buffer): Promise<Buffer> {
   const image = await Jimp.read(buffer)
-  if (image.width < 1500) {
-    image.scale(2)
+  const MAX = 1600
+  const largest = Math.max(image.width, image.height)
+  if (largest > MAX) {
+    image.scale(MAX / largest)
   }
   image.greyscale()
   image.contrast(0.35)
   image.normalize()
-  image.gaussian(1)
   return image.getBuffer('image/png')
 }
 
@@ -78,29 +93,62 @@ async function extractTextWithLLM(
   }
 }
 
+async function tryVision(
+  dataUrl: string,
+  config: { baseUrl: string; apiKey: string; model: string },
+): Promise<string | null> {
+  const key = `${config.baseUrl}|${config.model}`
+  if (visionFailedCache.has(key)) return null
+  const text = await extractTextWithLLM(dataUrl, config)
+  if (!text) visionFailedCache.add(key)
+  return text
+}
+
 export async function extractTextFromImage(
   buffer: Buffer,
   dataUrl: string,
   llmConfig: { baseUrl: string; apiKey: string; model: string } | null,
   visionModel?: string,
+  method?: OcrMethod,
 ): Promise<string> {
-  if (llmConfig) {
-    const visionConfig = visionModel && visionModel !== llmConfig.model
+  const settings = await readJSON<AppSettings>(SETTINGS_FILE)
+  const preferred: OcrMethod = method ?? settings?.ocr?.method ?? 'auto'
+  const canUseVision = !!llmConfig
+
+  if (canUseVision && preferred === 'vision') {
+    const visionConfig = visionModel && visionModel !== llmConfig!.model
+      ? { ...llmConfig, model: visionModel }
+      : llmConfig
+    const visionText = await tryVision(dataUrl, visionConfig as { baseUrl: string; apiKey: string; model: string })
+    if (visionText) return visionText
+  }
+
+  if (canUseVision && preferred === 'auto') {
+    const visionConfig = visionModel && visionModel !== llmConfig!.model
       ? { ...llmConfig, model: visionModel }
       : null
-    const primaryConfig = llmConfig
 
     if (visionConfig) {
-      const visionText = await extractTextWithLLM(dataUrl, visionConfig)
+      const visionText = await tryVision(dataUrl, visionConfig as { baseUrl: string; apiKey: string; model: string })
       if (visionText) return visionText
     }
 
-    const primaryText = await extractTextWithLLM(dataUrl, primaryConfig)
-    if (primaryText) return primaryText
+    if (isVisionCapableEndpoint(llmConfig!.baseUrl)) {
+      const primaryText = await tryVision(dataUrl, llmConfig as { baseUrl: string; apiKey: string; model: string })
+      if (primaryText) return primaryText
+    }
   }
 
   const w = await getWorker()
-  const processed = await preprocessImage(buffer)
-  const { data } = await w.recognize(processed)
+  let { data } = await w.recognize(buffer)
+  if (!data.text.trim()) {
+    try {
+      const processed = await preprocessImage(buffer)
+      const retry = await w.recognize(processed)
+      data = retry.data
+    } catch {
+      /* mantener el resultado vacío original */
+    }
+  }
   return data.text.trim()
 }

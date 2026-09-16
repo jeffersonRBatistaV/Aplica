@@ -26,6 +26,24 @@ const api = {
   investigateHealth: () => ipcRenderer.invoke('investigate:health'),
   investigateDiscover: () => ipcRenderer.invoke('investigate:discover'),
 
+  // ── WhatsApp (detección de vacantes) ──
+  whatsappStatus: () => ipcRenderer.invoke('whatsapp:status'),
+  whatsappConnect: () => ipcRenderer.invoke('whatsapp:connect'),
+  whatsappDisconnect: () => ipcRenderer.invoke('whatsapp:disconnect'),
+  whatsappGetGroups: () => ipcRenderer.invoke('whatsapp:getGroups'),
+  whatsappScan: (groupIds, limit) => ipcRenderer.invoke('whatsapp:scan', groupIds, limit),
+  whatsappGetQueue: () => ipcRenderer.invoke('whatsapp:getQueue'),
+  whatsappMarkImported: (vacancyId) => ipcRenderer.invoke('whatsapp:markImported', vacancyId),
+  whatsappRemoveFromQueue: (vacancyId) => ipcRenderer.invoke('whatsapp:removeFromQueue', vacancyId),
+  whatsappRemoveFromQueueMany: (vacancyIds) => ipcRenderer.invoke('whatsapp:removeFromQueueMany', vacancyIds),
+  whatsappGetConfig: () => ipcRenderer.invoke('whatsapp:getConfig'),
+  whatsappSetConfig: (config) => ipcRenderer.invoke('whatsapp:setConfig', config),
+  onWhatsAppEvent: (callback) => {
+    const handler = (_event, event) => callback(event)
+    ipcRenderer.on('whatsapp:event', handler)
+    return () => { ipcRenderer.removeListener('whatsapp:event', handler) }
+  },
+
   // ── Profile ──
   getProfile: () => ipcRenderer.invoke('profile:get'),
   saveProfile: (profile) => ipcRenderer.invoke('profile:save', profile),
@@ -79,6 +97,7 @@ const api = {
   // ── CV ──
   generateSummaryOptions: (vacancyText, atsReport) => ipcRenderer.invoke('cv:generateSummaryOptions', vacancyText, atsReport),
   downloadCvPdf: (htmlContent, styleName) => ipcRenderer.invoke('cv:downloadPdf', htmlContent, styleName),
+  renderCvPdfBase64: (htmlContent, styleName) => ipcRenderer.invoke('cv:renderPdfBase64', htmlContent, styleName),
   regenerateCV: (params) => ipcRenderer.invoke('job:regenerateCV', params),
   generateCV: (vacancyText, atsReport, style, customPrompt, chosenSummary) => ipcRenderer.invoke('job:generateCV', vacancyText, atsReport, style, customPrompt, chosenSummary),
 
@@ -131,6 +150,8 @@ const api = {
   getEmailPresets: () => ipcRenderer.invoke('email:presets'),
   testEmailConnection: (config) => ipcRenderer.invoke('email:test', config),
   sendEmail: (config, payload) => ipcRenderer.invoke('email:send', config, payload),
+  getEmailConfig: () => ipcRenderer.invoke('emailConfig:get'),
+  setEmailConfig: (config) => ipcRenderer.invoke('emailConfig:set', config),
   onUpdateAvailable: (callback) => {
     const handler = (_event, info) => callback(info)
     ipcRenderer.on('update:available', handler)

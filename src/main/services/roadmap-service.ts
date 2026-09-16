@@ -1,7 +1,8 @@
 import type { Profile, AppSettings, Roadmap } from '../../shared/types'
 import { completeChatCompletion } from './llm-service'
-import { readJSON, writeJSON, ensureDir } from './storage'
-import { SETTINGS_FILE, ROADMAP_FILE, DATA_DIR } from '../utils/paths'
+import { readJSON, writeJSON } from './storage'
+import { SETTINGS_FILE } from '../utils/paths'
+import { getActiveProfileFiles, ensureParentDir } from './profile-data'
 
 interface LLMConfig {
   baseUrl: string
@@ -21,7 +22,8 @@ async function getConfig(): Promise<LLMConfig> {
 }
 
 export async function loadRoadmap(): Promise<Roadmap | null> {
-  return readJSON<Roadmap>(ROADMAP_FILE)
+  const { roadmapFile } = await getActiveProfileFiles()
+  return readJSON<Roadmap>(roadmapFile)
 }
 
 export async function refreshRoadmap(
@@ -136,8 +138,9 @@ ${profile.projects?.map(p => `- ${p.name}: ${p.description}`).join('\n') || 'Nin
       generatedAt: Date.now(),
       targetMarket: market,
     }
-    await ensureDir(DATA_DIR)
-    await writeJSON(ROADMAP_FILE, roadmap)
+    const { roadmapFile } = await getActiveProfileFiles()
+    await ensureParentDir(roadmapFile)
+    await writeJSON(roadmapFile, roadmap)
     return roadmap
   } catch {
     return null

@@ -1,156 +1,169 @@
 /**
- * investigate-service.ts — Cliente del backend de investigación en línea.
+ * investigate-service.ts — Pipeline de investigación web local.
  *
- * AUTO-REGISTRO (sin configuración manual):
- *  - La URL por defecto es nuestro servidor (aplica.sslip.io).
- *  - En el primer uso, la app se auto-registra con su device_id (persistente)
- *    + install_code (embebido, rotable) y recibe un token de dispositivo
- *    con cuota diaria. El token se guarda en settings.
- *  - El LLM del chat usa la tool "investigate_web" y decide cuándo investigar.
+ * Reemplaza el backend VPS con un pipeline de 3 fases que corre
+ * en el proceso principal de Electron (Node.js, sin CORS):
+ *
+ *   Fase 1: searchWeb() → URLs candidatas (DuckDuckGo → Brave → Google)
+ *   Fase 2: extractMultiple() → Markdown limpio (Readability + Turndown)
+ *   Fase 3: completeChatCompletion() → Síntesis con LLM y fuentes
+ *
+ * Interfaz pública compatible: investigateLocal() y investigateLocalSync()
+ * mantienen la misma firma que las funciones anteriores para que
+ * career-advice, roadmap, job-service y llm-service no necesiten cambios.
  */
-import { randomUUID } from 'crypto'
+
 import type { AppSettings, InvestigateConfig, InvestigateResult } from '../../shared/types'
-import { readJSON, writeJSON } from './storage'
-import { SETTINGS_FILE, DATA_DIR } from '../utils/paths'
-import { ensureDir } from './storage'
+import { readJSON } from './storage'
+import { SETTINGS_FILE } from '../utils/paths'
+import { searchWeb, type SearchResult } from './search-providers'
+import { extractMultiple, type ExtractedContent } from './content-extractor'
 
-const DEFAULT_TIMEOUT_MS = 120_000 // el backend investiga: buscar + extraer + sintetizar
-const STREAM_TIMEOUT_MS = 150_000
-const DEFAULT_BASE_URL = 'https://aplica.207.244.232.191.sslip.io'
-const INSTALL_CODE = 'aplica-2026-install-v1' // rotable en el backend
+function getConfig(): Partial<InvestigateConfig> {
+  return {} // se leerá de settings dentro de las funciones
+}
 
-/** device_id persistente por instalación (archivo aparte, no se borra con settings). */
-async function getDeviceId(): Promise<string> {
-  try {
-    await ensureDir(DATA_DIR)
-    const { readFileSync, writeFileSync, existsSync } = await import('fs')
-    const p = `${DATA_DIR}/device-id.txt`
-    if (existsSync(p)) {
-      const existing = readFileSync(p, 'utf8').trim()
-      if (existing) return existing
-    }
-    const id = randomUUID()
-    writeFileSync(p, id, 'utf8')
-    return id
-  } catch {
-    return randomUUID() // fallback: id efímero
-  }
+function buildSynthesisPrompt(query: string, country: string, language: string, context: string): string {
+  const langName = language === 'es' ? 'español' : language === 'pt' ? 'portugués' : 'inglés'
+  return `Eres un asistente de investigación experto. Sintetiza una respuesta clara y precisa basándote EXCLUSIVAMENTE en las fuentes proporcionadas.
+
+REGLAS ESTRICTAS:
+1. Responde en ${langName}.
+2. Localiza la información al país ${country} cuando sea relevante.
+3. Cita las fuentes usando [1], [2], etc. al lado de cada dato.
+4. Si las fuentes no cubren algún aspecto de la consulta, dí explícitamente "No se encontró información específica sobre esto en las fuentes consultadas".
+5. NUNCA inventes datos, estadísticas o nombres de empresas.
+6. Sé conciso pero completo.
+
+CONSULTA DEL USUARIO: ${query}
+
+FUENTES EXTRAÍDAS:
+${context}`
 }
 
 /**
- * Obtiene la config de investigación; si no hay token, se auto-registra.
- * Sin errores de "configura": la app siempre tiene el backend disponible.
+ * Pipeline local de investigación con callbacks de fase.
+ * Nunca lanza excepciones — notifica errores vía callbacks.onError.
  */
-async function getInvestigateConfig(): Promise<InvestigateConfig> {
-  const settings = await readJSON<AppSettings>(SETTINGS_FILE)
-  const cfg = settings?.investigate
-  const baseUrl = cfg?.baseUrl?.trim() || DEFAULT_BASE_URL
-
-  if (cfg?.apiToken) {
-    return { baseUrl, apiToken: cfg.apiToken, configured: true }
-  }
-
-  // Auto-registro transparente
-  try {
-    const deviceId = await getDeviceId()
-    const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/api/device/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ device_id: deviceId, install_code: INSTALL_CODE }),
-      signal: AbortSignal.timeout(15_000),
-    })
-    if (!res.ok) {
-      throw new Error(`Registro fallido: HTTP ${res.status}`)
-    }
-    const data = (await res.json()) as { token: string; quota_daily: number }
-    const nextSettings: AppSettings = {
-      api: settings?.api ?? { baseUrl: '', apiKey: '', model: '', configured: false },
-      investigate: { baseUrl, apiToken: data.token, configured: true },
-      appearance: settings?.appearance ?? { mode: 'system' },
-      privacy: settings?.privacy ?? { storeHistory: true, excludeFromTraining: false },
-      systemPrompt: settings?.systemPrompt ?? '',
-      locale: settings?.locale ?? 'es',
-      ttsVoice: settings?.ttsVoice ?? '',
-      preferredCurrency: settings?.preferredCurrency ?? 'USD',
-    }
-    await writeJSON(SETTINGS_FILE, nextSettings)
-    return { baseUrl, apiToken: data.token, configured: true }
-  } catch (e) {
-    throw new Error(
-      `No se pudo conectar con el backend de investigación (${e instanceof Error ? e.message : String(e)}). ` +
-        'Verifica tu conexión a internet.',
-    )
-  }
-}
-
-/**
- * Auto-descubrimiento: verifica que el backend por defecto responde y es el nuestro.
- * Usa solo el endpoint público /api/discovery (sin token).
- */
-export async function discoverBackend(): Promise<{ baseUrl: string; found: boolean; message: string }> {
-  const tryUrls = [DEFAULT_BASE_URL]
-  const settings = await readJSON<AppSettings>(SETTINGS_FILE)
-  const saved = settings?.investigate?.baseUrl?.trim()
-  if (saved && saved !== DEFAULT_BASE_URL) tryUrls.push(saved)
-
-  for (const url of tryUrls) {
-    try {
-      const res = await fetch(`${url.replace(/\/+$/, '')}/api/discovery`, {
-        signal: AbortSignal.timeout(10_000),
-      })
-      if (!res.ok) continue
-      const data = (await res.json()) as { service?: string }
-      if (data.service === 'aplica-research') {
-        return { baseUrl: url, found: true, message: 'Backend de Aplica encontrado' }
-      }
-    } catch {
-      // intentar siguiente URL
-    }
-  }
-  return { baseUrl: DEFAULT_BASE_URL, found: false, message: 'No se encontró el backend de investigación' }
-}
-
-/**
- * Investiga una consulta en línea, localizada al país del usuario.
- * @param userQuery  consulta libre (ej. "salario promedio de desarrollador react")
- * @param country    código ISO del país (ej. "DO") — se deriva del perfil
- * @param language   código de idioma (ej. "es")
- */
-export async function investigate(
+export async function investigateLocal(
   userQuery: string,
   country: string,
   language: string,
-): Promise<InvestigateResult> {
-  const cfg = await getInvestigateConfig()
-  const base = cfg.baseUrl.replace(/\/+$/, '')
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS)
-
+  callbacks: {
+    onPhase: (phase: string, message: string) => void
+    onDone: (result: InvestigateResult) => void
+    onError: (message: string) => void
+  },
+  config?: Partial<InvestigateConfig>,
+): Promise<void> {
   try {
-    const res = await fetch(`${base}/api/investigate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': cfg.apiToken,
-      },
-      body: JSON.stringify({ user_query: userQuery, country, language }),
-      signal: controller.signal,
-    })
-    if (!res.ok) {
-      const body = await res.text().catch(() => '')
-      throw new Error(`Backend de investigación respondió ${res.status}: ${body.slice(0, 200)}`)
+    const settings = await readJSON<AppSettings>(SETTINGS_FILE)
+    const cfg: Partial<InvestigateConfig> = { ...config, ...settings?.investigate }
+
+    // Fase 1: Búsqueda
+    callbacks.onPhase('search', `Buscando "${userQuery}"...`)
+    const searchResults = await searchWeb(
+      userQuery,
+      { language, country, maxResults: cfg.maxSearchResults || 8, timeout: cfg.searchTimeout || 15_000 },
+      cfg,
+    )
+
+    if (searchResults.length === 0) {
+      callbacks.onError('No se encontraron resultados de búsqueda. Verifica tu conexión a internet.')
+      return
     }
-    return (await res.json()) as InvestigateResult
-  } finally {
-    clearTimeout(timer)
+
+    // Fase 2: Extracción de las 3 URLs más relevantes
+    callbacks.onPhase('extract', `Extrayendo contenido de ${Math.min(3, searchResults.length)} fuentes...`)
+    const topUrls = searchResults.slice(0, 3).map((r) => ({ url: r.url, title: r.title }))
+    const extracted = await extractMultiple(topUrls, {
+      maxChars: cfg.maxExtractChars || 15_000,
+      timeout: cfg.extractTimeout || 15_000,
+    })
+
+    // Fase 3: Síntesis con LLM
+    callbacks.onPhase('synthesize', 'Generando respuesta con IA...')
+    const context = extracted
+      .filter((e) => e.content && !e.content.startsWith('[Error'))
+      .map((e, i) => `## Fuente [${i + 1}]: ${e.title || e.url}\nURL: ${e.url}\n\n${e.content}`)
+      .join('\n\n---\n\n')
+
+    if (!context) {
+      callbacks.onError('No se pudo extraer contenido útil de las páginas encontradas.')
+      return
+    }
+
+    // Importar dinámicamente para evitar dependencias circulares
+    const { completeChatCompletion } = await import('./llm-service')
+    const llmSettings = await readJSON<AppSettings>(SETTINGS_FILE)
+    const llmConfig = {
+      baseUrl: llmSettings?.api?.baseUrl || 'http://localhost:11434/v1',
+      apiKey: llmSettings?.api?.apiKey || '',
+      model: llmSettings?.api?.model || 'llama3',
+    }
+
+    const prompt = buildSynthesisPrompt(userQuery, country, language, context)
+    const response = await completeChatCompletion(
+      llmConfig,
+      [
+        { role: 'system', content: prompt },
+        { role: 'user', content: userQuery },
+      ],
+      undefined,
+      'investigate',
+      llmSettings?.privacy?.excludeFromTraining || false,
+    )
+
+    const result: InvestigateResult = {
+      answer: response,
+      sources: extracted
+        .filter((e) => e.content && !e.content.startsWith('[Error'))
+        .map((e) => ({ url: e.url, title: e.title, content: e.content.slice(0, 2000) })),
+      used_extracted: extracted.map((e) => ({ url: e.url, provider: e.provider })),
+      query: userQuery,
+      country,
+      language,
+    }
+
+    callbacks.onDone(result)
+  } catch (e) {
+    callbacks.onError(e instanceof Error ? e.message : String(e))
   }
 }
 
 /**
- * Versión en streaming de investigate(): consume el endpoint SSE
- * /api/investigate/stream y notifica cada fase (search/extract/synthesize)
- * en vivo vía callbacks.onPhase. Resuelve con onDone(result) o onError(msg);
- * nunca lanza excepciones hacia el llamador.
+ * Versión síncrona (sin streaming de fases) para IPC directo.
+ * Retorna el InvestigateResult o null en caso de error.
+ */
+export async function investigateLocalSync(
+  userQuery: string,
+  country: string,
+  language: string,
+  config?: Partial<InvestigateConfig>,
+): Promise<InvestigateResult> {
+  return new Promise((resolve) => {
+    investigateLocal(userQuery, country, language, {
+      onPhase: () => {},
+      onDone: (result) => resolve(result),
+      onError: (msg) => {
+        console.error('[investigate] error:', msg)
+        resolve({
+          answer: `Error en la investigación: ${msg}`,
+          sources: [],
+          used_extracted: [],
+          query: userQuery,
+          country,
+          language,
+        })
+      },
+    }, config)
+  })
+}
+
+/**
+ * Wrapper compatible con el nombre anterior para callers existentes.
+ * Mantiene la interfaz de investigateStream() para career-advice,
+ * roadmap, job-service y llm-service.
  */
 export async function investigateStream(
   userQuery: string,
@@ -162,87 +175,28 @@ export async function investigateStream(
     onError: (message: string) => void
   },
 ): Promise<void> {
-  const cfg = await getInvestigateConfig()
-  const base = cfg.baseUrl.replace(/\/+$/, '')
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS)
-
-  try {
-    const res = await fetch(`${base}/api/investigate/stream`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': cfg.apiToken,
-      },
-      body: JSON.stringify({ user_query: userQuery, country, language }),
-      signal: controller.signal,
-    })
-    if (!res.ok) {
-      const body = await res.text().catch(() => '')
-      throw new Error(`Backend de investigación respondió ${res.status}: ${body.slice(0, 200)}`)
-    }
-    if (!res.body) throw new Error('Response body is not readable')
-
-    const reader = res.body.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ''
-    let eventName = ''
-
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      buffer = lines.pop() || ''
-      for (const line of lines) {
-        const trimmed = line.trim()
-        if (!trimmed) continue
-        if (trimmed.startsWith('event:')) {
-          eventName = trimmed.slice(6).trim()
-          continue
-        }
-        if (!trimmed.startsWith('data:')) continue
-        const data = trimmed.slice(5).trim()
-        if (!data) continue
-        try {
-          const parsed = JSON.parse(data)
-          if (eventName === 'phase') {
-            callbacks.onPhase(String(parsed.phase || ''), String(parsed.message || ''))
-          } else if (eventName === 'done') {
-            callbacks.onDone(parsed)
-            return
-          } else if (eventName === 'error') {
-            callbacks.onError(String(parsed.message || 'Error desconocido del backend'))
-            return
-          }
-        } catch { /* skip */ }
-        eventName = ''
-      }
-    }
-    callbacks.onError('La conexión terminó antes de completar la investigación')
-  } catch (e) {
-    callbacks.onError(
-      controller.signal.aborted
-        ? `Tiempo de espera agotado (${STREAM_TIMEOUT_MS / 1000}s)`
-        : e instanceof Error ? e.message : String(e),
-    )
-  } finally {
-    clearTimeout(timer)
-  }
+  return investigateLocal(userQuery, country, language, callbacks)
 }
 
-/** Verifica que el backend de investigación responde (health check). */
+/**
+ * Wrapper compatible con el nombre anterior (no streaming).
+ */
+export async function investigate(
+  userQuery: string,
+  country: string,
+  language: string,
+): Promise<InvestigateResult> {
+  return investigateLocalSync(userQuery, country, language)
+}
+
+// Funciones legacy eliminadas — ya no se necesitan:
+// discoverBackend(), investigateHealth(), getInvestigateConfig(), getDeviceId()
+// Se mantienen como stubs para evitar errores de import en archivos que aún las referencien.
+
+export async function discoverBackend(): Promise<{ baseUrl: string; found: boolean; message: string }> {
+  return { baseUrl: 'local', found: true, message: 'Investigación local configurada (sin backend externo)' }
+}
+
 export async function investigateHealth(): Promise<{ ok: boolean; message: string }> {
-  try {
-    const cfg = await getInvestigateConfig()
-    const base = cfg.baseUrl.replace(/\/+$/, '')
-    const res = await fetch(`${base}/api/health`, {
-      headers: { 'X-API-Key': cfg.apiToken },
-      signal: AbortSignal.timeout(10_000),
-    })
-    if (res.ok) return { ok: true, message: 'ok' }
-    return { ok: false, message: `HTTP ${res.status}` }
-  } catch (e) {
-    return { ok: false, message: e instanceof Error ? e.message : String(e) }
-  }
+  return { ok: true, message: 'ok (local pipeline)' }
 }

@@ -17,12 +17,15 @@ interface CoverLetterGeneratorProps {
 
 function extractLetterContent(raw: string, key: string): string {
   const trimmed = raw.trim()
-  if (!trimmed.startsWith('{') && !trimmed.startsWith('"')) return raw
+  // Buscar el bloque JSON aunque el modelo haya antepuesto comentarios
+  const objMatch = trimmed.match(/\{[\s\S]*\}/)
+  if (!objMatch && !trimmed.startsWith('"')) return raw
+  const candidate = objMatch ? objMatch[0] : trimmed
   try {
-    const parsed = JSON.parse(trimmed)
+    const parsed = JSON.parse(candidate)
     if (typeof parsed === 'object' && parsed[key]) return parsed[key]
   } catch {
-    const match = trimmed.match(new RegExp(`"${key}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"`))
+    const match = candidate.match(new RegExp(`"${key}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"`))
     if (match) return match[1].replace(/\\n/g, '\n').replace(/\\"/g, '"')
   }
   return raw

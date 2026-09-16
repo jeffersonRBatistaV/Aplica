@@ -17,6 +17,7 @@ const PROVIDERS = [
   { id: 'anthropic', label: 'Anthropic', baseUrl: 'https://api.anthropic.com/v1' },
   { id: 'deepseek', label: 'DeepSeek', baseUrl: 'https://api.deepseek.com/v1' },
   { id: 'together', label: 'Together AI', baseUrl: 'https://api.together.xyz/v1' },
+  { id: 'google', label: 'Google (Gemini)', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai' },
   { id: 'custom', label: 'Personalizado', baseUrl: '' },
 ] as const
 
@@ -37,14 +38,16 @@ interface ApiConfigProps {
   apiKey: string
   model: string
   visionModel?: string
-  onChange: (config: { baseUrl: string; apiKey: string; model: string; visionModel?: string; configured?: boolean }) => void
+  maxContextTokens?: number
+  onChange: (config: { baseUrl: string; apiKey: string; model: string; visionModel?: string; configured?: boolean; maxContextTokens?: number }) => void
 }
 
-export function ApiConfig({ baseUrl, apiKey, model, visionModel, onChange }: ApiConfigProps) {
+export function ApiConfig({ baseUrl, apiKey, model, visionModel, maxContextTokens, onChange }: ApiConfigProps) {
   const { t } = useTranslation()
   const [localBaseUrl, setLocalBaseUrl] = useState(baseUrl)
   const [providerId, setProviderId] = useState(() => givenProvider(baseUrl))
   const [localApiKey, setLocalApiKey] = useState(apiKey)
+  const [localMaxContextTokens, setLocalMaxContextTokens] = useState<number>(maxContextTokens ?? 32768)
   const [showKey, setShowKey] = useState(false)
   const [models, setModels] = useState<ModelInfo[]>([])
   const [loadingModels, setLoadingModels] = useState(false)
@@ -53,6 +56,17 @@ export function ApiConfig({ baseUrl, apiKey, model, visionModel, onChange }: Api
   const prevUrlRef = useRef(baseUrl)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const mountedRef = useRef(false)
+
+  const emit = (partial: { baseUrl?: string; apiKey?: string; model?: string; visionModel?: string; configured?: boolean; maxContextTokens?: number }): void => {
+    onChange({
+      baseUrl: partial.baseUrl ?? localBaseUrl,
+      apiKey: partial.apiKey ?? localApiKey,
+      model: partial.model ?? model,
+      visionModel: partial.visionModel ?? visionModel,
+      configured: partial.configured ?? true,
+      maxContextTokens: partial.maxContextTokens ?? localMaxContextTokens,
+    })
+  }
 
   const visionModels = models.filter((m) => /vision/i.test(m.id))
 
@@ -69,7 +83,7 @@ export function ApiConfig({ baseUrl, apiKey, model, visionModel, onChange }: Api
         setModels(result)
         const current = result.find((m: ModelInfo) => m.id === model || m.name === model)
         if (!current || !model) {
-          onChange({ baseUrl: url, apiKey: key, model: result[0].id, configured: true })
+          emit({ baseUrl: url, apiKey: key, model: result[0].id })
         }
       }
     } catch {
@@ -105,14 +119,14 @@ export function ApiConfig({ baseUrl, apiKey, model, visionModel, onChange }: Api
 
   const handleSaveUrl = () => {
     const url = localBaseUrl.trim()
-    onChange({ baseUrl: url, apiKey: localApiKey, model, configured: true })
+    emit({ baseUrl: url })
     if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
       fetchModels(url, localApiKey)
     }
   }
 
   const handleSaveKey = () => {
-    onChange({ baseUrl: localBaseUrl, apiKey: localApiKey, model, configured: true })
+    emit({})
   }
 
   const handleUrlChange = (value: string) => {
@@ -220,7 +234,7 @@ export function ApiConfig({ baseUrl, apiKey, model, visionModel, onChange }: Api
 
         <select
           value={model}
-          onChange={(e) => onChange({ baseUrl: localBaseUrl, apiKey: localApiKey, model: e.target.value, configured: true })}
+          onChange={(e) => emit({ model: e.target.value })}
           disabled={loadingModels}
           className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed"
         >
@@ -271,7 +285,7 @@ export function ApiConfig({ baseUrl, apiKey, model, visionModel, onChange }: Api
           </label>
           <select
             value={visionModel ?? ''}
-            onChange={(e) => onChange({ baseUrl: localBaseUrl, apiKey: localApiKey, model, visionModel: e.target.value || undefined, configured: true })}
+            onChange={(e) => emit({ visionModel: e.target.value || undefined })}
             disabled={loadingModels}
             className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -287,6 +301,32 @@ export function ApiConfig({ baseUrl, apiKey, model, visionModel, onChange }: Api
           </p>
         </div>
       )}
+
+      {/* Contexto máximo del modelo */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          {t('apiConfig.maxContextTokens')}
+        </label>
+        <input
+          type="number"
+          min={1024}
+          step={1024}
+          value={localMaxContextTokens}
+          onChange={(e) => {
+            const value = Number(e.target.value)
+            setLocalMaxContextTokens(Number.isFinite(value) && value > 0 ? value : 32768)
+          }}
+          onBlur={() => {
+            const clamped = Math.max(1024, Math.min(4000000, localMaxContextTokens || 32768))
+            setLocalMaxContextTokens(clamped)
+            emit({ maxContextTokens: clamped })
+          }}
+          className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+        />
+        <p className="text-xs text-gray-400 mt-1">
+          {t('apiConfig.maxContextTokensHelp')}
+        </p>
+      </div>
 
       {/* API Consumption */}
       <ConsumptionSection />
@@ -326,6 +366,12 @@ function ConsumptionSection() {
 
   useEffect(() => {
     loadUsage()
+  }, [loadUsage])
+
+  useEffect(() => {
+    const handler = () => loadUsage()
+    window.addEventListener('profile:updated', handler)
+    return () => window.removeEventListener('profile:updated', handler)
   }, [loadUsage])
 
   const handleCurrencyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {

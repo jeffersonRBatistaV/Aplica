@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import electron from 'vite-plugin-electron'
+import { notBundle } from 'vite-plugin-electron/plugin'
 import renderer from 'vite-plugin-electron-renderer'
 import path from 'path'
 import fs from 'fs'
@@ -21,13 +22,13 @@ export default defineConfig({
     electron([
       {
         entry: 'src/main/main.ts',
-      vite: {
-        build: {
-          rollupOptions: {
-            external: ['tesseract.js'],
-          },
+        vite: {
+          plugins: [
+            // Externaliza dependencias Node/CJS (jsdom, turndown, readability, tesseract, etc.)
+            // para que se carguen desde node_modules y no se bundleen como ESM (rompiendo require).
+            notBundle(),
+          ],
         },
-      },
       },
     ]),
     {

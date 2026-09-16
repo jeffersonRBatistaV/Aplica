@@ -1,5 +1,5 @@
-import { readJSON, writeJSON, ensureDir } from './storage'
-import { USAGE_FILE, DATA_DIR } from '../utils/paths'
+import { readJSON, writeJSON } from './storage'
+import { getActiveProfileFiles, ensureParentDir } from './profile-data'
 import type { UsageRecord, UsageStats } from '../../shared/types'
 
 interface PricingEntry {
@@ -120,7 +120,8 @@ export function calculateCost(model: string, promptTokens: number, completionTok
 }
 
 export async function getUsage(): Promise<UsageStats> {
-  const records = await readJSON<UsageRecord[]>(USAGE_FILE)
+  const { usageFile } = await getActiveProfileFiles()
+  const records = await readJSON<UsageRecord[]>(usageFile)
   const list = records ?? []
   const totalPromptTokens = list.reduce((s, r) => s + r.promptTokens, 0)
   const totalCompletionTokens = list.reduce((s, r) => s + r.completionTokens, 0)
@@ -129,13 +130,15 @@ export async function getUsage(): Promise<UsageStats> {
 }
 
 export async function addUsage(record: UsageRecord): Promise<void> {
-  await ensureDir(DATA_DIR)
-  const records = (await readJSON<UsageRecord[]>(USAGE_FILE)) ?? []
+  const { usageFile } = await getActiveProfileFiles()
+  await ensureParentDir(usageFile)
+  const records = (await readJSON<UsageRecord[]>(usageFile)) ?? []
   records.push(record)
-  await writeJSON(USAGE_FILE, records)
+  await writeJSON(usageFile, records)
 }
 
 export async function resetUsage(): Promise<void> {
-  await ensureDir(DATA_DIR)
-  await writeJSON(USAGE_FILE, [])
+  const { usageFile } = await getActiveProfileFiles()
+  await ensureParentDir(usageFile)
+  await writeJSON(usageFile, [])
 }

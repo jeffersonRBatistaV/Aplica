@@ -1,7 +1,10 @@
 import { ipcMain, nativeTheme, clipboard, BrowserWindow, app } from 'electron'
+import fs from 'fs/promises'
 import { readJSON, writeJSON, ensureDir } from '../services/storage'
 import { readProfile } from '../services/profile-reader'
-import { CHATS_FILE, SETTINGS_FILE, JOBS_FILE, PROFILE_PATH, USER_PROFILE_PATH, PROFILES_FILE, DATA_DIR, CV_TEMPLATES_FILE, CAREER_ADVICE_FILE, ROADMAP_FILE, CV_VERSIONS_FILE } from '../utils/paths'
+import { SETTINGS_FILE, PROFILE_PATH, USER_PROFILE_PATH, PROFILES_FILE, DATA_DIR, CV_TEMPLATES_FILE } from '../utils/paths'
+import { getActiveProfileFiles, ensureParentDir } from '../services/profile-data'
+import { getActiveProfile } from '../services/profile-scope'
 import type { Conversation, AppSettings, StreamParams, JobApplication, Profile, ATSReport, CvTemplate, InterviewQuestion, ImportResult, ImportStats, JobCategory, CvVersion } from '../../shared/types'
 import { streamChatCompletion, abortCurrentStream, listModels } from '../services/llm-service'
 import { ThrottledStream } from '../utils/throttled-stream'
@@ -19,6 +22,22 @@ import { getSeedTemplates, wrapHtml } from '../services/cv-templates-seed'
 import { extractTextFromImage } from '../services/ocr-service'
 import { getExchangeRate } from '../services/currency-service'
 import { investigate, investigateHealth, discoverBackend } from '../services/investigate-service'
+import {
+  connectWhatsApp,
+  disconnectWhatsApp,
+  getWhatsAppGroups,
+  scanWhatsAppGroups,
+  getWhatsAppQueue,
+  markWhatsAppVacancyImported,
+  removeWhatsAppVacancy,
+  removeWhatsAppVacancies,
+  getWhatsAppConfig,
+  setWhatsAppConfig,
+  getStatusEvent,
+  onWhatsAppServiceEvent,
+} from '../services/whatsapp-service'
+import type { WhatsAppServiceEvent } from '../services/whatsapp-service'
+import type { WhatsAppConfig } from '../../shared/types'
 
 const isTrustedSender = (event: Electron.IpcMainInvokeEvent): boolean => {
   try {
@@ -39,6 +58,15 @@ function safeHandle(channel: string, handler: (event: Electron.IpcMainInvokeEven
 }
 
 export function registerAllHandlers(mainWindow: BrowserWindow): void {
+  async function fileExists(filePath: string): Promise<boolean> {
+    try {
+      await fs.access(filePath)
+      return true
+    } catch {
+      return false
+    }
+  }
+
   // ── File System ──
   safeHandle('fs:readFile', async (_event, filePath: string) => {
     const fs = await import('fs/promises')
@@ -68,38 +96,45 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
 
   // ── Chat CRUD ──
   safeHandle('chat:getAll', async (): Promise<Conversation[]> => {
-    return (await readJSON<Conversation[]>(CHATS_FILE)) ?? []
+    const { chatsFile } = await getActiveProfileFiles()
+    return (await readJSON<Conversation[]>(chatsFile)) ?? []
   })
   safeHandle('chat:get', async (_event, id: string): Promise<Conversation | null> => {
-    const chats = await readJSON<Conversation[]>(CHATS_FILE)
+    const { chatsFile } = await getActiveProfileFiles()
+    const chats = await readJSON<Conversation[]>(chatsFile)
     return chats?.find((c) => c.id === id) ?? null
   })
   safeHandle('chat:save', async (_event, conversation: Conversation): Promise<void> => {
-    await ensureDir(DATA_DIR)
-    const chats = (await readJSON<Conversation[]>(CHATS_FILE)) ?? []
+    const { chatsFile } = await getActiveProfileFiles()
+    await ensureParentDir(chatsFile)
+    const chats = (await readJSON<Conversation[]>(chatsFile)) ?? []
     const idx = chats.findIndex((c) => c.id === conversation.id)
     if (idx >= 0) chats[idx] = conversation
     else chats.push(conversation)
-    await writeJSON(CHATS_FILE, chats)
+    await writeJSON(chatsFile, chats)
   })
   safeHandle('chat:delete', async (_event, id: string): Promise<void> => {
-    const chats = (await readJSON<Conversation[]>(CHATS_FILE)) ?? []
-    await writeJSON(CHATS_FILE, chats.filter((c) => c.id !== id))
+    const { chatsFile } = await getActiveProfileFiles()
+    const chats = (await readJSON<Conversation[]>(chatsFile)) ?? []
+    await writeJSON(chatsFile, chats.filter((c) => c.id !== id))
   })
   safeHandle('chat:rename', async (_event, id: string, title: string): Promise<void> => {
-    const chats = (await readJSON<Conversation[]>(CHATS_FILE)) ?? []
+    const { chatsFile } = await getActiveProfileFiles()
+    const chats = (await readJSON<Conversation[]>(chatsFile)) ?? []
     const chat = chats.find((c) => c.id === id)
     if (chat) chat.title = title
-    await writeJSON(CHATS_FILE, chats)
+    await writeJSON(chatsFile, chats)
   })
   safeHandle('chat:archive', async (_event, id: string): Promise<void> => {
-    const chats = (await readJSON<Conversation[]>(CHATS_FILE)) ?? []
+    const { chatsFile } = await getActiveProfileFiles()
+    const chats = (await readJSON<Conversation[]>(chatsFile)) ?? []
     const chat = chats.find((c) => c.id === id)
     if (chat) chat.archived = true
-    await writeJSON(CHATS_FILE, chats)
+    await writeJSON(chatsFile, chats)
   })
   safeHandle('chat:search', async (_event, query: string): Promise<Conversation[]> => {
-    const chats = (await readJSON<Conversation[]>(CHATS_FILE)) ?? []
+    const { chatsFile } = await getActiveProfileFiles()
+    const chats = (await readJSON<Conversation[]>(chatsFile)) ?? []
     const q = query.toLowerCase()
     return chats.filter(
       (c) =>
@@ -114,42 +149,53 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
   }
 
   safeHandle('job:getAll', async (): Promise<JobApplication[]> => {
-    const jobs = (await readJSON<JobApplication[]>(JOBS_FILE)) ?? []
+    const { jobsFile } = await getActiveProfileFiles()
+    const jobs = (await readJSON<JobApplication[]>(jobsFile)) ?? []
     return jobs.map(normalizeJob)
   })
   safeHandle('job:get', async (_event, id: string): Promise<JobApplication | null> => {
-    const jobs = await readJSON<JobApplication[]>(JOBS_FILE)
+    const { jobsFile } = await getActiveProfileFiles()
+    const jobs = await readJSON<JobApplication[]>(jobsFile)
     const job = jobs?.find((j) => j.id === id) ?? null
     return job ? normalizeJob(job) : null
   })
   safeHandle('job:save', async (_event, job: JobApplication): Promise<void> => {
-    await ensureDir(DATA_DIR)
-    const jobs = (await readJSON<JobApplication[]>(JOBS_FILE)) ?? []
+    const { jobsFile, cvVersionsFile } = await getActiveProfileFiles()
+    await ensureParentDir(jobsFile)
+    const raw = (await readJSON<JobApplication[]>(jobsFile).catch(() => null)) as JobApplication[] | null
+    if (raw === null && await fileExists(jobsFile)) {
+      // El archivo existe pero no se pudo parsear: no sobrescribir vacantes válidas.
+      throw new Error('[job:save] jobs.json corrupto, guardado abortado para evitar pérdida de datos')
+    }
+    const jobs = raw ?? []
     const idx = jobs.findIndex((j) => j.id === job.id)
     // Snapshot the previous CV content before overwriting it
     try {
       const prev = idx >= 0 ? jobs[idx] : null
       if (prev && prev.cvContent && job.cvContent && prev.cvContent !== job.cvContent) {
-        const versions = (await readJSON<Record<string, CvVersion[]>>(CV_VERSIONS_FILE)) ?? {}
+        const versions = (await readJSON<Record<string, CvVersion[]>>(cvVersionsFile)) ?? {}
         versions[job.id] = [
           { style: prev.cvStyle ?? null, content: prev.cvContent, createdAt: Date.now() },
           ...(versions[job.id] || []),
         ].slice(0, 10)
-        await writeJSON(CV_VERSIONS_FILE, versions)
+        await ensureParentDir(cvVersionsFile)
+        await writeJSON(cvVersionsFile, versions)
       }
     } catch (e) {
       console.error('[job:save] failed to snapshot cv version', e)
     }
     if (idx >= 0) jobs[idx] = job
     else jobs.push(job)
-    await writeJSON(JOBS_FILE, jobs)
+    await writeJSON(jobsFile, jobs)
   })
   safeHandle('job:delete', async (_event, id: string): Promise<void> => {
-    const jobs = (await readJSON<JobApplication[]>(JOBS_FILE)) ?? []
-    await writeJSON(JOBS_FILE, jobs.filter((j) => j.id !== id))
+    const { jobsFile } = await getActiveProfileFiles()
+    const jobs = (await readJSON<JobApplication[]>(jobsFile)) ?? []
+    await writeJSON(jobsFile, jobs.filter((j) => j.id !== id))
   })
   safeHandle('jobs:getUpcomingInterviews', async (): Promise<{ company: string; position: string; interviewDate: number }[]> => {
-    const jobs = (await readJSON<JobApplication[]>(JOBS_FILE)) ?? []
+    const { jobsFile } = await getActiveProfileFiles()
+    const jobs = (await readJSON<JobApplication[]>(jobsFile)) ?? []
     const now = Date.now()
     const window = 24 * 3600 * 1000
     return jobs
@@ -157,7 +203,8 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
       .map((j) => ({ company: j.company, position: j.position, interviewDate: j.interviewDate as number }))
   })
   safeHandle('jobs:getCvVersions', async (_event, jobId: string): Promise<CvVersion[]> => {
-    const versions = (await readJSON<Record<string, CvVersion[]>>(CV_VERSIONS_FILE)) ?? {}
+    const { cvVersionsFile } = await getActiveProfileFiles()
+    const versions = (await readJSON<Record<string, CvVersion[]>>(cvVersionsFile)) ?? {}
     return versions[jobId] || []
   })
 
@@ -272,8 +319,23 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
     await writeJSON(SETTINGS_FILE, settings)
   })
 
+  // Email config aislado por perfil
+  safeHandle('emailConfig:get', async (): Promise<EmailConfig | null> => {
+    const cfg = await readJSON<EmailConfig>((await getActiveProfileFiles()).emailConfigFile)
+    if (!cfg) return null
+    const profile = await getActiveProfile()
+    return { ...cfg, fromName: profile?.name || '' }
+  })
+  safeHandle('emailConfig:set', async (_event, config: EmailConfig): Promise<void> => {
+    const emailFile = (await getActiveProfileFiles()).emailConfigFile
+    await ensureParentDir(emailFile)
+    const profile = await getActiveProfile()
+    await writeJSON(emailFile, { ...config, fromName: profile?.name || config.fromName || '' })
+  })
+
   // ── Investigación en línea (backend remoto) ──
-  safeHandle('investigate:query', async (_event, userQuery: string, country: string, language: string) => {
+  safeHandle('investigate:query', async (event, userQuery: string, country: string, language: string) => {
+    event.sender.send('investigate:phase', { message: 'Investigando...' })
     return investigate(userQuery, country, language)
   })
   safeHandle('investigate:health', async () => {
@@ -282,6 +344,25 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
   safeHandle('investigate:discover', async () => {
     return discoverBackend()
   })
+
+  // ── WhatsApp (detección de vacantes) ──
+  onWhatsAppServiceEvent((serviceEvent: WhatsAppServiceEvent) => {
+    if (!mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('whatsapp:event', serviceEvent)
+    }
+  })
+
+  safeHandle('whatsapp:status', async () => getStatusEvent())
+  safeHandle('whatsapp:connect', async () => connectWhatsApp())
+  safeHandle('whatsapp:disconnect', async () => disconnectWhatsApp())
+  safeHandle('whatsapp:getGroups', async () => getWhatsAppGroups())
+  safeHandle('whatsapp:scan', async (_event, groupIds: string[], limit?: number) => scanWhatsAppGroups(groupIds, limit))
+  safeHandle('whatsapp:getQueue', async () => getWhatsAppQueue())
+  safeHandle('whatsapp:markImported', async (_event, vacancyId: string) => markWhatsAppVacancyImported(vacancyId))
+  safeHandle('whatsapp:removeFromQueue', async (_event, vacancyId: string) => removeWhatsAppVacancy(vacancyId))
+  safeHandle('whatsapp:removeFromQueueMany', async (_event, vacancyIds: string[]) => removeWhatsAppVacancies(vacancyIds))
+  safeHandle('whatsapp:getConfig', async () => getWhatsAppConfig())
+  safeHandle('whatsapp:setConfig', async (_event, config: WhatsAppConfig) => setWhatsAppConfig(config))
 
   // ── Profile (Digital Twin) ──
   safeHandle('profile:get', async (): Promise<Profile | null> => {
@@ -321,6 +402,7 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
       baseUrl: settings?.api?.baseUrl || 'http://localhost:11434/v1',
       apiKey: settings?.api?.apiKey || '',
       model: settings?.api?.model || 'llama3',
+      maxContextTokens: settings?.api?.maxContextTokens,
     }
 
     const throttled = new ThrottledStream(mainWindow, 30)
@@ -358,9 +440,10 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
 
   // ── Data Export ──
   safeHandle('data:exportAll', async (): Promise<unknown> => {
+    const activeFiles = await getActiveProfileFiles()
     const [conversations, jobs, profile, settings, cvTemplates] = await Promise.all([
-      readJSON<Conversation[]>(CHATS_FILE),
-      readJSON<JobApplication[]>(JOBS_FILE),
+      readJSON<Conversation[]>(activeFiles.chatsFile),
+      readJSON<JobApplication[]>(activeFiles.jobsFile),
       readProfile(USER_PROFILE_PATH).then((p) => p ?? readProfile(PROFILE_PATH)),
       readJSON<AppSettings>(SETTINGS_FILE),
       readJSON<CvTemplate[]>(CV_TEMPLATES_FILE),
@@ -380,8 +463,8 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
       profile: !!result.profile,
       settings: !!result.settings,
       cvTemplatesCount: result.cvTemplates.length,
-      chatsFile: CHATS_FILE,
-      jobsFile: JOBS_FILE,
+      chatsFile: activeFiles.chatsFile,
+      jobsFile: activeFiles.jobsFile,
     })
     return result
   })
@@ -478,12 +561,13 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
 
   async function writeImportData(data: Record<string, unknown>): Promise<ImportStats> {
     await ensureDir(DATA_DIR)
+    const activeFiles = await getActiveProfileFiles()
     const stats = { conversations: 0, jobs: 0, profile: false, settings: false, cvTemplates: 0 }
     const errors: string[] = []
 
     if (data.conversations) {
       try {
-        const existing = (await readJSON<unknown[]>(CHATS_FILE)) ?? []
+        const existing = (await readJSON<unknown[]>(activeFiles.chatsFile)) ?? []
         const incoming = data.conversations as unknown[]
         const merged = [...incoming, ...existing]
         const seen = new Set<string>()
@@ -493,7 +577,7 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
           seen.add(item.id)
           return true
         })
-        await writeJSON(CHATS_FILE, deduped)
+        await writeJSON(activeFiles.chatsFile, deduped)
         stats.conversations = incoming.length
       } catch (e) {
         errors.push(`conversations: ${e instanceof Error ? e.message : String(e)}`)
@@ -502,7 +586,7 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
 
     if (data.jobs) {
       try {
-        const existing = (await readJSON<unknown[]>(JOBS_FILE)) ?? []
+        const existing = (await readJSON<unknown[]>(activeFiles.jobsFile)) ?? []
         const incoming = data.jobs as unknown[]
         const merged = [...incoming, ...existing]
         const seen = new Set<string>()
@@ -512,7 +596,7 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
           seen.add(item.id)
           return true
         })
-        await writeJSON(JOBS_FILE, deduped)
+        await writeJSON(activeFiles.jobsFile, deduped)
         stats.jobs = incoming.length
       } catch (e) {
         errors.push(`jobs: ${e instanceof Error ? e.message : String(e)}`)
@@ -800,17 +884,9 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
     const { dialog, shell } = await import('electron')
     const fs = await import('fs/promises')
 
-    const html = buildCvHtml(htmlContent, styleName)
-
-    const pdfWindow = new BrowserWindow({ show: false, width: 800, height: 1056, webPreferences: { sandbox: false } })
     try {
-      await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
-      const pdfBuffer = await pdfWindow.webContents.printToPDF({
-        printBackground: true,
-        margins: { top: 0, bottom: 0, left: 0, right: 0 },
-        pageSize: 'A4',
-      })
-      const { filePath, canceled } = await dialog.showSaveDialog(pdfWindow, {
+      const pdfBuffer = await renderCvPdf(htmlContent, styleName)
+      const { filePath, canceled } = await dialog.showSaveDialog({
         title: 'Guardar CV',
         defaultPath: `CV-${styleName}.pdf`,
         filters: [{ name: 'PDF', extensions: ['pdf'] }],
@@ -819,10 +895,36 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
       await fs.writeFile(filePath, pdfBuffer)
       shell.openPath(filePath)
       return filePath
-    } finally {
-      pdfWindow.close()
+    } catch {
+      return null
     }
   })
+
+  // ── CV Render PDF in memory (base64) for email attachments ──
+  safeHandle('cv:renderPdfBase64', async (_event, htmlContent: string, styleName: string): Promise<string | null> => {
+    try {
+      const pdfBuffer = await renderCvPdf(htmlContent, styleName)
+      return pdfBuffer.toString('base64')
+    } catch {
+      return null
+    }
+  })
+}
+
+/** Renderiza un CV (HTML) a un buffer PDF de una página A4 usando una ventana oculta. */
+async function renderCvPdf(bodyHtml: string, styleName: string): Promise<Buffer> {
+  const html = buildCvHtml(bodyHtml, styleName)
+  const pdfWindow = new BrowserWindow({ show: false, width: 800, height: 1056, webPreferences: { sandbox: false } })
+  try {
+    await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
+    return await pdfWindow.webContents.printToPDF({
+      printBackground: true,
+      margins: { top: 0, bottom: 0, left: 0, right: 0 },
+      pageSize: 'A4',
+    })
+  } finally {
+    pdfWindow.close()
+  }
 }
 
 function buildCvHtml(bodyHtml: string, styleName: string): string {

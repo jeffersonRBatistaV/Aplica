@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import type { FormEvent } from 'react'
-import { FileText, Copy, Check, Download, Sparkles, BarChart3, ScrollText, Loader2, Eye, EyeOff, Wand2, AlertCircle, Plus, Trash2, ChevronDown, ChevronRight, ArrowLeft, History, X, Pencil } from 'lucide-react'
+import { FileText, Copy, Check, Download, Sparkles, BarChart3, ScrollText, Loader2, Eye, EyeOff, Wand2, AlertCircle, Plus, Trash2, ChevronDown, ChevronRight, ArrowLeft, History, X, Pencil, Send, HelpCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useNotification } from '../../contexts/NotificationContext'
+import { useSettings } from '../../contexts/SettingsContext'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
-import type { ATSReport, CvTemplate, CvVersion } from '../../../shared/types'
+import type { ATSReport, CvTemplate, CvVersion, EmailConfig } from '../../../shared/types'
 
 interface SummaryOption {
   id: string
@@ -20,6 +21,12 @@ interface CVGeneratorProps {
   currentContent: string
   onSave: (style: string, content: string) => void
   jobId?: string
+  recipientEmail?: string
+  emailSubject?: string
+  coverLetterBody?: string
+  companyName?: string
+  positionName?: string
+  onSent?: () => void | Promise<void>
 }
 
 type CvTab = 'preview' | 'edit'
@@ -38,9 +45,11 @@ const colorClasses: Record<string, { bg: string; border: string; text: string; h
   slate: { bg: 'bg-slate-50 dark:bg-slate-900/20', border: 'border-slate-500', text: 'text-slate-700 dark:text-slate-300', hover: 'hover:border-slate-400' },
 }
 
-export function CVGenerator({ vacancyText, atsReport, currentStyle, currentContent, onSave, jobId }: CVGeneratorProps) {
+export function CVGenerator({ vacancyText, atsReport, currentStyle, currentContent, onSave, jobId, recipientEmail, emailSubject, coverLetterBody, companyName, positionName, onSent }: CVGeneratorProps) {
   const { t } = useTranslation()
   const { notify } = useNotification()
+  const { settings, updateSettings } = useSettings()
+  const emailConfig = settings.emailConfig
 
   const BUILTIN_STYLES = useMemo(() => [
     { id: 'ats', name: 'ATS-Friendly', icon: BarChart3, desc: t('cvGenerator.styleAtsDesc'), color: 'blue' as const },
@@ -89,12 +98,100 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
   const [loadingVersions, setLoadingVersions] = useState(false)
   const [viewingContent, setViewingContent] = useState<string | null>(null)
 
+  // ── Envío de CV por correo ──
+  const [showSendModal, setShowSendModal] = useState(false)
+  const [to, setTo] = useState('')
+  const [subject, setSubject] = useState('')
+  const [body, setBody] = useState('')
+  const [sending, setSending] = useState(false)
+  const [sendResult, setSendResult] = useState<{ ok: boolean; message?: string } | null>(null)
+  const closeTimerRef = useRef<number | null>(null)
+  // Config de email integrada (tipo modal de setup rápido)
+  const [setupMode, setSetupMode] = useState(false)
+  const [cfgUser, setCfgUser] = useState(emailConfig?.user || '')
+  const [cfgPass, setCfgPass] = useState(emailConfig?.pass || '')
+  const [cfgName, setCfgName] = useState(emailConfig?.fromName || '')
+  const [showCfgPass, setShowCfgPass] = useState(false)
+  const [showAppPasswordHelp, setShowAppPasswordHelp] = useState(false)
+
+  const openSendModal = useCallback(() => {
+    setTo(recipientEmail || '')
+    setSubject(emailSubject || (positionName ? t('sendCv.defaultSubject', { position: positionName }) : t('sendCv.defaultSubjectGeneric')))
+    setBody(coverLetterBody || t('sendCv.defaultBody'))
+    setSendResult(null)
+    setSetupMode(false)
+    setShowSendModal(true)
+  }, [recipientEmail, emailSubject, positionName, coverLetterBody, t])
+
+  useEffect(() => {
+    if (showSendModal) {
+      const configured = !!(emailConfig?.user && emailConfig?.pass)
+      setSetupMode(!configured)
+      setCfgUser(emailConfig?.user || '')
+      setCfgPass(emailConfig?.pass || '')
+      setCfgName(emailConfig?.fromName || '')
+      setShowCfgPass(false)
+      setShowAppPasswordHelp(false)
+      window.api.getProfile().then((profile) => {
+        if (profile?.name) setCfgName(profile.name)
+      }).catch(() => {})
+    }
+  }, [showSendModal, emailConfig])
+
+  const buildCfgConfig = (): EmailConfig => ({
+    provider: 'gmail' as const,
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false,
+    user: cfgUser.trim(),
+    pass: cfgPass.trim(),
+    fromName: cfgName.trim(),
+    configured: !!(cfgUser.trim() && cfgPass.trim()),
+  })
+
+  const handleSend = async () => {
+    if (!window.api || sending) return
+    if (!cfgUser.trim() || !cfgPass.trim()) {
+      setSendResult({ ok: false, message: t('sendCv.fillConfig') })
+      return
+    }
+    setSending(true)
+    setSendResult(null)
+    try {
+      const config = buildCfgConfig()
+      await updateSettings({ emailConfig: config })
+
+      const pdfBase64 = await window.api.renderCvPdfBase64(content, selectedStyle || 'ats')
+      if (!pdfBase64) {
+        setSendResult({ ok: false, message: t('sendCv.pdfError') })
+        return
+      }
+      const result = await window.api.sendEmail(config, {
+        to: to.trim(),
+        subject: subject.trim() || t('sendCv.defaultSubjectGeneric'),
+        body: body,
+        attachments: [{ filename: 'CV.pdf', contentBase64: pdfBase64 }],
+      })
+      setSendResult(result.ok ? { ok: true, message: t('sendCv.sentOk') } : { ok: false, message: result.error })
+      if (result.ok) {
+        notify(t('sendCv.sentOk'), 'success')
+        try { await onSent?.() } catch { /* no bloquea el cierre */ }
+        closeTimerRef.current = window.setTimeout(() => setShowSendModal(false), 2000)
+      }
+    } catch (e) {
+      setSendResult({ ok: false, message: e instanceof Error ? e.message : t('sendCv.sendError') })
+    } finally {
+      setSending(false)
+    }
+  }
+
   useEffect(() => {
     window.api?.getCvTemplates().then(setCustomTemplates)
   }, [])
 
   useEffect(() => { setContent(currentContent) }, [currentContent])
   useEffect(() => { setSelectedStyle(currentStyle) }, [currentStyle])
+  useEffect(() => () => { if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current) }, [])
 
   useEffect(() => {
     if (!editRef.current) return
@@ -102,8 +199,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
       lastEditedHtmlRef.current = content
       editRef.current.innerHTML = content
     } else {
-      const edited = editRef.current.innerHTML
-      lastEditedHtmlRef.current = edited
+      const edited = lastEditedHtmlRef.current
       if (edited !== content) {
         setContent(edited)
         if (selectedStyle) onSave(selectedStyle, edited)
@@ -671,6 +767,10 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
               <Button variant="ghost" size="sm" onClick={handleCopy} title={t('cvGenerator.copy')}>
                 {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
               </Button>
+              <Button variant="secondary" size="sm" onClick={openSendModal}>
+                <Send className="w-4 h-4" />
+                {t('sendCv.sendButton')}
+              </Button>
               <Button variant="primary" size="sm" onClick={handleDownloadPdf} disabled={downloading}>
                 {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                 {downloading ? t('cvGenerator.generatingPdf') : t('cvGenerator.download')}
@@ -837,6 +937,193 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
         }}
         onCancel={() => setPendingRegenerate(null)}
       />
+
+      {/* ── Modal de envío de CV por correo ── */}
+      {showSendModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="w-full max-w-lg max-h-[90vh] flex flex-col bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 flex items-center gap-2">
+                <Send className="w-4 h-4 text-blue-500" />
+                {t('sendCv.title')}
+              </h3>
+              <button
+                onClick={() => setShowSendModal(false)}
+                className="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {/* Config de email si no está configurado */}
+              {setupMode && (
+                <div className="p-4 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 space-y-3">
+                  <p className="text-sm font-medium text-blue-800 dark:text-blue-200">{t('sendCv.setupTitle')}</p>
+                  <p className="text-xs text-blue-700 dark:text-blue-300">{t('sendCv.setupSubtitle')}</p>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">{t('emailConfig.user')}</label>
+                    <input
+                      type="email"
+                      value={cfgUser}
+                      onChange={(e) => setCfgUser(e.target.value)}
+                      placeholder="tucorreo@gmail.com"
+                      className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">{t('emailConfig.appPassword')}</label>
+                      <button
+                        type="button"
+                        onClick={() => setShowAppPasswordHelp(!showAppPasswordHelp)}
+                        className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-600"
+                      >
+                        <HelpCircle className="w-3.5 h-3.5" />
+                        {t('emailConfig.howToGet')}
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type={showCfgPass ? 'text' : 'password'}
+                        value={cfgPass}
+                        onChange={(e) => setCfgPass(e.target.value)}
+                        placeholder="xxxx xxxx xxxx xxxx"
+                        className="w-full px-3 py-2 pr-10 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowCfgPass(!showCfgPass)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                      >
+                        {showCfgPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {cfgName && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {t('emailConfig.fromProfile')}: <span className="font-medium text-gray-700 dark:text-gray-300">{cfgName}</span>
+                    </p>
+                  )}
+
+                  {showAppPasswordHelp && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-blue-800 dark:text-blue-200">{t('emailConfig.helpTitle')}</p>
+                      <ol className="list-decimal list-inside space-y-1 text-xs text-blue-700 dark:text-blue-300">
+                        <li>{t('emailConfig.helpStep1')}</li>
+                        <li>{t('emailConfig.helpStep2')}</li>
+                        <li>{t('emailConfig.helpStep3')}</li>
+                      </ol>
+                      <p className="text-xs text-blue-600 dark:text-blue-400">
+                        <a
+                          href="https://myaccount.google.com/apppasswords"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="underline"
+                        >
+                          https://myaccount.google.com/apppasswords
+                        </a>
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {!setupMode && (
+                <>
+                  {/* Destinatario */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      {t('sendCv.to')}
+                    </label>
+                    <input
+                      type="email"
+                      value={to}
+                      onChange={(e) => setTo(e.target.value)}
+                      placeholder="reclutador@empresa.com"
+                      className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                    />
+                  </div>
+
+                  {/* Asunto */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      {t('sendCv.subject')}
+                    </label>
+                    <input
+                      type="text"
+                      value={subject}
+                      onChange={(e) => setSubject(e.target.value)}
+                      className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                    />
+                  </div>
+
+                  {/* Cuerpo */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      {t('sendCv.body')}
+                    </label>
+                    <textarea
+                      value={body}
+                      onChange={(e) => setBody(e.target.value)}
+                      rows={8}
+                      className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 resize-y"
+                    />
+                  </div>
+
+                  {/* Adjunto */}
+                  <div className="flex items-center gap-2 p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                    <FileText className="w-4 h-4 text-gray-400 shrink-0" />
+                    <span className="text-sm text-gray-700 dark:text-gray-300 flex-1">CV.pdf</span>
+                    <span className="text-xs text-gray-400">{t('sendCv.attachment')}</span>
+                  </div>
+                </>
+              )}
+
+              {sendResult && (
+                <div className={`flex items-start gap-2 p-3 rounded-lg text-sm ${
+                  sendResult.ok
+                    ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300'
+                    : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
+                }`}>
+                  <Check className="w-4 h-4 mt-0.5 shrink-0" />
+                  <span>{sendResult.message}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 p-4 border-t border-gray-200 dark:border-gray-700">
+              <Button variant="ghost" size="sm" onClick={() => setShowSendModal(false)}>
+                {t('sendCv.cancel')}
+              </Button>
+              {setupMode ? (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    if (!cfgUser.trim() || !cfgPass.trim()) {
+                      setSendResult({ ok: false, message: t('sendCv.fillConfig') })
+                      return
+                    }
+                    updateSettings({ emailConfig: buildCfgConfig() })
+                    setSetupMode(false)
+                  }}
+                >
+                  {t('sendCv.continue')}
+                </Button>
+              ) : (
+                <Button variant="primary" size="sm" onClick={handleSend} disabled={sending || !to.trim() || sendResult?.ok === true}>
+                  {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  {sending ? t('sendCv.sending') : t('sendCv.send')}
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

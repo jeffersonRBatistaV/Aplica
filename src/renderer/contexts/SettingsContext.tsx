@@ -1,10 +1,10 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react'
-import type { AppSettings, ThemeMode, Profile } from '../../shared/types'
+import type { AppSettings, ThemeMode, Profile, EmailConfig } from '../../shared/types'
 import i18n from '../i18n'
 
 const DEFAULT_SETTINGS: AppSettings = {
-  api: { baseUrl: 'http://localhost:11434/v1', apiKey: '', model: 'llama3', configured: false },
-  investigate: { baseUrl: 'https://aplica.207.244.232.191.sslip.io', apiToken: '', configured: true },
+  api: { baseUrl: 'http://localhost:11434/v1', apiKey: '', model: 'llama3', configured: false, maxContextTokens: 32768 },
+  investigate: { searchProvider: 'auto', maxSearchResults: 8, maxExtractChars: 15000, searchTimeout: 15000, extractTimeout: 15000 },
   appearance: { mode: 'system' },
   privacy: { storeHistory: true, excludeFromTraining: false },
   systemPrompt: '',
@@ -42,6 +42,18 @@ function mergeApi(saved: Partial<AppSettings> | null | undefined): AppSettings['
   return DEFAULT_SETTINGS.api
 }
 
+function buildSettings(saved: AppSettings | null | undefined, emailCfg: EmailConfig | null | undefined): AppSettings {
+  return {
+    ...DEFAULT_SETTINGS,
+    ...(saved ?? {}),
+    api: mergeApi(saved),
+    appearance: { ...DEFAULT_SETTINGS.appearance, ...saved?.appearance },
+    investigate: { ...DEFAULT_SETTINGS.investigate, ...saved?.investigate },
+    emailConfig: { ...DEFAULT_SETTINGS.emailConfig, ...(emailCfg ?? saved?.emailConfig ?? {}) },
+    lastSeenVersion: saved?.lastSeenVersion ?? DEFAULT_SETTINGS.lastSeenVersion,
+  } as AppSettings
+}
+
 interface SettingsContextValue {
   settings: AppSettings
   updateSettings: (partial: Partial<AppSettings>) => Promise<void>
@@ -77,18 +89,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setLoaded(true)
       return
     }
-    window.api.getSettings().then((saved) => {
+    window.api.getSettings().then(async (saved) => {
+      const emailCfg = await window.api.getEmailConfig().catch(() => null)
       if (saved) {
-        const merged = {
-          ...DEFAULT_SETTINGS,
-          ...saved,
-          api: mergeApi(saved),
-          appearance: { ...DEFAULT_SETTINGS.appearance, ...saved.appearance },
-          investigate: { ...DEFAULT_SETTINGS.investigate, ...saved.investigate },
-          emailConfig: { ...DEFAULT_SETTINGS.emailConfig, ...(saved.emailConfig ?? {}) },
-          lastSeenVersion: saved.lastSeenVersion ?? DEFAULT_SETTINGS.lastSeenVersion,
-        } as AppSettings
-        setSettings(merged)
+        setSettings(buildSettings(saved, emailCfg))
         if (saved.locale) {
           i18n.changeLanguage(saved.locale)
         }
@@ -101,19 +105,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const handler = () => {
       if (!window.api) return
-      window.api.getSettings().then((r) => {
-        const saved = r
+      Promise.all([window.api.getSettings(), window.api.getEmailConfig().catch(() => null)]).then(([saved, emailCfg]) => {
         if (saved) {
-          const merged = {
-            ...DEFAULT_SETTINGS,
-            ...saved,
-            api: mergeApi(saved),
-            appearance: { ...DEFAULT_SETTINGS.appearance, ...saved.appearance },
-            investigate: { ...DEFAULT_SETTINGS.investigate, ...saved.investigate },
-            emailConfig: { ...DEFAULT_SETTINGS.emailConfig, ...(saved.emailConfig ?? {}) },
-            lastSeenVersion: saved.lastSeenVersion ?? DEFAULT_SETTINGS.lastSeenVersion,
-          } as AppSettings
-          setSettings(merged)
+          setSettings(buildSettings(saved, emailCfg))
           if (saved.locale) {
             i18n.changeLanguage(saved.locale)
           }
@@ -128,6 +122,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const handler = () => {
       reloadProfiles()
+      if (!window.api) return
+      window.api.getEmailConfig().then((emailCfg) => {
+        setSettings((prev) => ({ ...prev, emailConfig: { ...DEFAULT_SETTINGS.emailConfig, ...(emailCfg ?? {}) } as EmailConfig }))
+      }).catch(() => {})
     }
     window.addEventListener('profile:updated', handler)
     window.addEventListener('profile:imported', handler)
@@ -140,7 +138,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const persist = useCallback(async (next: AppSettings) => {
     setSettings(next)
     if (window.api) {
-      await window.api.setSettings(next)
+      if (next.emailConfig) {
+        await window.api.setEmailConfig(next.emailConfig)
+      }
+      const { emailConfig: _emailConfig, ...rest } = next
+      await window.api.setSettings(rest as AppSettings)
     }
   }, [])
 

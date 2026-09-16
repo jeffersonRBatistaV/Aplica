@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { Upload, FileText, Loader2, Scan, X, ArrowLeft } from 'lucide-react'
+import { Upload, FileText, Loader2, Scan, X, ArrowLeft, Image as ImageIcon } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { isImageType } from '../../types/attachments'
 import { useTranslation } from 'react-i18next'
@@ -18,11 +18,82 @@ export function VacancyInput({ onAnalyze, analyzing, initialText }: VacancyInput
   const [ocrError, setOcrError] = useState<string | null>(null)
   const [pastedImage, setPastedImage] = useState<string | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
+  const [imageError, setImageError] = useState(false)
+  const imageIdRef = useRef(0)
+  const blobUrlRef = useRef<string | null>(null)
 
   useEffect(() => {
     setText(initialText || '')
+    setPastedImage(null)
+    setImageError(false)
+    if (blobUrlRef.current) {
+      URL.revokeObjectURL(blobUrlRef.current)
+      blobUrlRef.current = null
+    }
   }, [initialText])
+
+  useEffect(() => {
+    return () => {
+      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current)
+    }
+  }, [])
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  const isValidDataUrl = (s: string) => /^data:image\/(png|jpeg|jpg|gif|webp|bmp|svg\+xml);base64,/.test(s)
+
+  const dataURLtoBlob = (dataUrl: string): Blob | null => {
+    try {
+      const parts = dataUrl.split(',')
+      const mime = parts[0].match(/:(.*?);/)?.[1]
+      if (!mime) return null
+      const raw = atob(parts[1])
+      const arr = new Uint8Array(raw.length)
+      for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i)
+      return new Blob([arr], { type: mime })
+    } catch {
+      return null
+    }
+  }
+
+  const isDecodableImage = (dataUrl: string, id: number): Promise<{ ok: boolean; id: number }> =>
+    new Promise((resolve) => {
+      const img = new Image()
+      img.onload = () => resolve({ ok: true, id })
+      img.onerror = () => resolve({ ok: false, id })
+      img.src = dataUrl
+    })
+
+  const safeSetImage = (dataUrl: string | null) => {
+    setImageError(false)
+    const id = ++imageIdRef.current
+    if (blobUrlRef.current) {
+      URL.revokeObjectURL(blobUrlRef.current)
+      blobUrlRef.current = null
+    }
+    if (dataUrl && isValidDataUrl(dataUrl)) {
+      const blob = dataURLtoBlob(dataUrl)
+      if (blob) {
+        const blobUrl = URL.createObjectURL(blob)
+        blobUrlRef.current = blobUrl
+        setPastedImage(blobUrl)
+      }
+      isDecodableImage(dataUrl, id).then(({ ok, id: resolvedId }) => {
+        if (!ok && resolvedId === imageIdRef.current) setImageError(true)
+      })
+    } else {
+      setImageError(true)
+      setPastedImage(null)
+    }
+  }
+
+  const clearImage = () => {
+    if (blobUrlRef.current) {
+      URL.revokeObjectURL(blobUrlRef.current)
+      blobUrlRef.current = null
+    }
+    setPastedImage(null)
+    setImageError(false)
+  }
 
   const handleFile = useCallback(async (file: File) => {
     setOcrError(null)
@@ -35,7 +106,7 @@ export function VacancyInput({ onAnalyze, analyzing, initialText }: VacancyInput
           reader.onerror = reject
           reader.readAsDataURL(file)
         })
-        setPastedImage(base64)
+        safeSetImage(base64)
         const result = await window.api?.imageToText(base64)
         if (result) {
           setText(result)
@@ -66,13 +137,6 @@ export function VacancyInput({ onAnalyze, analyzing, initialText }: VacancyInput
       } else if (item.kind === 'file' && isImageType(item.type)) {
         const file = item.getAsFile()
         if (file) {
-          const reader = new FileReader()
-          const dataUrl = await new Promise<string>((resolve, reject) => {
-            reader.onload = () => resolve(reader.result as string)
-            reader.onerror = reject
-            reader.readAsDataURL(file)
-          })
-          setPastedImage(dataUrl)
           setOcrProcessing(true)
           handleFile(file).finally(() => setOcrProcessing(false))
         }
@@ -84,7 +148,7 @@ export function VacancyInput({ onAnalyze, analyzing, initialText }: VacancyInput
     if (!window.api) return
     const dataUrl = await window.api.readClipboardImage()
     if (!dataUrl) return
-    setPastedImage(dataUrl)
+    safeSetImage(dataUrl)
     setOcrProcessing(true)
     try {
       const result = await window.api.imageToText?.(dataUrl)
@@ -166,21 +230,36 @@ export function VacancyInput({ onAnalyze, analyzing, initialText }: VacancyInput
 
       {pastedImage && (
         <div className="relative mb-3 inline-block group">
-          <img
-            src={pastedImage}
-            alt={t('vacantes.viewImage')}
-            onClick={() => setModalOpen(true)}
-            className="max-h-40 rounded-lg cursor-pointer border border-gray-200 dark:border-gray-700"
-          />
+          {imageError ? (
+            <div className="flex items-center gap-2 px-4 py-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
+              <ImageIcon className="w-5 h-5 text-red-400" />
+              <span className="text-xs text-red-600 dark:text-red-400">{t('vacantes.imageLoadError')}</span>
+              <button
+                type="button"
+                onClick={() => clearImage()}
+                className="ml-auto p-0.5 rounded-full hover:bg-red-100 dark:hover:bg-red-800/30"
+              >
+                <X className="w-3.5 h-3.5 text-red-400" />
+              </button>
+            </div>
+          ) : (
+            <img
+              src={pastedImage}
+              alt={t('vacantes.viewImage')}
+              onClick={() => setModalOpen(true)}
+              onError={() => setImageError(true)}
+              className="max-h-40 rounded-lg cursor-pointer border border-gray-200 dark:border-gray-700"
+            />
+          )}
           {ocrProcessing && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg">
               <Loader2 className="w-6 h-6 text-white animate-spin" />
             </div>
           )}
-          {!ocrProcessing && (
+          {!ocrProcessing && !imageError && (
             <button
               type="button"
-              onClick={() => setPastedImage(null)}
+              onClick={clearImage}
               aria-label={t('common.close')}
               className="absolute top-1 right-1 p-1 rounded-full bg-black/60 text-white hover:bg-black/80"
             >
@@ -264,11 +343,19 @@ export function VacancyInput({ onAnalyze, analyzing, initialText }: VacancyInput
           </h3>
           <div className="flex flex-col md:flex-row gap-4 min-h-0">
             <div className="flex-1 flex items-center justify-center bg-gray-100 dark:bg-gray-900 rounded-lg p-2">
-              <img
-                src={pastedImage}
-                alt={t('vacantes.viewImage')}
-                className="max-h-[50vh] rounded-lg"
-              />
+              {imageError ? (
+                <div className="flex flex-col items-center gap-2 p-6">
+                  <ImageIcon className="w-10 h-10 text-gray-400" />
+                  <span className="text-sm text-gray-500">{t('vacantes.imageLoadError')}</span>
+                </div>
+              ) : (
+                <img
+                  src={pastedImage}
+                  alt={t('vacantes.viewImage')}
+                  onError={() => setImageError(true)}
+                  className="max-h-[50vh] rounded-lg"
+                />
+              )}
             </div>
             <div className="flex-1 overflow-auto">
               {text.trim() ? (

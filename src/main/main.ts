@@ -3,7 +3,8 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { registerAllHandlers } from './ipc'
 import { ensureDir, readJSON } from './services/storage'
-import { DATA_DIR, JOBS_FILE } from './utils/paths'
+import { DATA_DIR } from './utils/paths'
+import { migrateProfileScopedData, migrateLegacyEmailConfig, getActiveProfileFiles } from './services/profile-data'
 import { initUpdater } from './services/updater'
 import type { JobApplication } from '../shared/types'
 
@@ -55,6 +56,8 @@ nativeTheme.on('updated', () => {
 app.whenReady().then(async () => {
   Menu.setApplicationMenu(null)
   await ensureDir(DATA_DIR)
+  await migrateProfileScopedData()
+  await migrateLegacyEmailConfig()
   createWindow()
 
   if (mainWindow) {
@@ -72,7 +75,8 @@ app.whenReady().then(async () => {
 async function checkUpcomingInterviews(): Promise<void> {
   if (!Notification.isSupported()) return
   try {
-    const jobs = (await readJSON<JobApplication[]>(JOBS_FILE)) ?? []
+    const jobsFile = (await getActiveProfileFiles()).jobsFile
+    const jobs = (await readJSON<JobApplication[]>(jobsFile)) ?? []
     const now = Date.now()
     const windowMs = 24 * 3600 * 1000
     const upcoming = jobs.filter(

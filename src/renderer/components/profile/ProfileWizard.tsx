@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { X, ChevronRight, ChevronLeft, Check, Loader2, AlertCircle, Plus } from 'lucide-react'
 import { areas, questions as commonQuestions } from '../../data/questions'
-import type { Profile, Project } from '../../../shared/types'
+import type { Profile, Project, Reference } from '../../../shared/types'
 
 interface ProfileWizardProps {
   onClose: () => void
@@ -20,6 +20,9 @@ export function ProfileWizard({ onClose, onComplete, profileId }: ProfileWizardP
   const [areaId, setAreaId] = useState<string | null>(null)
   const [answers, setAnswers] = useState<Record<string, string | string[]>>({})
   const [projectList, setProjectList] = useState<Project[]>([])
+  const [eduEnabled, setEduEnabled] = useState(false)
+  const [refsEnabled, setRefsEnabled] = useState(false)
+  const [referenceList, setReferenceList] = useState<Reference[]>([])
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
@@ -122,6 +125,12 @@ export function ProfileWizard({ onClose, onComplete, profileId }: ProfileWizardP
       type: 'text',
       field: 'projects',
     })
+    filtered.push({
+      id: '_references',
+      text: 'Agrega tus referencias personales o profesionales:',
+      type: 'text',
+      field: 'references',
+    })
     return filtered
   }, [areaQuestions, certsAnswerNo, hasZeroYears, answers])
 
@@ -153,13 +162,18 @@ export function ProfileWizard({ onClose, onComplete, profileId }: ProfileWizardP
     if (step === 0) return areaId !== null
     if (step === 1) return contactFields.every((q) => {
       if (q.id === 'github' || q.id === 'linkedin' || q.id === 'portfolio' || q.id === 'photo' || q.id === 'country') return true
+      if (!eduEnabled) {
+        if (q.id === 'education_institution' || q.id === 'education_field' || q.id === 'education_start' || q.id === 'education_end') return true
+      } else if (q.id !== 'education_institution') {
+        if (q.id === 'education_field' || q.id === 'education_start' || q.id === 'education_end') return true
+      }
       const val = answers[q.id]
       return val && (typeof val === 'string' ? val.trim().length > 0 : val.length > 0)
     })
     const qIdx = step - 2
     if (qIdx < visibleQuestions.length) {
       const question = visibleQuestions[qIdx]
-      if (question.id === '_projects') return true
+      if (question.id === '_projects' || question.id === '_references') return true
       const val = answers[question.id]
       if (!val) return false
       if (typeof val === 'string' && !val.trim()) return false
@@ -295,16 +309,19 @@ export function ProfileWizard({ onClose, onComplete, profileId }: ProfileWizardP
         description: experienceDescription,
         highlights: projectsText ? projectsText.split('\n').filter(Boolean) : [],
       }],
-      education: [{
-        institution: (answers['education_institution'] as string) ?? '',
-        degree: eduLevel,
-        field: (answers['education_field'] as string) ?? '',
-        startDate: (answers['education_start'] as string) ?? '',
-        endDate: (answers['education_end'] as string) ?? '',
-      }],
+      education: eduEnabled && ((answers['education_institution'] as string) ?? '').trim()
+        ? [{
+            institution: (answers['education_institution'] as string) ?? '',
+            degree: eduLevel,
+            field: (answers['education_field'] as string) ?? '',
+            startDate: (answers['education_start'] as string) ?? '',
+            endDate: (answers['education_end'] as string) ?? '',
+          }]
+        : [],
       certifications,
       languages,
       projects: projectList,
+      references: refsEnabled ? referenceList : [],
     }
     return profile
   }
@@ -391,10 +408,11 @@ export function ProfileWizard({ onClose, onComplete, profileId }: ProfileWizardP
       </div>
 
       {contactFields.map((q) => {
+        if (q.id.startsWith('education_')) return null
         if (q.id === 'target_market' && q.options) {
           const val = (answers[q.id] as string) ?? ''
           return (
-            <div key={q.id}>
+<div key={q.id}>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{q.text}</label>
               <select
                 value={val}
@@ -411,7 +429,7 @@ export function ProfileWizard({ onClose, onComplete, profileId }: ProfileWizardP
         }
         return (
           <div key={q.id}>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{q.text}</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{q.text}{['country', 'github', 'linkedin', 'portfolio'].includes(q.id) ? ' (opcional)' : ''}</label>
             <input
               type="text"
               value={(answers[q.id] as string) ?? ''}
@@ -429,6 +447,53 @@ export function ProfileWizard({ onClose, onComplete, profileId }: ProfileWizardP
           </div>
         )
       })}
+
+      {/* Educación (grupo opcional con checkbox de salto) */}
+      <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={eduEnabled}
+            onChange={(e) => setEduEnabled(e.target.checked)}
+            className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-blue-500 focus:ring-blue-500/40"
+          />
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">¿Quieres agregar educación? (opcional)</span>
+        </label>
+        {eduEnabled && (
+          <div className="mt-3 space-y-3">
+            <input
+              type="text"
+              value={(answers['education_institution'] as string) ?? ''}
+              onChange={(e) => setAnswer('education_institution', e.target.value)}
+              placeholder="Institución educativa"
+              className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+            />
+            <input
+              type="text"
+              value={(answers['education_field'] as string) ?? ''}
+              onChange={(e) => setAnswer('education_field', e.target.value)}
+              placeholder="Campo de estudio (opcional)"
+              className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={(answers['education_start'] as string) ?? ''}
+                onChange={(e) => setAnswer('education_start', e.target.value)}
+                placeholder="Año de inicio (opcional)"
+                className="flex-1 px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+              />
+              <input
+                type="text"
+                value={(answers['education_end'] as string) ?? ''}
+                onChange={(e) => setAnswer('education_end', e.target.value)}
+                placeholder="Año de graduación (opcional)"
+                className="flex-1 px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+              />
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 
@@ -494,6 +559,80 @@ export function ProfileWizard({ onClose, onComplete, profileId }: ProfileWizardP
             <Plus className="w-4 h-4" />
             Agregar proyecto
           </button>
+        </div>
+      )
+    }
+
+    if (q.id === '_references') {
+      const addRef = () => {
+        setReferenceList(prev => [...prev, { type: 'personal' as const, name: '', relationship: '', contact: '' }])
+      }
+      const updateRef = (i: number, field: keyof Reference, value: string) => {
+        setReferenceList(prev => prev.map((r, j) => j === i ? { ...r, [field]: value } : r))
+      }
+      const removeRef = (i: number) => {
+        setReferenceList(prev => prev.filter((_, j) => j !== i))
+      }
+      return (
+        <div key={q.id} className="space-y-3">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{q.text}</label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={refsEnabled}
+              onChange={(e) => setRefsEnabled(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-blue-500 focus:ring-blue-500/40"
+            />
+            <span className="text-xs text-gray-500 dark:text-gray-400">Quiero agregar referencias (opcional)</span>
+          </label>
+          {refsEnabled && referenceList.map((ref, i) => (
+            <div key={i} className="p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-gray-500">Referencia {i + 1}</span>
+                <button onClick={() => removeRef(i)} className="text-red-400 hover:text-red-600">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <select
+                value={ref.type}
+                onChange={(e) => updateRef(i, 'type', e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+              >
+                <option value="personal">Personal</option>
+                <option value="professional">Profesional</option>
+              </select>
+              <input
+                type="text"
+                value={ref.name}
+                onChange={(e) => updateRef(i, 'name', e.target.value)}
+                placeholder="Nombre"
+                className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+              />
+              <input
+                type="text"
+                value={ref.relationship}
+                onChange={(e) => updateRef(i, 'relationship', e.target.value)}
+                placeholder="Relación (ej. Ex-jefe, Compañero)"
+                className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+              />
+              <input
+                type="text"
+                value={ref.contact}
+                onChange={(e) => updateRef(i, 'contact', e.target.value)}
+                placeholder="Contacto (email o teléfono)"
+                className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+              />
+            </div>
+          ))}
+          {refsEnabled && (
+            <button
+              onClick={addRef}
+              className="flex items-center gap-1.5 text-sm text-blue-500 hover:text-blue-600 font-medium"
+            >
+              <Plus className="w-4 h-4" />
+              Agregar referencia
+            </button>
+          )}
         </div>
       )
     }

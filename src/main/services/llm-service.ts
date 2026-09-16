@@ -1,27 +1,36 @@
 import type { Message, Profile, InvestigateResult, JobApplication, Roadmap, UsageStats } from '../../shared/types'
 
-const MAX_INPUT_TOKENS = 900000
+const DEFAULT_MAX_INPUT_TOKENS = 32768
 const ESTIMATE_FACTOR = 4
+const OUTPUT_RESERVE_RATIO = 0.25
 
 function estimateTokens(text: string): number {
   return Math.ceil(text.length / ESTIMATE_FACTOR)
 }
 
+/**
+ * Recorta el historial a una ventana deslizante que cabe en `maxTokens`,
+ * conservando SIEMPRE el mensaje de sistema y los mensajes MÁS RECIENTES.
+ * Reserva un margen del prompt para permitir que el modelo genere la respuesta.
+ */
 function truncateMessages(
   systemContent: string,
   messages: { role: string; content: string }[],
   maxTokens: number,
 ): { role: string; content: string }[] {
-  let total = estimateTokens(systemContent)
-  for (const m of messages) total += estimateTokens(m.content)
-  if (total <= maxTokens) return messages
+  const budget = Math.max(512, Math.floor(maxTokens * (1 - OUTPUT_RESERVE_RATIO)))
+  if (messages.length === 0) return messages
 
-  const result = [...messages]
-  while (result.length > 1) {
-    const removed = result.shift()!
-    total -= estimateTokens(removed.content)
-    if (total <= maxTokens) break
+  const result: { role: string; content: string }[] = []
+  let total = estimateTokens(systemContent)
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i]
+    const cost = estimateTokens(msg.content)
+    if (total + cost > budget && result.length > 0) break
+    result.unshift(msg)
+    total += cost
   }
+  if (result.length === 0) result.push(messages[messages.length - 1])
   return result
 }
 
@@ -29,6 +38,7 @@ interface LLMConfig {
   baseUrl: string
   apiKey: string
   model: string
+  maxContextTokens?: number
 }
 
 interface StreamCallbacks {
@@ -67,9 +77,8 @@ const INVESTIGATE_TOOL = {
 async function runInvestigateTool(query: string, onToken: (token: string) => void): Promise<string> {
   try {
     const { investigateStream } = await import('./investigate-service')
-    const { readJSON } = await import('./storage')
-    const { PROFILE_PATH } = await import('../utils/paths')
-    const profile = await readJSON<Profile>(PROFILE_PATH)
+    const { getActiveProfile } = await import('./profile-scope')
+    const profile = await getActiveProfile()
     const country = profile?.country || 'DO'
     const lang = /[^\x00-\x7F]/.test(query) ? 'es' : 'en'
     const result = await new Promise<InvestigateResult>((resolve, reject) => {
@@ -123,6 +132,7 @@ async function runAppDataTool(data: string): Promise<string> {
   try {
     const { readJSON } = await import('./storage')
     const paths = await import('../utils/paths')
+    const { getActiveProfileFiles } = await import('./profile-data')
 
     const statusLabel: Record<string, string> = {
       draft: 'Borrador',
@@ -137,9 +147,10 @@ async function runAppDataTool(data: string): Promise<string> {
       : validKeys // 'all' o valor desconocido
 
     const payload: Record<string, unknown> = {}
+    const activeFiles = await getActiveProfileFiles()
 
     if (requested.includes('jobs')) {
-      const jobs = (await readJSON<JobApplication[]>(paths.JOBS_FILE)) ?? []
+      const jobs = (await readJSON<JobApplication[]>(activeFiles.jobsFile)) ?? []
       payload.postulaciones = jobs.map((j) => ({
         empresa: j.company,
         puesto: j.position,
@@ -151,7 +162,7 @@ async function runAppDataTool(data: string): Promise<string> {
     }
 
     if (requested.includes('roadmap')) {
-      const roadmap = await readJSON<Roadmap>(paths.ROADMAP_FILE)
+      const roadmap = await readJSON<Roadmap>(activeFiles.roadmapFile)
       payload.roadmap = roadmap
         ? {
             targetMarket: roadmap.targetMarket,
@@ -166,11 +177,11 @@ async function runAppDataTool(data: string): Promise<string> {
     }
 
     if (requested.includes('career_advice')) {
-      payload.consejos_carrera = (await readJSON(paths.CAREER_ADVICE_FILE)) ?? {}
+      payload.consejos_carrera = (await readJSON(activeFiles.careerAdviceFile)) ?? {}
     }
 
     if (requested.includes('usage')) {
-      const usage = await readJSON<UsageStats>(paths.USAGE_FILE)
+      const usage = await readJSON<UsageStats>(activeFiles.usageFile)
       payload.uso_api = {
         totalPromptTokens: usage?.totalPromptTokens ?? 0,
         totalCompletionTokens: usage?.totalCompletionTokens ?? 0,
@@ -247,12 +258,13 @@ export async function streamChatCompletion(
       role: 'system',
       content: buildSystemPrompt(options?.systemPrompt, options?.profile),
     }
+    const maxTokens = config.maxContextTokens ?? DEFAULT_MAX_INPUT_TOKENS
     let apiMessages = [
       systemMessage,
       ...messages.map(({ role, content }) => ({ role, content })),
     ]
 
-    const truncated = truncateMessages(systemMessage.content, apiMessages.slice(1), MAX_INPUT_TOKENS)
+    const truncated = truncateMessages(systemMessage.content, apiMessages.slice(1), maxTokens)
     apiMessages = [systemMessage, ...truncated]
 
     // ── Pasada 1: con tools (el modelo decide si investigar o consultar datos de la app) ──
@@ -349,7 +361,7 @@ export async function streamChatCompletion(
         { role: 'user', content: results.join('\n\n---\n\n') },
       ]
       // Re-truncar si hace falta
-      const truncated2 = truncateMessages(systemMessage.content, apiMessages.slice(1), MAX_INPUT_TOKENS)
+      const truncated2 = truncateMessages(systemMessage.content, apiMessages.slice(1), maxTokens)
       apiMessages = [systemMessage, ...truncated2]
 
       const response2 = await fetchCompletion(config, apiMessages, signal, undefined, options?.excludeFromTraining)
@@ -420,7 +432,8 @@ export async function completeChatCompletion(
   const systemMsg = messages.find(m => m.role === 'system')
   const otherMessages = messages.filter(m => m.role !== 'system')
   const systemContent = systemMsg?.content ?? ''
-  const truncated = truncateMessages(systemContent, otherMessages, MAX_INPUT_TOKENS)
+  const maxTokens = config.maxContextTokens ?? DEFAULT_MAX_INPUT_TOKENS
+  const truncated = truncateMessages(systemContent, otherMessages, maxTokens)
   const finalMessages = systemMsg ? [systemMsg, ...truncated] : truncated
   const response = await fetchCompletion(config, finalMessages, signal, undefined, excludeFromTraining)
   if (!response.ok) {

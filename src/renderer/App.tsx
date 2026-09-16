@@ -6,6 +6,7 @@ import { ChatView } from './components/chat/ChatView'
 import { Vacantes } from './components/vacantes/Vacantes'
 import { Analytics } from './components/analytics/Analytics'
 import { RoadmapView } from './components/roadmap/RoadmapView'
+import { WhatsAppView } from './components/whatsapp/WhatsAppView'
 import { NotificationContainer } from './components/ui/NotificationContainer'
 import UpdateBanner from './components/updater/UpdateBanner'
 import { ProfileWizard } from './components/profile/ProfileWizard'
@@ -130,6 +131,9 @@ function AppContent() {
         </div>
         <div className={`flex-1 flex flex-col min-h-0 ${currentView === 'jobs' ? '' : 'hidden'}`}>
           <Vacantes />
+        </div>
+        <div className={`flex-1 flex flex-col min-h-0 ${currentView === 'whatsapp' ? '' : 'hidden'}`}>
+          <WhatsAppView />
         </div>
 
       {showWizard && (

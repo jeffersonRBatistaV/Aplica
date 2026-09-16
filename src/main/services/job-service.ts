@@ -77,10 +77,13 @@ Debes responder ÚNICAMENTE con un objeto JSON válido, sin texto adicional:
   "subject": "asunto sugerido para el correo basado en la vacante y el puesto"
 }
 
+Recuerda además: los valores coverLetterA y coverLetterB son SOLO el cuerpo del correo en texto plano. Prohibido incluir —dentro de ellos— el objeto JSON entero, claves como "coverLetterA"/"subject", llaves de apertura/cierre, ni placeholders entre corchetes.
+
 REGLAS ANTI-ALUCINACION (OBLIGATORIAS, PRIORIDAD ABSOLUTA):
 1. CERO ALUCINACIONES: Prohibido inventar, inferir o agregar tecnologias, habilidades, logros, años de experiencia, certificaciones o datos que no esten explicitamente en el perfil JSON del candidato.
 2. PROHIBICION DE ADAPTACION: Si la vacante pide una habilidad que el candidato NO tiene (ej. "experiencia en OBS Studio"), NO la afirmes ni la disfraces con "disponible para aprender", "habil para aprender rapidamente", "familiarizado con", "conocimientos basicos de" o similares. La carta solo menciona lo que el candidato ya sabe y ha hecho.
-3. CERO JUSTIFICACIONES: No escribas notas, parentesis ni meta-comentarios como "(no tengo experiencia en esto)". Si no puedes afirmar algo con el perfil, no lo escribas.${LANGUAGE_INSTRUCTION}`
+3. CERO JUSTIFICACIONES: No escribas notas, parentesis ni meta-comentarios como "(no tengo experiencia en esto)". Si no puedes afirmar algo con el perfil, no lo escribas.
+4. PROHIBIDO PLACEHOLDERS: No uses corchetes de plantilla ([Nombre], [Tu nombre], [Empresa], [Puesto], [Título]) ni texto genérico. Escribe la carta completa usando los datos reales del perfil.${LANGUAGE_INSTRUCTION}`
 
 function guessVacancyMeta(text: string): { company: string; position: string } {
   const clean = (s: string) => s.trim().replace(/\s+/g, ' ').replace(/[.,;:]+$/, '').slice(0, 60)
@@ -178,53 +181,105 @@ export async function analyzeVacancy(
   }
 }
 
-export async function generateCoverLetters(
-  vacancyText: string,
-  profile: Profile | null,
-  atsReport: ATSReport,
-): Promise<{ coverLetterA: string; coverLetterB: string; recruiterEmail: string; subject: string }> {
-  const config = await getConfig()
-  const profileSection = profile
-    ? `\n\n## PERFIL DEL CANDIDATO\n\`\`\`json\n${JSON.stringify(profile, null, 2)}\n\`\`\``
-    : '\n\n## PERFIL DEL CANDIDATO\nNo hay perfil disponible.'
+/** Deja el cuerpo de una carta en texto plano: sin wrapper JSON, headers repetidos ni markdown. */
+function cleanLetterBody(raw: string): string {
+  if (!raw) return ''
+  let text = raw.replace(/\r\n/g, '\n').trim()
 
-  const userMessage = `## VACANTE\n\n${vacancyText}${profileSection}\n\n## REPORTE ATS\n\nMatch Score: ${atsReport.matchScore}%\nFortalezas: ${atsReport.strengths.join(', ')}\nBrechas: ${atsReport.gaps.join(', ')}\nKeywords faltantes: ${atsReport.keywordsMissing.join(', ')}\n\nGenera las dos variaciones de carta en formato JSON.`
+  // Quitar residuos del wrapper JSON que a veces quedan dentro del body
+  text = text
+    .replace(/^\s*\{\s*$/gm, '')                     // "{"
+    .replace(/^\s*"\w+"\s*:\s*/gm, '')               // "coverLetterA":
+    .replace(/^\s*,\s*$/gm, '')                      // ","
+    .replace(/^\s*\}\s*$/gm, '')                     // "}"
+    .replace(/^[\s\S]*?"coverLetter[AB]"\s*:\s*/i, '') // body que arrastra el inicio del JSON
+    .trim()
 
-  const response = await completeChatCompletion(config, [
-    { role: 'system', content: COVER_LETTER_SYSTEM_PROMPT },
-    { role: 'user', content: userMessage },
-  ], undefined, 'cover_letters', config.excludeFromTraining)
-
-  // Strip markdown code fences
-  let clean = response.replace(/```(?:json)?\n?/gi, '').trim()
-
-  const jsonMatch = clean.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) {
-    return { coverLetterA: clean, coverLetterB: clean, recruiterEmail: '', subject: '' }
+  // Quitar líneas de header repetidas (To:/Subject:/De:/Asunto:/…)
+  const lines = text.split('\n')
+  while (lines.length > 0) {
+    const line = lines[0].trim()
+    if (!line) {
+      lines.shift()
+      continue
+    }
+    if (/^(to|from|subject|de|para|asunto|destinatario|titulo|título|email|re:)\s*[:：]/i.test(line)) {
+      lines.shift()
+      continue
+    }
+    break
   }
+  text = lines.join('\n').trim()
+
+  // Markdown → texto plano
+  text = text
+    .replace(/\*\*([^*]+)\*\*/g, '$1')              // **negrita**
+    .replace(/\*([^*]+)\*/g, '$1')                  // *cursiva*
+    .replace(/__([^_]+)__/g, '$1')                  // __negrita__
+    .replace(/#{1,6}\s*/g, '')                      // encabezados
+    .replace(/^>+\s?/gm, '')                        // citas
+    .replace(/^[-*+]\s+/gm, '')                     // listas - * +
+    .replace(/^\d+\.\s+/gm, '')                     // listas numeradas
+    .replace(/`([^`]+)`/g, '$1')                    // código inline
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')           // imágenes
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')        // links [texto](url)
+    .replace(/[_*]([^*_]+)[_*]/g, '$1')             // restos de _ * alrededor de palabras
+
+  // Máximo una línea en blanco consecutiva
+  text = text.split('\n').reduce((acc: string[], l) => {
+    if (!l.trim() && acc.length && !acc[acc.length - 1].trim()) return acc
+    acc.push(l)
+    return acc
+  }, []).join('\n').trim()
+
+  return text
+}
+
+/** Detección de contenido roto: JSON, claves de modelo o placeholders de plantilla. */
+function letterLooksBroken(body: string): boolean {
+  if (!body.trim()) return true
+  if (/^\s*\{\s*"\w+"/.test(body)) return true       // empieza como objeto JSON
+  if (/"coverLetter[AB]"\s*:/.test(body)) return true // cita su propia clave
+  if (/"subject"\s*:/.test(body)) return true
+  if (/\[[^\]]*(?:nombre|empresa|puesto|título|titulo|fecha|cargo|compa\w+|candidat\w*|position|company)\b[^\]]*\]/i.test(body)) return true // placeholders
+  return false
+}
+
+interface CoverLettersResult {
+  coverLetterA: string
+  coverLetterB: string
+  recruiterEmail: string
+  subject: string
+}
+
+/** Parsea la respuesta del modelo a un objeto de cartas seguro (o null si es irreparable). */
+function parseLettersResponse(response: string): CoverLettersResult | null {
+  const clean = response.replace(/```(?:json)?\n?/gi, '').trim()
+  const jsonMatch = clean.match(/\{[\s\S]*\}/)
+  if (!jsonMatch) return null
 
   let raw = jsonMatch[0]
 
-  // Try direct parse
+  // Intento 1: parse directo. Intentos 2-3: reparar saltos de línea sin escapar
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const parsed = JSON.parse(raw)
+      const parsed = JSON.parse(raw) as Record<string, unknown>
       return {
-        coverLetterA: parsed.coverLetterA ?? clean,
-        coverLetterB: parsed.coverLetterB ?? clean,
-        recruiterEmail: parsed.recruiterEmail ?? '',
-        subject: parsed.subject ?? '',
+        coverLetterA: typeof parsed.coverLetterA === 'string' ? parsed.coverLetterA : '',
+        coverLetterB: typeof parsed.coverLetterB === 'string' ? parsed.coverLetterB : '',
+        recruiterEmail: typeof parsed.recruiterEmail === 'string' ? parsed.recruiterEmail : '',
+        subject: typeof parsed.subject === 'string' ? parsed.subject : '',
       }
     } catch {
-      // Try to fix unescaped newlines inside strings: replace literal \n with \\n
-      raw = raw.replace(/:\s*"((?:[^"\\]|\\.)*)"/g, (_m, inner) => {
+      // Replace literal newlines inside strings with escaped \\n
+      raw = raw.replace(/:\s*"((?:[^"\\]|\\.)*)"/g, (_m, inner: string) => {
         const fixed = inner.replace(/\n/g, '\\n').replace(/\t/g, '\\t')
         return `: "${fixed}"`
       })
     }
   }
 
-  // Last resort: extract fields via character-by-character parse
+  // Último recurso: extracción campo por campo (carácter a carácter)
   const extractField = (key: string): string | null => {
     const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     const startMatch = raw.match(new RegExp(`"${escapedKey}"\\s*:\\s*"`))
@@ -254,19 +309,64 @@ export async function generateCoverLetters(
 
   const letterA = extractField('coverLetterA')
   const letterB = extractField('coverLetterB')
-  const email = extractField('recruiterEmail')
-  const subj = extractField('subject')
+  if (letterA === null && letterB === null) return null
 
-  if (letterA || letterB) {
+  return {
+    coverLetterA: letterA ?? '',
+    coverLetterB: letterB ?? '',
+    recruiterEmail: extractField('recruiterEmail') ?? '',
+    subject: extractField('subject') ?? '',
+  }
+}
+
+export async function generateCoverLetters(
+  vacancyText: string,
+  profile: Profile | null,
+  atsReport: ATSReport,
+): Promise<{ coverLetterA: string; coverLetterB: string; recruiterEmail: string; subject: string }> {
+  const config = await getConfig()
+  const profileSection = profile
+    ? `\n\n## PERFIL DEL CANDIDATO\n\`\`\`json\n${JSON.stringify(profile, null, 2)}\n\`\`\``
+    : '\n\n## PERFIL DEL CANDIDATO\nNo hay perfil disponible.'
+
+  const baseUserMessage = `## VACANTE\n\n${vacancyText}${profileSection}\n\n## REPORTE ATS\n\nMatch Score: ${atsReport.matchScore}%\nFortalezas: ${atsReport.strengths.join(', ')}\nBrechas: ${atsReport.gaps.join(', ')}\nKeywords faltantes: ${atsReport.keywordsMissing.join(', ')}\n\nGenera las dos variaciones de carta en formato JSON.`
+
+  const STRICT_SUFFIX = `\n\nIMPORTANTE (reintento): El valor de coverLetterA y coverLetterB debe ser EXCLUSIVAMENTE el cuerpo de la carta en texto plano: sin llaves, sin claves JSON, sin "subject", sin metadatos y sin placeholders entre corchetes. Refleja solo los datos reales del perfil del candidato.`
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const userMessage =
+      attempt === 0
+        ? baseUserMessage
+        : baseUserMessage + '\n\nLa generación anterior fue inválida. Vuelve a intentarlo con el cuerpo SOLO en texto plano.'
+    const systemPrompt = attempt === 0 ? COVER_LETTER_SYSTEM_PROMPT : COVER_LETTER_SYSTEM_PROMPT + STRICT_SUFFIX
+
+    const response = await completeChatCompletion(
+      config,
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage },
+      ],
+      undefined,
+      'cover_letters',
+      config.excludeFromTraining,
+    )
+
+    const parsed = parseLettersResponse(response)
+    if (!parsed) continue
+
+    const letterA = cleanLetterBody(parsed.coverLetterA)
+    const letterB = cleanLetterBody(parsed.coverLetterB)
+    if (letterLooksBroken(letterA) || letterLooksBroken(letterB)) continue
+
     return {
-      coverLetterA: letterA || clean,
-      coverLetterB: letterB || clean,
-      recruiterEmail: email || '',
-      subject: subj || '',
+      coverLetterA: letterA,
+      coverLetterB: letterB,
+      recruiterEmail: parsed.recruiterEmail.trim(),
+      subject: parsed.subject.replace(/[\r\n]+/g, ' ').replace(/[#*_`]/g, '').trim(),
     }
   }
 
-  return { coverLetterA: clean, coverLetterB: clean, recruiterEmail: email || '', subject: subj || '' }
+  throw new Error('No se pudo generar la carta de presentación. Revisa que la vacante tenga texto legible y vuelve a intentarlo.')
 }
 
 const CORRECT_VACANCY_PROMPT = `Eres un corrector de textos experto en limpiar errores de OCR (reconocimiento óptico de caracteres) y erratas en ofertas de empleo.

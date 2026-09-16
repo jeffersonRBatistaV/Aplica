@@ -1,7 +1,8 @@
 import type { JobCategory } from '../../shared/types'
 import { completeChatCompletion } from './llm-service'
-import { readJSON, writeJSON, ensureDir } from './storage'
-import { CATEGORIES_FILE, DATA_DIR, SETTINGS_FILE, FOLDERS_FILE } from '../utils/paths'
+import { readJSON, writeJSON } from './storage'
+import { SETTINGS_FILE } from '../utils/paths'
+import { getActiveProfileFiles, ensureParentDir } from './profile-data'
 
 interface LLMConfig {
   baseUrl: string
@@ -94,12 +95,14 @@ const SEED_CATEGORIES: JobCategory[] = [
 ]
 
 async function readAll(): Promise<JobCategory[]> {
-  return (await readJSON<JobCategory[]>(CATEGORIES_FILE)) ?? []
+  const { categoriesFile } = await getActiveProfileFiles()
+  return (await readJSON<JobCategory[]>(categoriesFile)) ?? []
 }
 
 async function writeAll(categories: JobCategory[]): Promise<void> {
-  await ensureDir(DATA_DIR)
-  await writeJSON(CATEGORIES_FILE, categories)
+  const { categoriesFile } = await getActiveProfileFiles()
+  await ensureParentDir(categoriesFile)
+  await writeJSON(categoriesFile, categories)
 }
 
 async function seedIfEmpty(): Promise<void> {
@@ -116,7 +119,6 @@ export async function listCategories(areaId?: string): Promise<JobCategory[]> {
 }
 
 export async function saveCategory(category: JobCategory): Promise<JobCategory[]> {
-  await ensureDir(DATA_DIR)
   const all = await readAll()
   const idx = all.findIndex((c) => c.id === category.id)
   if (idx >= 0) all[idx] = category
@@ -133,27 +135,30 @@ export async function deleteCategory(id: string): Promise<JobCategory[]> {
 }
 
 export async function listFolders(): Promise<string[]> {
-  await ensureDir(DATA_DIR)
-  const folders = (await readJSON<string[]>(FOLDERS_FILE)) ?? []
+  const { foldersFile } = await getActiveProfileFiles()
+  await ensureParentDir(foldersFile)
+  const folders = (await readJSON<string[]>(foldersFile)) ?? []
   return folders
 }
 
 export async function saveFolder(name: string): Promise<string[]> {
-  await ensureDir(DATA_DIR)
-  const folders = (await readJSON<string[]>(FOLDERS_FILE)) ?? []
+  const { foldersFile } = await getActiveProfileFiles()
+  await ensureParentDir(foldersFile)
+  const folders = (await readJSON<string[]>(foldersFile)) ?? []
   const original = name.trim()
   if (original && !folders.some((f) => f.toLowerCase() === original.toLowerCase())) {
     folders.push(original)
-    await writeJSON(FOLDERS_FILE, folders)
+    await writeJSON(foldersFile, folders)
   }
   return folders
 }
 
 export async function deleteFolder(name: string): Promise<string[]> {
-  await ensureDir(DATA_DIR)
-  const folders = (await readJSON<string[]>(FOLDERS_FILE)) ?? []
+  const { foldersFile } = await getActiveProfileFiles()
+  await ensureParentDir(foldersFile)
+  const folders = (await readJSON<string[]>(foldersFile)) ?? []
   const nextFolders = folders.filter((f) => f.toLowerCase() !== name.trim().toLowerCase())
-  await writeJSON(FOLDERS_FILE, nextFolders)
+  await writeJSON(foldersFile, nextFolders)
 
   const categories = await readAll()
   const nextCategories = categories.map((c) =>

@@ -101,23 +101,14 @@ export function RoadmapView() {
 
   useEffect(() => {
     const handler = () => {
-      setRefreshing(true)
-      window.api.getProfile().then((profile) => {
-        if (!profile) {
-          setHasProfile(false)
-          setRefreshing(false)
-          return
-        }
-        setHasProfile(true)
-        window.api.refreshRoadmap().then((fresh) => {
-          if (fresh) setRoadmap(fresh)
-          setRefreshing(false)
-        }).catch(() => setRefreshing(false))
-      })
+      setRoadmap(null)
+      setError(null)
+      setHasProfile(true)
+      loadRoadmap()
     }
     window.addEventListener('profile:updated', handler)
     return () => window.removeEventListener('profile:updated', handler)
-  }, [])
+  }, [loadRoadmap])
 
   const handleRefresh = async () => {
     setRefreshing(true)

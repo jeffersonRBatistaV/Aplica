@@ -1,7 +1,8 @@
 import type { Profile, AppSettings } from '../../shared/types'
 import { completeChatCompletion } from './llm-service'
-import { readJSON, writeJSON, ensureDir } from './storage'
-import { SETTINGS_FILE, CAREER_ADVICE_FILE, DATA_DIR } from '../utils/paths'
+import { readJSON, writeJSON } from './storage'
+import { SETTINGS_FILE } from '../utils/paths'
+import { getActiveProfileFiles, ensureParentDir } from './profile-data'
 
 interface LLMConfig {
   baseUrl: string
@@ -49,7 +50,8 @@ function extractCountry(location: string): string {
 }
 
 export async function loadCareerAdvice(): Promise<CareerAdvice | null> {
-  return readJSON<CareerAdvice>(CAREER_ADVICE_FILE)
+  const { careerAdviceFile } = await getActiveProfileFiles()
+  return readJSON<CareerAdvice>(careerAdviceFile)
 }
 
 export async function refreshCareerAdvice(
@@ -104,8 +106,9 @@ Devuelve SOLO un JSON valido con esta estructura exacta, sin markdown ni delimit
     if (!parsed.diagnostico || !parsed.areaMejora || !parsed.planAccion) {
       throw new Error('Missing fields')
     }
-    await ensureDir(DATA_DIR)
-    await writeJSON(CAREER_ADVICE_FILE, parsed)
+    const { careerAdviceFile } = await getActiveProfileFiles()
+    await ensureParentDir(careerAdviceFile)
+    await writeJSON(careerAdviceFile, parsed)
     return parsed
   } catch {
     return null

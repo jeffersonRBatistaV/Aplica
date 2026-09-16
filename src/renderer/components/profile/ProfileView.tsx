@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Pencil, Check, X, User, Briefcase, BookOpen, Award, Globe, Mail, Phone, MapPin, Code2, Link, Loader2, Target, Copy } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import type { Profile, Project } from '../../../shared/types'
+import type { Profile, Project, Reference } from '../../../shared/types'
 import { areas } from '../../data/questions'
 
 interface ProfileViewProps {
@@ -13,7 +13,7 @@ interface ProfileViewProps {
 export function ProfileView({ profile, onSave, onEdit }: ProfileViewProps) {
   const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState({ ...profile, projects: profile.projects ?? [], skillLevels: profile.skillLevels ?? {} })
+  const [draft, setDraft] = useState({ ...profile, projects: profile.projects ?? [], skillLevels: profile.skillLevels ?? {}, references: profile.references ?? [] })
   const [saving, setSaving] = useState(false)
   const [copied, setCopied] = useState(false)
 
@@ -38,7 +38,7 @@ export function ProfileView({ profile, onSave, onEdit }: ProfileViewProps) {
   }
 
   const handleCancel = () => {
-    setDraft({ ...profile, projects: profile.projects ?? [], skillLevels: profile.skillLevels ?? {} })
+    setDraft({ ...profile, projects: profile.projects ?? [], skillLevels: profile.skillLevels ?? {}, references: profile.references ?? [] })
     setEditing(false)
   }
 
@@ -258,6 +258,75 @@ export function ProfileView({ profile, onSave, onEdit }: ProfileViewProps) {
             </div>
           </div>
 
+          {/* References */}
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+            <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-3">{t('profile.references')}</h4>
+            <div className="space-y-3">
+              {(draft.references ?? []).map((ref, i) => (
+                <div key={i} className="p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-gray-500">{t('profile.referenceNumber', { number: i + 1 })}</span>
+                    <button onClick={() => setDraft({ ...draft, references: (draft.references ?? []).filter((_, j) => j !== i) })} className="text-red-400 hover:text-red-600">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <select
+                    value={ref.type}
+                    onChange={(e) => {
+                      const next = [...(draft.references ?? [])]
+                      next[i] = { ...next[i], type: e.target.value as Reference['type'] }
+                      setDraft({ ...draft, references: next })
+                    }}
+                    className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                  >
+                    <option value="personal">{t('profile.personal')}</option>
+                    <option value="professional">{t('profile.professional')}</option>
+                  </select>
+                  <input
+                    type="text"
+                    value={ref.name}
+                    onChange={(e) => {
+                      const next = [...(draft.references ?? [])]
+                      next[i] = { ...next[i], name: e.target.value }
+                      setDraft({ ...draft, references: next })
+                    }}
+                    placeholder={t('profile.referenceName')}
+                    className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                  />
+                  <input
+                    type="text"
+                    value={ref.relationship}
+                    onChange={(e) => {
+                      const next = [...(draft.references ?? [])]
+                      next[i] = { ...next[i], relationship: e.target.value }
+                      setDraft({ ...draft, references: next })
+                    }}
+                    placeholder={t('profile.relationship')}
+                    className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                  />
+                  <input
+                    type="text"
+                    value={ref.contact}
+                    onChange={(e) => {
+                      const next = [...(draft.references ?? [])]
+                      next[i] = { ...next[i], contact: e.target.value }
+                      setDraft({ ...draft, references: next })
+                    }}
+                    placeholder={t('profile.contact')}
+                    className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                  />
+                </div>
+              ))}
+              <button
+                onClick={() => setDraft({ ...draft, references: [...(draft.references ?? []), { type: 'personal', name: '', relationship: '', contact: '' }] })}
+                className="flex items-center gap-1.5 text-sm text-blue-500 hover:text-blue-600 font-medium"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                {t('profile.addReference')}
+              </button>
+            </div>
+          </div>
+
           {/* Education */}
           <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
             <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-3">{t('profile.education')}</h4>
@@ -380,6 +449,23 @@ export function ProfileView({ profile, onSave, onEdit }: ProfileViewProps) {
                   <span className="font-medium text-gray-700 dark:text-gray-300">{p.name}</span>
                   {p.description && <p className="text-xs text-gray-500 mt-0.5">{p.description}</p>}
                 </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {(profile.references ?? []).length > 0 && (
+          <div>
+            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1.5">{t('profile.references')}</span>
+            <div className="flex flex-wrap gap-1.5">
+              {(profile.references ?? []).map((ref, i) => (
+                <span key={i} className={`px-2 py-0.5 text-xs rounded-full ${ref.type === 'professional'
+                  ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                  : 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
+                }`}>
+                  {ref.name}
+                  {ref.relationship && ` · ${ref.relationship}`}
+                  {ref.contact && <span className="opacity-70"> · {ref.contact}</span>}
+                </span>
               ))}
             </div>
           </div>

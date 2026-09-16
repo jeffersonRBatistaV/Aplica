@@ -1,25 +1,33 @@
 import { useState, useEffect } from 'react'
-import { X, Cloud, BookText, Shield, Palette, User, Download, Languages } from 'lucide-react'
+import { X, Cloud, BookText, Shield, Palette, User, Download, Languages, Mail, Search, ScanText, MessageCircle } from 'lucide-react'
 import { useSettings } from '../../contexts/SettingsContext'
 import { useTheme } from '../../contexts/ThemeContext'
 import { useNotification } from '../../contexts/NotificationContext'
 import { ApiConfig } from './ApiConfig'
+import { EmailConfig } from './EmailConfig'
+import { ResearchConfig } from './ResearchConfig'
 import { SystemPrompts } from './SystemPrompts'
 import { PrivacySettings } from './PrivacySettings'
 import { ProfileView } from '../profile/ProfileView'
 import { ProfileWizard } from '../profile/ProfileWizard'
 import { DataExport } from './DataExport'
+import { OcrSettings } from './OcrSettings'
+import { WhatsAppSettings } from './WhatsAppSettings'
 import type { ThemeMode, Profile } from '../../../shared/types'
 import { useTranslation } from 'react-i18next'
 
-type Tab = 'api' | 'prompts' | 'privacy' | 'appearance' | 'profile' | 'data'
+type Tab = 'api' | 'prompts' | 'privacy' | 'appearance' | 'profile' | 'data' | 'email' | 'research' | 'ocr' | 'whatsapp'
 
 const tabs: { id: Tab; labelKey: string; icon: typeof Cloud }[] = [
   { id: 'profile', labelKey: 'settingsPanel.tabs.profile', icon: User },
   { id: 'api', labelKey: 'settingsPanel.tabs.api', icon: Cloud },
+  { id: 'email', labelKey: 'settingsPanel.tabs.email', icon: Mail },
+  { id: 'research', labelKey: 'settingsPanel.tabs.research', icon: Search },
+  { id: 'ocr', labelKey: 'settingsPanel.tabs.ocr', icon: ScanText },
   { id: 'prompts', labelKey: 'settingsPanel.tabs.prompts', icon: BookText },
   { id: 'privacy', labelKey: 'settingsPanel.tabs.privacy', icon: Shield },
   { id: 'appearance', labelKey: 'settingsPanel.tabs.appearance', icon: Palette },
+  { id: 'whatsapp', labelKey: 'settingsPanel.tabs.whatsapp', icon: MessageCircle },
   { id: 'data', labelKey: 'settingsPanel.tabs.data', icon: Download },
 ]
 
@@ -122,6 +130,24 @@ export function SettingsPanel({ onClose, initialTab = 'profile' }: SettingsPanel
           />
         )}
 
+        {activeTab === 'email' && (
+          <EmailConfig />
+        )}
+
+        {activeTab === 'research' && (
+          <ResearchConfig
+            config={settings.investigate}
+            onChange={(investigate) => updateSettings({ investigate })}
+          />
+        )}
+
+        {activeTab === 'ocr' && (
+          <OcrSettings
+            method={settings.ocr?.method ?? 'auto'}
+            onChange={(ocr) => updateSettings({ ocr })}
+          />
+        )}
+
         {activeTab === 'prompts' && (
           <SystemPrompts
             systemPrompt={settings.systemPrompt}
@@ -164,6 +190,10 @@ export function SettingsPanel({ onClose, initialTab = 'profile' }: SettingsPanel
 
         {activeTab === 'data' && (
           <DataExport />
+        )}
+
+        {activeTab === 'whatsapp' && (
+          <WhatsAppSettings />
         )}
 
         {activeTab === 'appearance' && (

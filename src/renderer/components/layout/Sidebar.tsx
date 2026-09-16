@@ -152,7 +152,7 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
         </div>
 
         {/* Navigation */}
-        <div className="grid grid-cols-2 gap-1 mb-3">
+        <div className="grid grid-cols-3 gap-1 mb-3">
           <button
             id="nav-jobs"
             onClick={() => setCurrentView('jobs')}
@@ -164,6 +164,19 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
           >
             <Briefcase className="w-3.5 h-3.5" />
             {t('sidebar.jobs')}
+          </button>
+          <button
+            id="nav-whatsapp"
+            onClick={() => setCurrentView('whatsapp')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors justify-center ${
+              currentView === 'whatsapp'
+                ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300'
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+            }`}
+            title={t('sidebar.whatsapp')}
+          >
+            <MessageCircle className="w-3.5 h-3.5" />
+            <span className="truncate">{t('sidebar.whatsapp')}</span>
           </button>
           <button
             id="nav-stats"

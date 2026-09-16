@@ -119,6 +119,20 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('data:imported', handler)
   }, [])
 
+  // Re-fetch conversations when the active profile changes (cada perfil tiene sus chats)
+  useEffect(() => {
+    const handler = () => {
+      if (window.api) {
+        window.api.getConversations().then((chats) => {
+          setConversations(chats)
+          setActiveConversationId(null)
+        })
+      }
+    }
+    window.addEventListener('profile:updated', handler)
+    return () => window.removeEventListener('profile:updated', handler)
+  }, [])
+
   const findConversation = useCallback(
     (id: string) => conversations.find((c) => c.id === id) ?? null,
     [conversations],

@@ -15,14 +15,16 @@ export function ApiSetupModal({ onComplete }: ApiSetupModalProps) {
   const [apiKey, setApiKey] = useState(settings.api.apiKey)
   const [model, setModel] = useState(settings.api.model)
   const [visionModel, setVisionModel] = useState(settings.api.visionModel)
+  const [maxContextTokens, setMaxContextTokens] = useState(settings.api.maxContextTokens ?? 32768)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const handleChange = (config: { baseUrl: string; apiKey: string; model: string; visionModel?: string }) => {
+  const handleChange = (config: { baseUrl: string; apiKey: string; model: string; visionModel?: string; maxContextTokens?: number }) => {
     setBaseUrl(config.baseUrl)
     setApiKey(config.apiKey)
     setModel(config.model)
     setVisionModel(config.visionModel)
+    setMaxContextTokens(config.maxContextTokens ?? 32768)
   }
 
   const handleSave = async () => {
@@ -30,7 +32,7 @@ export function ApiSetupModal({ onComplete }: ApiSetupModalProps) {
     setError(null)
     try {
       await updateSettings({
-        api: { baseUrl, apiKey, model, visionModel, configured: true },
+        api: { baseUrl, apiKey, model, visionModel, configured: true, maxContextTokens },
       })
       onComplete()
     } catch (err) {

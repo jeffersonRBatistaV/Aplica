@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Briefcase, Library, Columns, FileText, Loader2, AlertCircle, Layers, Check } from 'lucide-react'
+import type { WhatsAppVacancy } from '../../../shared/types'
 import { VacancyInput } from './VacancyInput'
 import { ATSReportView } from './ATSReport'
 import { CoverLetterGenerator } from './CoverLetterGenerator'
@@ -141,6 +142,7 @@ export function Vacantes() {
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<Tab>('new')
   const [vacancyText, setVacancyText] = useState('')
+  const whatsappImportRef = useRef<{ id: string; text: string } | null>(null)
   const [analyzing, setAnalyzing] = useState(false)
   const [atsReport, setAtsReport] = useState<ATSReport | null>(null)
   const [generatingLetters, setGeneratingLetters] = useState(false)
@@ -191,6 +193,22 @@ export function Vacantes() {
     } catch {
       // Ignore malformed draft
     }
+  }, [])
+
+  // Importar vacante detectada desde WhatsApp
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const vacancy = (e as CustomEvent<WhatsAppVacancy>).detail
+      if (!vacancy) return
+      handleNewApp()
+      const text = vacancy.vacancyText || vacancy.snippet
+      whatsappImportRef.current = { id: vacancy.id, text }
+      setVacancyText(text)
+      setRecruiterEmail(vacancy.email || '')
+      setActiveTab('new')
+    }
+    window.addEventListener('aplica:vacancyImport', handler)
+    return () => window.removeEventListener('aplica:vacancyImport', handler)
   }, [])
 
   const handleUpdateApp = (patch: Partial<JobApplication>) => {
@@ -315,6 +333,12 @@ export function Vacantes() {
       }
       await window.api.saveJob(app)
       setCurrentApp(app)
+
+      const imported = whatsappImportRef.current
+      if (imported && (imported.text === text || imported.text === cleanText)) {
+        whatsappImportRef.current = null
+        window.dispatchEvent(new CustomEvent('aplica:whatsappImported', { detail: imported.id }))
+      }
 
       setGeneratingLetters(true)
       const letters = await window.api.generateCoverLetters(cleanText, report)
@@ -584,6 +608,13 @@ export function Vacantes() {
                     currentStyle={cvStyle}
                     currentContent={cvContent}
                     onSave={handleSaveCV}
+                    jobId={currentApp?.id}
+                    onSent={() => handleUpdateApp({ status: 'applied' })}
+                    recipientEmail={recruiterEmail}
+                    emailSubject={emailSubject}
+                    coverLetterBody={coverLetterA}
+                    companyName={currentApp?.company}
+                    positionName={currentApp?.position}
                   />
                 </div>
 

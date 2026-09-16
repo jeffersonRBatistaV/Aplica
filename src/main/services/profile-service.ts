@@ -74,21 +74,10 @@ export async function saveProfile(profile: Profile): Promise<Profile> {
   const file = await loadProfilesFile()
 
   let id = profile.id
-  const exists = id ? file.profiles.some((p: Profile) => p.id === id) : false
-
-  if (!id || !exists) {
-    const hasPrevProfiles = file.profiles.length > 0
+  if (!id) {
+    // Sin id (edición desde el wizard): reutilizar el perfil activo, nunca crear un UUID nuevo.
     const activeExists = !!file.activeId && file.profiles.some((p: Profile) => p.id === file.activeId)
-    if (!id && activeExists) {
-      // Perfil vacío pero hay uno activo previo: reutilizar su id, nunca crear UUID nuevo.
-      id = file.activeId
-    } else if (hasPrevProfiles) {
-      // Hay perfiles previos: preservar en lugar de generar un UUID nuevo.
-      id = activeExists ? file.activeId : (file.profiles[0]?.id || randomUUID())
-    } else {
-      // Sin perfiles previos: es un perfil nuevo.
-      id = profile.id || randomUUID()
-    }
+    id = activeExists ? file.activeId : (file.profiles[0]?.id || randomUUID())
   }
 
   const toSave: Profile = { ...profile, id }

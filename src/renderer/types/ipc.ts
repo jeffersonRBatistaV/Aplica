@@ -1,4 +1,4 @@
-import type { Conversation, AppSettings, StreamParams, Profile, JobApplication, ATSReport, CvTemplate, InterviewQuestion, UsageStats, ImportResult, Roadmap, JobCategory, InvestigateResult, CvVersion, EmailConfig, EmailPayload, EmailPreset, EmailResult } from '../../shared/types'
+import type { Conversation, AppSettings, StreamParams, Profile, JobApplication, ATSReport, CvTemplate, InterviewQuestion, UsageStats, ImportResult, Roadmap, JobCategory, InvestigateResult, CvVersion, EmailConfig, EmailPayload, EmailPreset, EmailResult, WhatsAppConfig, WhatsAppGroup, WhatsAppScanResult, WhatsAppStatus, WhatsAppVacancy } from '../../shared/types'
 
 export interface UpdateInfo {
   version: string
@@ -17,6 +17,18 @@ export interface ModelInfo {
   id: string
   name?: string
 }
+
+export interface WhatsAppStatusEvent {
+  status: WhatsAppStatus
+  qr?: string
+  message?: string
+  hasSession?: boolean
+}
+
+export type WhatsAppServiceEvent =
+  | { type: 'status'; payload: WhatsAppStatusEvent }
+  | { type: 'vacancy'; payload: WhatsAppVacancy }
+  | { type: 'phase'; payload: string }
 
 export interface ElectronAPI {
   // File System
@@ -43,6 +55,20 @@ export interface ElectronAPI {
   investigate: (userQuery: string, country: string, language: string) => Promise<InvestigateResult>
   investigateHealth: () => Promise<{ ok: boolean; message: string }>
   investigateDiscover: () => Promise<{ baseUrl: string; found: boolean; message: string }>
+
+  // WhatsApp (detección de vacantes)
+  whatsappStatus: () => Promise<WhatsAppStatusEvent>
+  whatsappConnect: () => Promise<WhatsAppStatusEvent>
+  whatsappDisconnect: () => Promise<void>
+  whatsappGetGroups: () => Promise<WhatsAppGroup[]>
+  whatsappScan: (groupIds: string[], limit?: number) => Promise<WhatsAppScanResult>
+  whatsappGetQueue: () => Promise<WhatsAppVacancy[]>
+  whatsappMarkImported: (vacancyId: string) => Promise<void>
+  whatsappRemoveFromQueue: (vacancyId: string) => Promise<void>
+  whatsappRemoveFromQueueMany: (vacancyIds: string[]) => Promise<void>
+  whatsappGetConfig: () => Promise<WhatsAppConfig>
+  whatsappSetConfig: (config: WhatsAppConfig) => Promise<void>
+  onWhatsAppEvent: (callback: (event: WhatsAppServiceEvent) => void) => () => void
 
   // Profile
   getProfile: () => Promise<Profile | null>
@@ -81,6 +107,7 @@ export interface ElectronAPI {
   // CV
   generateSummaryOptions: (vacancyText: string, atsReport: ATSReport | null) => Promise<{ id: string; label: string; summary: string }[]>
   downloadCvPdf: (htmlContent: string, styleName: string) => Promise<string | null>
+  renderCvPdfBase64: (htmlContent: string, styleName: string) => Promise<string | null>
   generateCV: (vacancyText: string, atsReport: ATSReport | null, style: string, customPrompt?: string, chosenSummary?: string) => Promise<string>
   regenerateCV: (params: {
     currentCv: string
@@ -144,6 +171,8 @@ export interface ElectronAPI {
   getEmailPresets: () => Promise<Record<string, EmailPreset>>
   testEmailConnection: (config: EmailConfig) => Promise<EmailResult>
   sendEmail: (config: EmailConfig, payload: EmailPayload) => Promise<EmailResult>
+  getEmailConfig: () => Promise<EmailConfig | null>
+  setEmailConfig: (config: EmailConfig) => Promise<void>
 }
 
 declare global {

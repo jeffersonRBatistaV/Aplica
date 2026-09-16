@@ -36,6 +36,7 @@ export interface AppSettings {
   preferredCurrency: string
   emailConfig?: EmailConfig
   lastSeenVersion?: string
+  ocr?: OcrConfig
 }
 
 export interface EmailPreset {
@@ -67,13 +68,34 @@ export interface ApiConfig {
   model: string
   visionModel?: string
   configured?: boolean
+  maxContextTokens?: number
 }
 
-/** Configuración del backend de investigación en línea (SearXNG + Jina + LLM). */
+export interface ProviderDiagnostic {
+  provider: string
+  status: 'ok' | 'failed' | 'skipped'
+  results: number
+  error?: string
+}
+
+/** Configuración de investigación web local (pipeline: búsqueda → extracción → síntesis LLM). */
 export interface InvestigateConfig {
-  baseUrl: string
-  apiToken: string
-  configured?: boolean
+  /** Motor de búsqueda preferido: 'auto' usa DuckDuckGo → SearXNG → Bing → Brave → Google con fallback automático. */
+  searchProvider: 'auto' | 'duckduckgo' | 'searxng' | 'bing' | 'brave' | 'google'
+  /** Brave Search API key (gratis en brave.com/search/api, 2000/mes). */
+  braveApiKey?: string
+  /** Google Custom Search API key (gratis en console.cloud.google.com, 100/día). */
+  googleApiKey?: string
+  /** Google Custom Search Engine ID. */
+  googleSearchEngineId?: string
+  /** Máximo de resultados por búsqueda. */
+  maxSearchResults: number
+  /** Máximo de caracteres extraídos por página. */
+  maxExtractChars: number
+  /** Timeout de búsqueda en ms. */
+  searchTimeout: number
+  /** Timeout de extracción en ms. */
+  extractTimeout: number
 }
 
 export interface InvestigateResult {
@@ -97,6 +119,13 @@ export interface PrivacyConfig {
 export interface Project {
   name: string
   description: string
+}
+
+export interface Reference {
+  type: 'personal' | 'professional'
+  name: string
+  relationship: string
+  contact: string
 }
 
 export interface UsageRecord {
@@ -138,6 +167,7 @@ export interface Profile {
   certifications: string[]
   languages: string[]
   projects: Project[]
+  references: Reference[]
 }
 
 export interface Experience {
@@ -214,6 +244,8 @@ export interface JobApplication {
   emailSubject: string
   interviewQuestions: InterviewQuestion[]
   interviewDate?: number
+  /** URL de origen si la vacante fue importada desde el buscador web. */
+  sourceUrl?: string
 }
 
 export interface InterviewQuestion {
@@ -233,12 +265,61 @@ export interface JobCategory {
   folder?: string
 }
 
-export type AppView = 'chat' | 'jobs' | 'analytics' | 'roadmap'
+export type AppView = 'chat' | 'jobs' | 'analytics' | 'roadmap' | 'whatsapp'
 
 export interface RoadmapAction {
   title: string
   description: string
   priority: 'alta' | 'media' | 'baja'
+}
+
+export type OcrMethod = 'auto' | 'tesseract' | 'vision'
+
+export interface OcrConfig {
+  method: OcrMethod
+}
+
+export type WhatsAppStatus = 'disconnected' | 'connecting' | 'qr' | 'authenticated' | 'connected' | 'failed'
+
+export type WhatsAppTargetType = 'group' | 'channel'
+
+export interface WhatsAppGroup {
+  id: string
+  name: string
+  type: WhatsAppTargetType
+  participants?: number
+}
+
+export interface WhatsAppVacancy {
+  id: string
+  title: string
+  company?: string
+  category?: string
+  snippet: string
+  vacancyText: string
+  groupId: string
+  groupName: string
+  messageTime: number
+  author?: string
+  hasImage: boolean
+  ocrText?: string
+  email?: string
+  sourceUrl?: string
+}
+
+export interface WhatsAppScanResult {
+  vacancies: WhatsAppVacancy[]
+  scanned: number
+  phases: string[]
+}
+
+export interface WhatsAppConfig {
+  monitoredGroups: string[]
+  realtime: boolean
+  /** Si está activo, las vacantes clasificadas como 'General / Otra' también se descartan de la cola. */
+  strictAreaFilter?: boolean
+  vacancyQueue: WhatsAppVacancy[]
+  processedMessageIds: string[]
 }
 
 export interface RoadmapPhase {

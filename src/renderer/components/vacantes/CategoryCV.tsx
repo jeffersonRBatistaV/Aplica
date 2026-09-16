@@ -6,7 +6,7 @@ import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { CVGenerator } from './CVGenerator'
 import { areas } from '../../data/questions'
 import { buildCategoryText } from '../../../shared/categories'
-import type { JobCategory, JobApplication, Profile } from '../../../shared/types'
+import type { JobCategory, JobApplication, Profile, JobStatus } from '../../../shared/types'
 
 type Step = 'list' | 'position' | 'cv'
 
@@ -88,6 +88,19 @@ export function CategoryCV() {
       if (p?.area) setAreaId(p.area)
     })
   }, [])
+
+  useEffect(() => {
+    const handler = () => {
+      window.api?.getProfile().then((p) => {
+        setProfile(p)
+        if (p?.area) setAreaId(p.area)
+      })
+      reloadSaved()
+      reloadFolders()
+    }
+    window.addEventListener('profile:updated', handler)
+    return () => window.removeEventListener('profile:updated', handler)
+  }, [reloadSaved, reloadFolders])
 
   useEffect(() => {
     reloadSaved()
@@ -302,6 +315,14 @@ export function CategoryCV() {
     await reloadSaved()
   }
 
+  const handleSentEmail = async () => {
+    if (!window.api || !jobApp) return
+    const updated = { ...jobApp, status: 'applied' as JobStatus, updatedAt: Date.now() }
+    await window.api.saveJob(updated)
+    setJobApp(updated)
+    await reloadSaved()
+  }
+
   const handleOpenSaved = (app: JobApplication) => {
     setActiveCategory({
       id: app.category,
@@ -394,6 +415,12 @@ export function CategoryCV() {
           currentContent={cvContent}
           onSave={handleSaveCV}
           jobId={jobApp.id}
+          onSent={handleSentEmail}
+          recipientEmail={jobApp.recipientEmail}
+          emailSubject={jobApp.emailSubject}
+          coverLetterBody={jobApp.coverLetterA}
+          companyName={jobApp.company}
+          positionName={jobApp.position}
         />
       </div>
     )

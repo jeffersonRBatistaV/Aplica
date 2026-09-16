@@ -13,3 +13,4 @@ cv-*.html
 cv-*.pdf
 *.tar.gz
 *.traineddata
+.wwebjs_cache/

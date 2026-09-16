@@ -95,7 +95,11 @@ export function DocumentLibrary({ onSelect }: DocumentLibraryProps) {
   useEffect(() => {
     const handler = () => load()
     window.addEventListener('data:imported', handler)
-    return () => window.removeEventListener('data:imported', handler)
+    window.addEventListener('profile:updated', handler)
+    return () => {
+      window.removeEventListener('data:imported', handler)
+      window.removeEventListener('profile:updated', handler)
+    }
   }, [])
 
   const handleSaveCompany = async (oldKey: string, newName: string) => {

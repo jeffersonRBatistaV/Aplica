@@ -173,6 +173,7 @@ export function Analytics() {
   const [salarySources, setSalarySources] = useState<{ url: string; title: string }[]>([])
   const [salaryLoading, setSalaryLoading] = useState(false)
   const [salaryPhase, setSalaryPhase] = useState<string | null>(null)
+  const [salaryError, setSalaryError] = useState<string | null>(null)
   const [country, setCountry] = useState<string | null>(null)
 
   useEffect(() => {
@@ -214,18 +215,27 @@ export function Analytics() {
   useEffect(() => {
     const handler = async () => {
       try {
-        const [conversations, jobs] = await Promise.all([
+        const [conversations, jobs, cachedAdvice, profile] = await Promise.all([
           window.api.getConversations(),
           window.api.getJobs(),
+          window.api.getCareerAdvice(),
+          window.api.getProfile(),
         ])
+        if (profile?.country) setCountry(profile.country)
         computeStats(conversations, jobs)
         setAllJobs(jobs)
+        setAdvice(cachedAdvice)
+        setAdviceLoading(false)
       } catch (e) {
         console.error('Failed to refresh analytics data', e)
       }
     }
     window.addEventListener('data:imported', handler)
-    return () => window.removeEventListener('data:imported', handler)
+    window.addEventListener('profile:updated', handler)
+    return () => {
+      window.removeEventListener('data:imported', handler)
+      window.removeEventListener('profile:updated', handler)
+    }
   }, [])
 
   function computeStats(conversations: Conversation[], jobs: JobApplication[]) {
@@ -279,6 +289,7 @@ export function Analytics() {
     setSalaryResult(null)
     setSalarySources([])
     setSalaryPhase(null)
+    setSalaryError(null)
     const unsub = window.api.onInvestigatePhase((p) => setSalaryPhase(p.message))
     try {
       const res = await window.api.investigate(
@@ -290,8 +301,7 @@ export function Analytics() {
       setSalarySources(res.sources || [])
     } catch (e) {
       console.error('Failed to check salary', e)
-      setSalaryResult(null)
-      setSalarySources([])
+      setSalaryError(e instanceof Error ? e.message : t('analytics.salaryError'))
     } finally {
       unsub()
       setSalaryLoading(false)
@@ -682,6 +692,12 @@ export function Analytics() {
               <Loader2 className="w-3 h-3 animate-spin shrink-0" />
               <span>{salaryPhase}</span>
             </div>
+          </div>
+        )}
+
+        {salaryError && (
+          <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3">
+            <p className="text-xs text-red-600 dark:text-red-400">{salaryError}</p>
           </div>
         )}
 
