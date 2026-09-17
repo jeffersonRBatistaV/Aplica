@@ -347,7 +347,7 @@ async function flushRealtimePending(): Promise<void> {
       if (!serial || (await isProcessed(serial))) continue
       const vacant = await processMessage(msg, chat.name || msg.from, msg.from)
       if (vacant) emit({ type: 'vacancy', payload: vacant })
-      await persistProcessed(serial)
+      if (vacant || !msg.hasMedia) await persistProcessed(serial)
     } catch {
       /* realtime message errors are non-fatal */
     }
@@ -706,7 +706,7 @@ async function fetchRawMessages(
   }
 }
 
-export async function scanWhatsAppGroups(groupIds: string[], limit = 30): Promise<WhatsAppScanResult> {
+export async function scanWhatsAppGroups(groupIds: string[], limit = 100): Promise<WhatsAppScanResult> {
   if (!client || status !== 'connected') {
     return { vacancies: [], scanned: 0, phases: [] }
   }
@@ -743,7 +743,9 @@ export async function scanWhatsAppGroups(groupIds: string[], limit = 30): Promis
         const vacant = await processMessage(msg, name || gid, gid, debugLog)
         debugLog(`[scan]   ${serial} -> ${vacant ? 'VACANTE OK' : 'no detectada'}`)
         if (vacant) result.push(vacant)
-        await persistProcessed(serial)
+        // Solo marcar como procesado cuando hay detección o cuando no hay media:
+        // mensajes con imagen sin detectar se re-OCRean en el siguiente escaneo.
+        if (vacant || !msg.hasMedia) await persistProcessed(serial)
       }
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err)
@@ -769,15 +771,16 @@ export async function getWhatsAppQueue(): Promise<WhatsAppVacancy[]> {
     const kept = queue.filter((v) => isVacancyInArea(v.category, profile.area, strict))
     if (kept.length !== store.queue.length) queue = kept
   }
-  // WhatsApp: solo vacantes que aporten correo de contacto (descarta enlaces sin email).
-  const withEmail = queue.filter((v) => v.email)
-  if (withEmail.length !== store.queue.length) {
-    const removed = store.queue.length - withEmail.length
-    store.queue = withEmail
+  // WhatsApp: se conservan las vacantes que aporten algún medio de contacto
+  // (correo, teléfono o enlace). Solo se descartan las que no traen ninguno.
+  const withContact = queue.filter((v) => v.email || v.phone || v.sourceUrl)
+  if (withContact.length !== store.queue.length) {
+    const removed = store.queue.length - withContact.length
+    store.queue = withContact
     await writeStore(store)
-    console.log(`[wa:queue] barrido: ${removed} vacantes sin correo descartadas`)
+    console.log(`[wa:queue] barrido: ${removed} vacantes sin contacto descartadas`)
   }
-  return withEmail
+  return withContact
 }
 
 export async function markWhatsAppVacancyImported(vacancyId: string): Promise<void> {

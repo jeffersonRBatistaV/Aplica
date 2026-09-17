@@ -369,7 +369,7 @@ export function WhatsAppView() {
               {config?.realtime ? <Loader2 className="w-4 h-4" /> : <MessageCircle className="w-4 h-4" />}
               {config?.realtime ? t('whatsapp.monitoringActive') : t('whatsapp.enableMonitoring')}
             </Button>
-            <Button variant="secondary" onClick={() => void handleScan(50)} disabled={scanning || selectedGroups.length === 0}>
+            <Button variant="secondary" onClick={() => void handleScan(200)} disabled={scanning || selectedGroups.length === 0}>
               {t('whatsapp.scanDeep')}
             </Button>
           </div>

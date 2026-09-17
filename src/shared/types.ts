@@ -304,6 +304,7 @@ export interface WhatsAppVacancy {
   hasImage: boolean
   ocrText?: string
   email?: string
+  phone?: string
   sourceUrl?: string
 }
 

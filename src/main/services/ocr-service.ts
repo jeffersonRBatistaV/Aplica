@@ -23,22 +23,52 @@ function isVisionCapableEndpoint(baseUrl: string): boolean {
 async function getWorker() {
   if (!worker) {
     worker = await createWorker('spa+eng')
-    await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_BLOCK })
+    await worker.setParameters({ tessedit_pageseg_mode: PSM.AUTO })
   }
   return worker
 }
 
+const MIN_USEFUL_TEXT = 20
+
 export async function preprocessImage(buffer: Buffer): Promise<Buffer> {
   const image = await Jimp.read(buffer)
-  const MAX = 1600
+  const MIN = 800
+  const MAX = 2000
   const largest = Math.max(image.width, image.height)
-  if (largest > MAX) {
+  if (largest < MIN) {
+    image.scale(MIN / largest)
+  } else if (largest > MAX) {
     image.scale(MAX / largest)
   }
   image.greyscale()
   image.contrast(0.35)
   image.normalize()
   return image.getBuffer('image/png')
+}
+
+async function recognizeWithModes(buffer: Buffer, processed: Buffer): Promise<string> {
+  const w = await getWorker()
+  const attempts: Array<() => Promise<string>> = [
+    async () => (await w.recognize(buffer)).data.text.trim(),
+    async () => (await w.recognize(processed)).data.text.trim(),
+    async () => {
+      await w.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_COLUMN })
+      const { data } = await w.recognize(buffer)
+      return data.text.trim()
+    },
+  ]
+  let best = ''
+  for (const attempt of attempts) {
+    try {
+      const text = await attempt()
+      if (text.length > best.length) best = text
+      if (best.length >= MIN_USEFUL_TEXT) break
+    } catch {
+      /* continuar con el siguiente modo */
+    }
+  }
+  await w.setParameters({ tessedit_pageseg_mode: PSM.AUTO })
+  return best
 }
 
 async function extractTextWithLLM(
@@ -139,16 +169,6 @@ export async function extractTextFromImage(
     }
   }
 
-  const w = await getWorker()
-  let { data } = await w.recognize(buffer)
-  if (!data.text.trim()) {
-    try {
-      const processed = await preprocessImage(buffer)
-      const retry = await w.recognize(processed)
-      data = retry.data
-    } catch {
-      /* mantener el resultado vacío original */
-    }
-  }
-  return data.text.trim()
+  const processed = await preprocessImage(buffer).catch(() => buffer)
+  return recognizeWithModes(buffer, processed)
 }

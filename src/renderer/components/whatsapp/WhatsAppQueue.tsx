@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Inbox, Briefcase, Loader2, Building2, Image, Mail, MessageCircle, Trash2, X } from 'lucide-react'
+import { Inbox, Briefcase, Loader2, Building2, Image, Mail, MessageCircle, Phone, Link2, Trash2, X } from 'lucide-react'
 import type { WhatsAppVacancy } from '../../../shared/types'
 import { useNavigation } from '../../contexts/AppContext'
 import { useNotification } from '../../contexts/NotificationContext'
@@ -236,6 +236,24 @@ export function WhatsAppQueue({ vacancies, onImported }: WhatsAppQueueProps) {
                             <span className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400">
                               <Mail className="w-3 h-3" />
                               {vacancy.email}
+                            </span>
+                          </>
+                        )}
+                        {!vacancy.email && vacancy.phone && (
+                          <>
+                            <span>·</span>
+                            <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400">
+                              <Phone className="w-3 h-3" />
+                              {vacancy.phone}
+                            </span>
+                          </>
+                        )}
+                        {!vacancy.email && !vacancy.phone && vacancy.sourceUrl && (
+                          <>
+                            <span>·</span>
+                            <span className="inline-flex items-center gap-1 text-purple-600 dark:text-purple-400">
+                              <Link2 className="w-3 h-3" />
+                              {t('whatsapp.hasLink')}
                             </span>
                           </>
                         )}

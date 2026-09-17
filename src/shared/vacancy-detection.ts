@@ -3,19 +3,24 @@ import type { WhatsAppVacancy } from './types'
 const EMPLOYMENT_KEYWORDS = [
   'vacante', 'vacancy', 'empleo', 'job', 'contratando', 'hiring', 'puesto',
   'position', 'posicion', 'requisitos', 'requirements', 'responsabilidades',
-  'duties', 'funciones', 'sueldo', 'salary', 'salario', 'remoto', 'remote',
-  'presencial', 'hibrido', 'híbrido', 'semi-remoto', 'tiempo completo',
-  'full time', 'medio tiempo', 'part time', 'postulate', 'postúlate', 'aplica',
-  'apply', 'cv', 'curriculum', 'resume', 'hoja de vida', 'correo', 'email',
-  'enviar', 'send', 'envianos', 'envíenos', 'enviar cv', 'solicitudes',
-  'trabajo', 'trabajar', 'trabajos', 'contrata', 'contratar', 'recluta',
-  'reclutamiento', 'busco', 'buscamos', 'se busca', 'buscan', 'se solicita',
-  'solicitamos', 'solicita', 'seleccionamos', 'selection', 'seleccion', 'selección',
-  'oportunidad', 'oferta', 'oportunidades laborales', 'experiencia', 'perfil',
-  'beneficios', 'prestaciones', 'beca', 'pasantia', 'pasantía', 'practicante',
-  'pasante', 'internship', 'freelance', 'contactanos', 'contáctanos',
-  'contactar', 'escribenos', 'escríbenos', 'entrevista', 'postulate a',
-  'estamos en busca', 'sumate', 'súmate', 'team', 'equipo', 'unete', 'únete',
+  'duties', 'funciones', 'sueldo', 'salary', 'salario', 'sueldo fijo',
+  'remoto', 'remote', 'presencial', 'hibrido', 'híbrido', 'semi-remoto',
+  'tiempo completo', 'full time', 'medio tiempo', 'part time', 'postulate',
+  'postúlate', 'aplica', 'apply', 'cv', 'curriculum', 'resume', 'hoja de vida',
+  'correo', 'email', 'enviar', 'send', 'envianos', 'envíenos', 'enviar cv',
+  'solicitudes', 'trabajo', 'trabajar', 'trabajos', 'contrata', 'contratar',
+  'recluta', 'reclutamiento', 'busco', 'buscamos', 'se busca', 'buscan',
+  'se solicita', 'solicitamos', 'solicita', 'seleccionamos', 'selection',
+  'seleccion', 'selección', 'oportunidad', 'oferta', 'oportunidades laborales',
+  'experiencia', 'perfil', 'beneficios', 'prestaciones', 'beca', 'pasantia',
+  'pasantía', 'practicante', 'pasante', 'internship', 'freelance', 'contactanos',
+  'contáctanos', 'contactar', 'escribenos', 'escríbenos', 'entrevista',
+  'postulate a', 'estamos en busca', 'sumate', 'súmate', 'team', 'equipo',
+  'unete', 'únete', 'interesados', 'interesado', 'al privado', 'por interno',
+  'pago', 'horario', 'turno', 'requerimos', 'necesitamos', 'estamos requiriendo',
+  'requieren', 'se necesitan', 'precisamos', 'nos encontramos en la busqueda',
+  'estamos reclutando', 'vacantes disponibles', 'estamos buscando', 'personal',
+  'colaboradores', 'agente', 'operativa', 'disponibilidad inmediata',
 ]
 
 const CONTACT_KEYWORDS = [
@@ -36,6 +41,8 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
     'informática', 'informatica', 'ofimática', 'ofimatica', 'hardware',
     'soporte técnico', 'soporte tecnico', 'código', 'codigo', 'programación',
     'programacion', 'analista de sistemas', 'ciberseguridad', 'base de datos',
+    'tech', 'programador web', 'desarrollador de', 'ingeniero de software',
+    'analista', 'soporte', 'técnico', 'tecnico', 'digital',
   ],
   'Salud / Medicina': [
     'médico', 'medico', 'doctor', 'doctora', 'enfermero', 'enfermera', 'salud',
@@ -82,6 +89,13 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
     'doméstica', 'domestica', 'portero', 'mensajero', 'gestor de cobros',
     'empleada', 'encargado de almacen', 'operario', 'operador', 'supervisor de turno',
     'agente de call center', 'vendedor de piso', 'promotor', 'mercaderista',
+    'recepcion', 'auxiliar', 'dactilógrafo', 'digitador', 'asistente administrativo',
+    'administración', 'administracion', 'secretariado', 'atención al público',
+    'atencion al publico', 'vigilante', 'seguridad', 'guardia', 'turnero',
+    'mozo', 'cocinero', 'cocinera', 'ayudante de cocina', 'chef', 'barista',
+    'repositor', 'despacho', 'inventario', 'bodega', 'empaque', 'producción',
+    'produccion', 'planta', 'fábrica', 'fabrica', 'operario de', 'lider de equipo',
+    'encargado de tienda', 'dependiente', 'vendedor de tienda', 'retail', 'tienda',
   ],
   'Arte / Diseño': [
     'diseñador', 'disenador', 'diseñadora', 'diseño', 'diseno', 'ilustrador',
@@ -234,21 +248,28 @@ export function detectVacancy(
   const hasEmail = !!emailMatch
   if (hasEmail) score += 10
 
-  // WhatsApp: solo nos interesan vacantes que aporten correo de contacto.
-  // Las ofertas que solo traen un enlace (o ningún correo) se descartan.
-  if (!hasEmail) return null
+  const urlMatch = combined.match(/https?:\/\/[^\s)<>]+/i)
+  const hasUrl = !!urlMatch
+  const phoneMatch = combined.match(PHONE_RE)
+  const hasPhone = !!phoneMatch
+  if (hasPhone) score += 6
+  if (hasUrl) score += 4
 
   const contactWords = CONTACT_KEYWORDS.filter((c) => lower.includes(c)).length
   if (contactWords >= 2) score += 6
 
-  if (PHONE_RE.test(combined)) score += 6
+  // WhatsApp: nos interesan vacantes que aporten algún medio de contacto
+  // (correo, teléfono o enlace). Las ofertas sin ningún contacto se descartan.
+  if (!hasEmail && !hasPhone && !hasUrl) return null
 
-  if (score < 4) return null
+  if (score < 8) return null
 
   const company = extractCompany(combined) || groupName
   const position = extractPosition(combined) || 'Vacante detectada'
   const category = classifyCategory(combined)
   const email = emailMatch?.[0]
+  const phone = hasPhone ? phoneMatch![0].trim() : undefined
+  const sourceUrl = hasUrl ? urlMatch![0] : undefined
 
   return {
     id: `wa-${groupId}-${messageTime}-${Math.random().toString(36).slice(2, 8)}`,
@@ -264,5 +285,7 @@ export function detectVacancy(
     hasImage: !!ocrText,
     ocrText: ocrText || undefined,
     email,
+    phone,
+    sourceUrl,
   }
 }

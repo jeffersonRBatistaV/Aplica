@@ -833,6 +833,7 @@
     "deleteSelectedConfirmTitle": "Eliminar vacantes seleccionadas",
     "deleteSelectedConfirmMessage": "¿Eliminar {{count}} vacantes de la cola de revisión? Esta acción no se puede deshacer.",
     "hasImage": "Con imagen",
+    "hasLink": "Con enlace",
     "showOcr": "Ver texto extraído",
     "showMore": "Ver más",
     "showLess": "Ver menos"

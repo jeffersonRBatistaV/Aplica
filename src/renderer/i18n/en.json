@@ -834,6 +834,7 @@
     "deleteSelectedConfirmTitle": "Delete selected vacancies",
     "deleteSelectedConfirmMessage": "Remove {{count}} vacancies from the review queue? This action cannot be undone.",
     "hasImage": "With image",
+    "hasLink": "With link",
     "showOcr": "Show extracted text",
     "showMore": "Show more",
     "showLess": "Show less"

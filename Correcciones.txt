@@ -1,0 +1,4 @@
+cuando editas los CVs manualmente en Vacantes/Nueva Vacante no funciona, cambias el texto y cuando le das a listo queda todo igual...
+Cuando agregas una imagen al CV, queda el icono de imagen en la parte superior pero no muestra la imagen en si si no el icono de la imagen, Tambien en el modal cuando abres la imagen tampoco se ve esta.
+Cuano entro a nueva vacante, si hubo una vacante que aplique anteriormente a pesar que le di a una nueva... se esta quedando el icono y comoponente en el  lugar donde estaba la imagen anterior
+Comparador Salarial no funciona
