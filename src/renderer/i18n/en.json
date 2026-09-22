@@ -290,7 +290,11 @@
     "scheduleInterview": "Schedule interview",
     "scheduleInterviewDesc": "When is the interview? We will remind you when you open the app.",
     "saveInterview": "Save",
-    "interviewOn": "Interview: {{date}}"
+    "interviewOn": "Interview: {{date}}",
+    "searchPlaceholder": "Search by company, position or category...",
+    "searchPlaceholderDesc": "Filter by text on the board.",
+    "allCategories": "All categories",
+    "noResults": "No results found."
   },
   "profile": {
     "editProfile": "Edit Profile",

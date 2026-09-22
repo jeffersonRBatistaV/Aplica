@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Clock, Send, Calendar, Briefcase, XCircle, Eye, MoreHorizontal, Trash2 } from 'lucide-react'
+import { Clock, Send, Calendar, Briefcase, XCircle, Eye, MoreHorizontal, Trash2, Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Button } from '../ui/Button'
@@ -18,6 +18,8 @@ export function KanbanBoard({ onSelect }: KanbanBoardProps) {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [pendingInterviewJob, setPendingInterviewJob] = useState<JobApplication | null>(null)
   const [interviewDateInput, setInterviewDateInput] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('all')
 
   const COLUMNS = useMemo(() => [
     { id: 'draft' as JobStatus, label: t('kanban.columnDraft'), icon: Clock, color: 'gray' },
@@ -36,6 +38,23 @@ export function KanbanBoard({ onSelect }: KanbanBoardProps) {
     { from: 'offer' as JobStatus, to: 'rejected' as JobStatus, label: t('kanban.actionOfferRejected') },
     { from: 'draft' as JobStatus, to: 'rejected' as JobStatus, label: t('kanban.actionDiscard') },
   ], [t])
+
+  const categories = useMemo(() => {
+    const set = new Set<string>()
+    jobs.forEach(j => { if (j.category) set.add(j.category) })
+    return Array.from(set).sort((a, b) => a.localeCompare(b))
+  }, [jobs])
+
+  const filteredJobs = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase()
+    return jobs.filter(j => {
+      if (categoryFilter !== 'all' && j.category !== categoryFilter) return false
+      if (!q) return true
+      return (j.company || '').toLowerCase().includes(q)
+        || (j.position || '').toLowerCase().includes(q)
+        || (j.category || '').toLowerCase().includes(q)
+    })
+  }, [jobs, searchTerm, categoryFilter])
 
   const loadJobs = async () => {
     if (!window.api) return
@@ -119,9 +138,39 @@ export function KanbanBoard({ onSelect }: KanbanBoardProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-4 min-h-[400px]">
-      {COLUMNS.map((col) => {
-        const columnJobs = jobs.filter(j => j.status === col.id)
+    <>
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center mb-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500 pointer-events-none" />
+          <input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder={t('kanban.searchPlaceholder')}
+            className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 pl-9 pr-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+          />
+        </div>
+        <select
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value)}
+          className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+        >
+          <option value="all">{t('kanban.allCategories')}</option>
+          {categories.map(cat => (
+            <option key={cat} value={cat}>{cat}</option>
+          ))}
+        </select>
+      </div>
+
+      {filteredJobs.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+          <Search className="w-10 h-10 mb-3 opacity-40" />
+          <p className="text-sm">{t('kanban.noResults')}</p>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-4 min-h-[400px]">
+        {COLUMNS.map((col) => {
+          const columnJobs = filteredJobs.filter(j => j.status === col.id)
         const Icon = col.icon
         const colColor: Record<string, string> = {
           gray: 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/30',
@@ -297,5 +346,6 @@ export function KanbanBoard({ onSelect }: KanbanBoardProps) {
         onCancel={() => setConfirmDeleteId(null)}
       />
     </div>
+    </>
   )
 }

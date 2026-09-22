@@ -290,7 +290,11 @@
     "scheduleInterview": "Agendar entrevista",
     "scheduleInterviewDesc": "¿Cuándo es la entrevista? Te recordaremos al abrir la app.",
     "saveInterview": "Guardar",
-    "interviewOn": "Entrevista: {{date}}"
+    "interviewOn": "Entrevista: {{date}}",
+    "searchPlaceholder": "Buscar por empresa, puesto o categoría...",
+    "searchPlaceholderDesc": "Filtra por texto en el tablero.",
+    "allCategories": "Todas las categorías",
+    "noResults": "No se encontraron resultados."
   },
   "profile": {
     "editProfile": "Editar Perfil",
