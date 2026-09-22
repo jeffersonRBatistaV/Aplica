@@ -276,7 +276,15 @@ async function addToQueue(vacancy: WhatsAppVacancy): Promise<boolean> {
     )
     return false
   }
+  // Dedup 1: id determinista de grupo (mismo grupo + misma clave de contacto → mismo id).
   if (store.queue.some((v) => v.id === vacancy.id)) return true
+  // Dedup 2: huella global de contenido (sin groupId). La misma oferta publicada en
+  // distintos grupos o mensajes (p. ej. realtime + escaneo profundo, o 2 grupos con la
+  // misma vacante) produce la misma huella → no se añade dos veces a la cola.
+  if (vacancy.fingerprint && store.queue.some((v) => v.fingerprint === vacancy.fingerprint)) {
+    console.log(`[wa:queue] dedupe por huella: "${vacancy.title}" en ${vacancy.groupName} ya en cola`)
+    return true
+  }
   store.queue.unshift(vacancy)
   await writeStore(store)
   return true

@@ -292,6 +292,12 @@ export interface WhatsAppGroup {
 
 export interface WhatsAppVacancy {
   id: string
+  /**
+   * Huella de contenido GLOBAL (sin groupId). Diferentes grupos/mensajes que publican
+   * la misma oferta (mismo título/empresa/correo/teléfono/enlace) generan la MISMA huella.
+   * addToQueue la usa para no repetir vacantes que ya están en la cola.
+   */
+  fingerprint?: string
   title: string
   company?: string
   category?: string

@@ -272,7 +272,10 @@ export function detectVacancy(
   const sourceUrl = hasUrl ? urlMatch![0] : undefined
 
   return {
-    id: `wa-${groupId}-${messageTime}-${Math.random().toString(36).slice(2, 8)}`,
+    id: buildVacancyId(groupId, { email, phone, sourceUrl, title: position, company, category }),
+    // Huella de contenido GLOBAL (sin groupId): misma oferta publicada en distintos
+    // grupos/mensajes produce la misma huella → dedupe entre grupos en addToQueue.
+    fingerprint: contentFingerprint({ email, phone, sourceUrl, title: position, company, category, groupName }),
     title: position,
     company,
     category,
@@ -288,4 +291,62 @@ export function detectVacancy(
     phone,
     sourceUrl,
   }
+}
+
+// ── id y huella deterministas (translúcido al usuario: mismo anuncio → mismo id) ──
+
+/** Normaliza un token único (email/phone/url/título) para comparar huellas sin ruido. */
+function normalizeToken(value: string | undefined): string {
+  if (!value) return ''
+  return value
+    .toLowerCase()
+    .replace(/[\s\-–—_().,+;:/\\@[\]]/g, '')
+    .replace(/[áàä]/g, 'a').replace(/[éèë]/g, 'e').replace(/[íìï]/g, 'i')
+    .replace(/[óòö]/g, 'o').replace(/[úùü]/g, 'u').replace(/ñ/g, 'n')
+}
+
+/** FNV-1a de 32 bits, estable entre procesos y plataformas. */
+function fnv1a(str: string): string {
+  let h = 0x811c9dc5
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i)
+    h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0
+  }
+  return h.toString(36)
+}
+
+interface VacancyKey {
+  email?: string
+  phone?: string
+  sourceUrl?: string
+  title: string
+  company?: string
+  category?: string
+}
+
+/** id determinista por grupo + clave de contacto normalizada. */
+export function buildVacancyId(groupId: string, key: VacancyKey): string {
+  const parts = [
+    groupId,
+    normalizeToken(key.email),
+    normalizeToken(key.phone),
+    normalizeToken(key.sourceUrl),
+    normalizeToken(key.title),
+    normalizeToken(key.company),
+    normalizeToken(key.category),
+  ]
+  return `wa-${fnv1a(parts.join('|'))}`
+}
+
+/** Huella GLOBAL de la oferta (sin grupo): misma vacante en 2 grupos → misma huella. */
+export function contentFingerprint(key: VacancyKey & { groupName?: string }): string {
+  const parts = [
+    normalizeToken(key.email),
+    normalizeToken(key.phone),
+    normalizeToken(key.sourceUrl),
+    normalizeToken(key.title),
+    normalizeToken(key.company),
+    normalizeToken(key.category),
+  ]
+  return fnv1a(parts.join('|'))
 }
