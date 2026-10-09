@@ -15,6 +15,7 @@
   "build": {
     "appId": "com.aplica.app",
     "productName": "Aplica",
+    "artifactName": "Aplica-Setup-${version}.${ext}",
     "publish": {
       "provider": "github",
       "owner": "jeffersonRBatistaV",
