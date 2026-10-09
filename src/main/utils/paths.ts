@@ -66,6 +66,10 @@ export function profileEmailConfigFile(profileId: string): string {
   return path.join(profileScopeDir(profileId), 'email-config.json')
 }
 
+export function profileAutomationFile(profileId: string): string {
+  return path.join(profileScopeDir(profileId), 'automation.json')
+}
+
 export const WHATSAPP_SESSION_DIR = path.join(DATA_DIR, 'whatsapp-session')
 
 export function profileWhatsAppFile(profileId: string): string {

@@ -15,6 +15,7 @@ export function TemplatesManager({ onSelect }: TemplatesManagerProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [showPreview, setShowPreview] = useState(true)
   const [editingPrompt, setEditingPrompt] = useState(false)
+  const [editTargetId, setEditTargetId] = useState<string | null>(null)
   const [editPromptText, setEditPromptText] = useState('')
   const [editName, setEditName] = useState('')
   const [savingClone, setSavingClone] = useState(false)
@@ -73,9 +74,48 @@ export function TemplatesManager({ onSelect }: TemplatesManagerProps) {
 
   const handleEditClick = () => {
     if (!selected) return
-    setEditName(selected.name + ' (copia)')
+    setEditTargetId(selected.id)
+    setEditName(selected.name)
     setEditPromptText(selected.prompt)
     setEditingPrompt(true)
+  }
+
+  const closeEdit = () => {
+    setEditingPrompt(false)
+    setEditTargetId(null)
+  }
+
+  const handleSaveInPlace = async () => {
+    if (!window.api || !editTargetId || !editName.trim() || !editPromptText.trim()) return
+    setSavingClone(true)
+    setGeneratingPreview(true)
+    try {
+      const existing = templates.find(t => t.id === editTargetId)
+      const template: CvTemplate = {
+        id: editTargetId,
+        name: editName.trim(),
+        prompt: editPromptText.trim(),
+        sampleHtml: existing?.sampleHtml ?? '',
+        createdAt: existing?.createdAt ?? Date.now(),
+        updatedAt: Date.now(),
+        extraPrompt: existing?.extraPrompt,
+      }
+      await window.api.saveCvTemplate(template)
+      try {
+        template.sampleHtml = await window.api.generateSampleCv(template.prompt)
+        await window.api.saveCvTemplate(template)
+      } catch {
+        // La plantilla ya quedó guardada aunque el preview no se regenere.
+      }
+      setTemplates(prev => prev.map(t => (t.id === editTargetId ? template : t)))
+      setSelectedId(editTargetId)
+      closeEdit()
+    } catch {
+      setError('Error al guardar plantilla')
+    } finally {
+      setSavingClone(false)
+      setGeneratingPreview(false)
+    }
   }
 
   const handleSaveClone = async () => {
@@ -84,9 +124,10 @@ export function TemplatesManager({ onSelect }: TemplatesManagerProps) {
     setGeneratingPreview(true)
     try {
       const id = crypto.randomUUID()
+      const cloneName = editName.trim().endsWith('(copia)') ? editName.trim() : `${editName.trim()} (copia)`
       const template: CvTemplate = {
         id,
-        name: editName.trim(),
+        name: cloneName,
         prompt: editPromptText.trim(),
         sampleHtml: '',
         createdAt: Date.now(),
@@ -100,7 +141,7 @@ export function TemplatesManager({ onSelect }: TemplatesManagerProps) {
 
       setTemplates(prev => [...prev, template])
       setSelectedId(template.id)
-      setEditingPrompt(false)
+      closeEdit()
     } catch {
       setError('Error al guardar plantilla')
     } finally {
@@ -207,7 +248,7 @@ export function TemplatesManager({ onSelect }: TemplatesManagerProps) {
               </Button>
             </div>
             {!selected?.sampleHtml && (
-              <p className="text-xs text-amber-600 dark:text-amber-400">Sin preview. Usa "Editar prompt" sobre una existente para clonar con preview.</p>
+              <p className="text-xs text-amber-600 dark:text-amber-400">La vista previa se genera con IA al guardar.</p>
             )}
           </div>
         )}
@@ -336,11 +377,17 @@ export function TemplatesManager({ onSelect }: TemplatesManagerProps) {
                         className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 resize-y font-mono"
                       />
                     </div>
-                    <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => setEditingPrompt(false)}>Cancelar</Button>
-                      <Button variant="primary" size="sm" onClick={handleSaveClone} disabled={!editName.trim() || !editPromptText.trim() || savingClone}>
-                        {savingClone ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Los cambios en el prompt se aplican a los CVs que generes con esta plantilla.
+                    </p>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <Button variant="ghost" size="sm" onClick={closeEdit}>Cancelar</Button>
+                      <Button variant="secondary" size="sm" onClick={handleSaveClone} disabled={!editName.trim() || !editPromptText.trim() || savingClone}>
                         Guardar como nueva
+                      </Button>
+                      <Button variant="primary" size="sm" onClick={handleSaveInPlace} disabled={!editName.trim() || !editPromptText.trim() || savingClone}>
+                        {savingClone ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                        Guardar cambios
                       </Button>
                     </div>
                   </div>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { MessageCircle, Loader2, LogOut, Search, Hash, Users } from 'lucide-react'
+import { MessageCircle, Loader2, LogOut, Search, Hash, Users, RefreshCw } from 'lucide-react'
 import type { WhatsAppGroup, WhatsAppVacancy, WhatsAppConfig } from '../../../shared/types'
 import type { WhatsAppServiceEvent, WhatsAppStatusEvent } from '../../types/ipc'
 import { useNotification } from '../../contexts/NotificationContext'
@@ -128,6 +128,21 @@ export function WhatsAppView() {
     await window.api.whatsappDisconnect()
   }, [])
 
+  const handleReconnect = useCallback(async () => {
+    if (!window.api) return
+    setConnecting(true)
+    setPhase(null)
+    try {
+      await window.api.whatsappDisconnect()
+      const ev = await window.api.whatsappConnect()
+      setStatusEvent(ev)
+    } catch (err) {
+      notify(err instanceof Error ? err.message : t('whatsapp.connectFailed'), 'error')
+    } finally {
+      setConnecting(false)
+    }
+  }, [notify, t])
+
   const toggleGroup = useCallback((id: string, checked: boolean) => {
     setSelectedGroups((prev) => (checked ? [...prev, id] : prev.filter((g) => g !== id)))
   }, [])
@@ -142,7 +157,13 @@ export function WhatsAppView() {
     setPhase(null)
     try {
       const res = await window.api.whatsappScan(ids, limit)
-      if (res.vacancies.length === 0) notify(t('whatsapp.scanEmpty'), 'info')
+      if (res.vacancies.length > 0) {
+        if (res.recovered) notify(t('whatsapp.scanRecovered'), 'success')
+      } else if (res.pageError && !res.recovered) {
+        notify(t('whatsapp.scanPageError'), 'error')
+      } else {
+        notify(t('whatsapp.scanEmpty'), 'info')
+      }
     } catch (err) {
       notify(err instanceof Error ? err.message : t('whatsapp.scanFailed'), 'error')
     } finally {
@@ -212,10 +233,16 @@ export function WhatsAppView() {
               {t(`whatsapp.status.${statusEvent.status}`)}
             </span>
             {isConnected ? (
-              <Button size="sm" variant="secondary" onClick={handleDisconnect}>
-                <LogOut className="w-3.5 h-3.5" />
-                {t('whatsapp.disconnect')}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="secondary" onClick={handleReconnect} disabled={connecting}>
+                  {connecting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                  {t('whatsapp.reconnect')}
+                </Button>
+                <Button size="sm" variant="secondary" onClick={handleDisconnect}>
+                  <LogOut className="w-3.5 h-3.5" />
+                  {t('whatsapp.disconnect')}
+                </Button>
+              </div>
             ) : (
               <Button size="sm" onClick={handleConnect} disabled={connecting}>
                 {connecting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MessageCircle className="w-3.5 h-3.5" />}

@@ -2,6 +2,17 @@ import { Sparkles, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 const CHANGELOG: Record<string, { title: string; items: string[] }> = {
+  '1.1.0': {
+    title: 'Aplica 1.1.0',
+    items: [
+      'Buscador de empleo: encuentra ofertas en LinkedIn e importalas a tu flujo con un clic',
+      'Automatizaciones por perfil: genera CV y preguntas de entrevista automaticamente, con confirmacion en los pasos importantes',
+      'Plantillas de CV editables: ajusta el prompt de cada plantilla y su efecto en el CV generado',
+      'Descarga las preguntas de entrevista en PDF',
+      'Salario de referencia: el analisis de cada vacante estima un rango salarial con investigacion web',
+      'WhatsApp: reconexion automatica y feedback claro al escanear grupos',
+    ],
+  },
   '1.0.2': {
     title: 'Aplica 1.0.2',
     items: [

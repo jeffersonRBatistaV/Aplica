@@ -111,6 +111,47 @@ function withOcrLock<T>(fn: () => Promise<T>): Promise<T> {
   return run
 }
 
+const PAGE_HEALTH_TIMEOUT_MS = 8000
+const MEDIA_DOWNLOAD_TIMEOUT_MS = 30000
+const STORE_READY_TIMEOUT_MS = 30000
+const RECONNECT_TIMEOUT_MS = 90000
+
+async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: NodeJS.Timeout | null = null
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label}: timeout (${ms}ms)`)), ms)
+      }),
+    ])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
+/**
+ * Errores que indican que la página de WhatsApp Web quedó inservible
+ * (frame desacoplado, target cerrado, contexto destruido por navegación…).
+ * En estos casos hay que reconectar en vez de asumir "sin mensajes".
+ */
+const PAGE_ERROR_PATTERNS = [
+  'detached frame',
+  'target closed',
+  'session closed',
+  'execution context was destroyed',
+  'cannot find context',
+  'protocol error',
+  'page crashed',
+  'navigating frame',
+  'node with given id does not belong',
+]
+
+function isPageLevelError(message: string): boolean {
+  const lower = message.toLowerCase()
+  return PAGE_ERROR_PATTERNS.some((pattern) => lower.includes(pattern))
+}
+
 function emit(event: WhatsAppServiceEvent): void {
   for (const listener of listeners) {
     try {
@@ -209,33 +250,68 @@ function resolveBrowserExecutable(): string | undefined {
   return undefined
 }
 
+interface ProcessMessageResult {
+  vacancy: WhatsAppVacancy | null
+  /**
+   * true cuando el mensaje tenía media pero NO se pudo descargar
+   * (media expirada/evicted o error de red). Se usa para marcar el mensaje
+   * como procesado y no reintentar la descarga en cada escaneo.
+   */
+  mediaUnavailable: boolean
+}
+
+async function downloadMessageMedia(
+  msg: WaMessage,
+  logDebug?: (line: string) => void,
+): Promise<{ mimetype: string; data: string } | undefined> {
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const media = await withTimeout(msg.downloadMedia(), MEDIA_DOWNLOAD_TIMEOUT_MS, 'downloadMedia')
+      if (media?.data) return { mimetype: media.mimetype, data: media.data }
+      // downloadMedia devuelve undefined cuando el media ya no está disponible
+      // (mensaje evacuado del store o media expirada): reintentar no ayuda.
+      return undefined
+    } catch (err) {
+      if (attempt === 2) throw err
+      logDebug?.(`  ocr: reintento de descarga (${err instanceof Error ? err.message : String(err)})`)
+      await new Promise((resolve) => setTimeout(resolve, 600))
+    }
+  }
+  return undefined
+}
+
 async function processMessage(
   msg: WaMessage,
   groupName: string,
   groupId: string,
   logDebug?: (line: string) => void,
-): Promise<WhatsAppVacancy | null> {
-  if (msg.fromMe) return null
+): Promise<ProcessMessageResult> {
+  if (msg.fromMe) return { vacancy: null, mediaUnavailable: false }
   const body = msg.body || ''
   let ocrText = ''
+  let mediaUnavailable = false
   if (msg.hasMedia && (msg.type === 'image' || msg.type === 'document')) {
     try {
-      await withOcrLock(async () => {
-        const media = await msg.downloadMedia()
-        if (media?.data) {
-          const dataUrl = `data:${media.mimetype};base64,${media.data}`
-          const buffer = Buffer.from(media.data, 'base64')
-          const settings = await readJSON<AppSettings>(SETTINGS_FILE)
-          const llmCfg = getLLMConfig(settings)
-          logDebug?.(`  ocr: media ${media.mimetype} ${buffer.length}B vision=${!!llmCfg}`)
-          ocrText = await extractTextFromImage(buffer, dataUrl, llmCfg)
-          logDebug?.(`  ocr: resultado ${ocrText.length} chars`)
-        } else {
-          logDebug?.('  ocr: downloadMedia sin data')
+      const downloaded = await withOcrLock(async () => {
+        const media = await downloadMessageMedia(msg, logDebug)
+        if (!media) {
+          logDebug?.('  ocr: downloadMedia sin data (media no disponible)')
+          return false
         }
+        const dataUrl = `data:${media.mimetype};base64,${media.data}`
+        const buffer = Buffer.from(media.data, 'base64')
+        const settings = await readJSON<AppSettings>(SETTINGS_FILE)
+        const llmCfg = getLLMConfig(settings)
+        logDebug?.(`  ocr: media ${media.mimetype} ${buffer.length}B vision=${!!llmCfg}`)
+        ocrText = await extractTextFromImage(buffer, dataUrl, llmCfg)
+        logDebug?.(`  ocr: resultado ${ocrText.length} chars`)
+        return true
       })
+      mediaUnavailable = !downloaded
     } catch (err) {
-      logDebug?.(`  ocr: ERROR ${err instanceof Error ? err.message : String(err)}`)
+      mediaUnavailable = true
+      const detail = err instanceof Error ? `${err.message} | ${err.stack ?? ''}` : String(err)
+      logDebug?.(`  ocr: ERROR ${detail}`)
       console.error('[wa:ocr]', err)
     }
   }
@@ -243,9 +319,9 @@ async function processMessage(
   const vacant = detectVacancy(body, ocrText, msg.author || '', groupName, groupId, msg.timestamp * 1000)
   if (vacant) {
     const added = await addToQueue(vacant)
-    return added ? vacant : null
+    return { vacancy: added ? vacant : null, mediaUnavailable }
   }
-  return vacant
+  return { vacancy: vacant, mediaUnavailable }
 }
 
 async function readStore(): Promise<WhatsAppStore> {
@@ -347,19 +423,139 @@ function detachRealtimeHandler(): void {
 
 async function flushRealtimePending(): Promise<void> {
   if (!realtimeOn || realtimePending.length === 0) return
+  if (!(await isPageHealthy())) {
+    await recoverClient('monitoreo en tiempo real: página no saludable')
+    return
+  }
   const batch = realtimePending.splice(0, REALTIME_BATCH)
   for (const msg of batch) {
     try {
       const chat = await msg.getChat()
       const serial = msg.id._serialized
       if (!serial || (await isProcessed(serial))) continue
-      const vacant = await processMessage(msg, chat.name || msg.from, msg.from)
-      if (vacant) emit({ type: 'vacancy', payload: vacant })
-      if (vacant || !msg.hasMedia) await persistProcessed(serial)
+      const { vacancy, mediaUnavailable } = await processMessage(msg, chat.name || msg.from, msg.from)
+      if (vacancy) emit({ type: 'vacancy', payload: vacancy })
+      if (vacancy || !msg.hasMedia || mediaUnavailable) await persistProcessed(serial)
     } catch {
       /* realtime message errors are non-fatal */
     }
   }
+}
+
+async function isPageHealthy(): Promise<boolean> {
+  const page = client?.pupPage
+  if (!page) return false
+  try {
+    if (page.isClosed()) return false
+    await withTimeout(page.evaluate(() => true), PAGE_HEALTH_TIMEOUT_MS, 'page health')
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function waitForStoreReady(timeoutMs = STORE_READY_TIMEOUT_MS): Promise<boolean> {
+  const start = Date.now()
+  while (Date.now() - start < timeoutMs) {
+    if (status !== 'connected') return false
+    const page = client?.pupPage
+    if (!page || page.isClosed()) return false
+    try {
+      const ready = await page.evaluate(() => {
+        const w = window as unknown as {
+          Store?: { Chat?: unknown }
+          require?: (mod: string) => any
+        }
+        if (!w.require) return false
+        try {
+          const collections = w.require('WAWebCollections')
+          return Boolean(collections?.Chat && w.Store?.Chat)
+        } catch {
+          return false
+        }
+      })
+      if (ready) return true
+    } catch {
+      /* la página puede estar navegando; seguir sondeando */
+    }
+    await new Promise((resolve) => setTimeout(resolve, 750))
+  }
+  return false
+}
+
+async function waitForReadyStatus(timeoutMs: number): Promise<boolean> {
+  const start = Date.now()
+  while (Date.now() - start < timeoutMs) {
+    if (status === 'connected') return true
+    if (status === 'failed') return false
+    await new Promise((resolve) => setTimeout(resolve, 500))
+  }
+  return status === 'connected'
+}
+
+function resetClientSilently(): void {
+  detachRealtimeHandler()
+  clearReadyWatchdog()
+  if (client) {
+    try {
+      void client.destroy().catch(() => undefined)
+    } catch {
+      /* ya cerrado */
+    }
+  }
+  client = null
+  status = 'disconnected'
+  statusMessage = null
+}
+
+let recoveryInFlight: Promise<boolean> | null = null
+
+/**
+ * Recupera la conexión cuando la página de WhatsApp Web queda inservible
+ * (frame desacoplado). Primero intenta recargar la página; si falla,
+ * reconecta el cliente reutilizando la sesión guardada (sin QR).
+ * Singleton: las reconexiones concurrentes comparten la misma promesa.
+ */
+async function recoverClient(reason: string): Promise<boolean> {
+  if (recoveryInFlight) return recoveryInFlight
+  recoveryInFlight = (async (): Promise<boolean> => {
+    console.warn(`[wa:recover] ${reason}`)
+    debugLog(`[recover] motivo: ${reason}`)
+    emit({ type: 'phase', payload: 'Reconectando WhatsApp Web…' })
+
+    const page = client?.pupPage
+    if (page && !page.isClosed()) {
+      try {
+        await withTimeout(
+          page.reload({ waitUntil: 'domcontentloaded' }),
+          PAGE_HEALTH_TIMEOUT_MS,
+          'page reload',
+        )
+        if (await waitForStoreReady()) {
+          debugLog('[recover] recarga de página OK')
+          return true
+        }
+        debugLog('[recover] la recarga no dejó el store listo; reconexión completa')
+      } catch (err) {
+        debugLog(`[recover] recarga falló: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    }
+
+    debugLog('[recover] reconexión completa del cliente (reusa sesión)')
+    resetClientSilently()
+    try {
+      await connectWhatsApp()
+      const ok = await waitForReadyStatus(RECONNECT_TIMEOUT_MS)
+      debugLog(`[recover] reconexión ${ok ? 'OK' : 'falló'}`)
+      return ok
+    } catch (err) {
+      debugLog(`[recover] reconexión ERROR: ${err instanceof Error ? err.message : String(err)}`)
+      return false
+    }
+  })().finally(() => {
+    recoveryInFlight = null
+  })
+  return recoveryInFlight
 }
 
 export async function connectWhatsApp(): Promise<WhatsAppStatusEvent> {
@@ -496,6 +692,11 @@ function classifyChat(id: string): 'channel' | 'group' | 'private' {
 
 export async function getWhatsAppGroups(): Promise<WhatsAppGroup[]> {
   if (!client || status !== 'connected') return []
+  if (!(await isPageHealthy())) {
+    console.warn('[wa:groups] página no saludable → recuperando')
+    await recoverClient('getWhatsAppGroups: página no saludable')
+    return []
+  }
   const byId = new Map<string, WhatsAppGroup>()
   let fromApi = 0
   let fromRaw = 0
@@ -723,51 +924,94 @@ export async function scanWhatsAppGroups(groupIds: string[], limit = 100): Promi
   const result: WhatsAppVacancy[] = []
   const phases: string[] = []
   let scanned = 0
+  let pageError = false
+  let recovered = false
+  let recoveryDisabled = false
+
+  // Comprobación previa: si la página quedó desacoplada, recuperar antes de empezar
+  // para no reportar "0 vacantes" cuando en realidad WhatsApp Web no responde.
+  if (!(await isPageHealthy())) {
+    debugLog('[scan] página no saludable antes de escanear → recuperando')
+    pageError = true
+    if (await recoverClient('comprobación previa al escaneo')) recovered = true
+    else recoveryDisabled = true
+  }
+
   for (const gid of groupIds) {
-    try {
-      const { name, messages, diag } = await fetchRawMessages(gid, limit)
-      debugLog(`[scan] ${gid} "${name}" -> ${messages.length} msgs | ${diag}`)
-      phases.push(`Revisando ${name} (${messages.length} mensajes)`)
-      emit({ type: 'phase', payload: `Revisando ${name} (${messages.length} mensajes)` })
-      for (const msg of messages) {
-        const serial = msg.id?._serialized
-        if (!serial) {
-          debugLog(`[scan]   skip: sin serial`)
-          continue
+    let fetched = false
+    let name = gid
+    let messages: WaMessage[] = []
+    for (let attempt = 0; attempt < 2 && !fetched; attempt++) {
+      try {
+        const raw = await fetchRawMessages(gid, limit)
+        const isPageFailure = raw.diag.startsWith('evaluate err') && isPageLevelError(raw.diag)
+        if (isPageFailure) {
+          pageError = true
+          debugLog(`[scan] ${gid} fallo de página: ${raw.diag}`)
+          if (attempt === 0 && !recoveryDisabled) {
+            if (await recoverClient(`${gid}: ${raw.diag}`)) {
+              recovered = true
+              continue
+            }
+            recoveryDisabled = true
+          }
+          phases.push(`No se pudo leer ${gid}: WhatsApp Web no responde`)
+          break
         }
-        if (msg.fromMe) {
-          debugLog(`[scan]   ${serial} skip: fromMe`)
-          continue
-        }
-        if (await isProcessed(serial)) {
-          debugLog(`[scan]   ${serial} skip: ya procesado`)
-          continue
-        }
-        debugLog(`[scan]   ${serial} type=${msg.type} media=${!!msg.hasMedia} bodyLen=${(msg.body || '').length}`)
-        scanned++
-        if (msg.hasMedia && (msg.type === 'image' || msg.type === 'document')) {
-          emit({ type: 'phase', payload: `OCR ${scanned}/${messages.length} en ${name}` })
-        }
-        const vacant = await processMessage(msg, name || gid, gid, debugLog)
-        debugLog(`[scan]   ${serial} -> ${vacant ? 'VACANTE OK' : 'no detectada'}`)
-        if (vacant) result.push(vacant)
-        // Solo marcar como procesado cuando hay detección o cuando no hay media:
-        // mensajes con imagen sin detectar se re-OCRean en el siguiente escaneo.
-        if (vacant || !msg.hasMedia) await persistProcessed(serial)
+        name = raw.name
+        messages = raw.messages
+        fetched = true
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : String(err)
+        console.error('[wa:scan] fallo en', gid, detail)
+        debugLog(`[scan] ${gid} EXCEPTION: ${detail}`)
+        phases.push(`No se pudo leer ${gid}: ${detail}`)
+        emit({ type: 'phase', payload: `No se pudo leer ${gid}: ${detail}` })
+        break
       }
-    } catch (err) {
-      const detail = err instanceof Error ? err.message : String(err)
-      console.error('[wa:scan] fallo en', gid, detail)
-      debugLog(`[scan] ${gid} EXCEPTION: ${detail}`)
-      phases.push(`No se pudo leer ${gid}: ${detail}`)
-      emit({ type: 'phase', payload: `No se pudo leer ${gid}: ${detail}` })
+    }
+    if (!fetched) continue
+
+    debugLog(`[scan] ${gid} "${name}" -> ${messages.length} msgs`)
+    phases.push(`Revisando ${name} (${messages.length} mensajes)`)
+    emit({ type: 'phase', payload: `Revisando ${name} (${messages.length} mensajes)` })
+    for (const msg of messages) {
+      const serial = msg.id?._serialized
+      if (!serial) {
+        debugLog(`[scan]   skip: sin serial`)
+        continue
+      }
+      if (msg.fromMe) {
+        debugLog(`[scan]   ${serial} skip: fromMe`)
+        continue
+      }
+      if (await isProcessed(serial)) {
+        debugLog(`[scan]   ${serial} skip: ya procesado`)
+        continue
+      }
+      debugLog(`[scan]   ${serial} type=${msg.type} media=${!!msg.hasMedia} bodyLen=${(msg.body || '').length}`)
+      scanned++
+      if (msg.hasMedia && (msg.type === 'image' || msg.type === 'document')) {
+        emit({ type: 'phase', payload: `OCR ${scanned}/${messages.length} en ${name}` })
+      }
+      const { vacancy, mediaUnavailable } = await processMessage(msg, name || gid, gid, debugLog)
+      debugLog(`[scan]   ${serial} -> ${vacancy ? 'VACANTE OK' : 'no detectada'}`)
+      if (vacancy) result.push(vacancy)
+      // Marcar como procesado cuando hay detección, cuando no hay media, o cuando
+      // la media ya no se puede descargar (expirada/evicted) para no reintentarla en
+      // cada escaneo. Las imágenes SÍ descargadas y sin detectar se re-OCRean luego.
+      if (vacancy || !msg.hasMedia || mediaUnavailable) await persistProcessed(serial)
     }
   }
-  debugLog(`[scan] fin: ${scanned} revisados, ${result.length} vacantes`)
+  debugLog(`[scan] fin: ${scanned} revisados, ${result.length} vacantes${pageError ? ` (pageError${recovered ? ', recuperado' : ''})` : ''}`)
   debugLogEnabled = false
+  if (recovered) {
+    emit({ type: 'phase', payload: 'WhatsApp Web reconectado, escaneo completado' })
+    phases.push('WhatsApp Web reconectado, escaneo completado')
+  }
   emit({ type: 'phase', payload: `Escaneo completo: ${scanned} mensajes revisados, ${result.length} vacantes detectadas` })
   phases.push(`Escaneo completo: ${scanned} mensajes revisados, ${result.length} vacantes detectadas`)
-  return { vacancies: result, scanned, phases }
+  return { vacancies: result, scanned, phases, pageError, recovered }
 }
 
 export async function getWhatsAppQueue(): Promise<WhatsAppVacancy[]> {

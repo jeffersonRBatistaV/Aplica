@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { Briefcase, Library, Columns, FileText, Loader2, AlertCircle, Layers, Check } from 'lucide-react'
-import type { WhatsAppVacancy } from '../../../shared/types'
+import { Briefcase, Library, Columns, FileText, Loader2, AlertCircle, Layers, Check, Search } from 'lucide-react'
+import type { WhatsAppVacancy, LinkedInJob } from '../../../shared/types'
 import { VacancyInput } from './VacancyInput'
 import { ATSReportView } from './ATSReport'
 import { CoverLetterGenerator } from './CoverLetterGenerator'
@@ -8,14 +8,26 @@ import { CVGenerator } from './CVGenerator'
 import { CategoryCV } from './CategoryCV'
 import { DocumentLibrary } from './DocumentLibrary'
 import { InterviewPrep } from './InterviewPrep'
+import { JobSearch } from './JobSearch'
+import { AutomationOfferModal } from './AutomationOfferModal'
 import { KanbanBoard } from './KanbanBoard'
 import { TemplatesManager } from './TemplatesManager'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
-import type { ATSReport, JobApplication, InterviewQuestion, JobStatus } from '../../../shared/types'
+import type { ATSReport, JobApplication, InterviewQuestion, JobStatus, AutomationConfig } from '../../../shared/types'
 import { useTranslation } from 'react-i18next'
 
 const DRAFT_KEY = 'aplica:vacancy-draft'
+
+const AUTOMATION_FALLBACK: AutomationConfig = {
+  enabled: false,
+  autoCv: true,
+  autoQuestions: true,
+  cvStyle: 'ats',
+  cvSummaryId: null,
+  askBeforeApply: true,
+  dontOfferAgain: false,
+}
 
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
   'Tecnología / IT': ['software', 'desarrollador', 'developer', 'frontend', 'backend', 'full stack', 'devops', 'data science', 'machine learning', 'it', 'sistemas', 'infraestructura', 'cloud', 'programador', 'ingeniero de software'],
@@ -136,7 +148,7 @@ function pickPositionLine(text: string): string {
   return line ? line.substring(0, 50) : ''
 }
 
-type Tab = 'new' | 'category' | 'library' | 'board' | 'templates'
+type Tab = 'new' | 'search' | 'category' | 'library' | 'board' | 'templates'
 
 export function Vacantes() {
   const { t } = useTranslation()
@@ -160,6 +172,12 @@ export function Vacantes() {
   const [editPosition, setEditPosition] = useState(currentApp?.position || '')
   const [confirmingApplied, setConfirmingApplied] = useState(false)
   const [pendingDraft, setPendingDraft] = useState<JobApplication | null>(null)
+  const [automationConfig, setAutomationConfig] = useState<AutomationConfig | null>(null)
+  const [showAutomationOffer, setShowAutomationOffer] = useState(false)
+  const [automationRunning, setAutomationRunning] = useState(false)
+  const [appliedCount, setAppliedCount] = useState(0)
+  const [pendingApplyConfirm, setPendingApplyConfirm] = useState(false)
+  const offerAppRef = useRef<JobApplication | null>(null)
 
   // Fases de investigación en vivo
   const [phase, setPhase] = useState<string | null>(null)
@@ -211,6 +229,16 @@ export function Vacantes() {
     return () => window.removeEventListener('aplica:vacancyImport', handler)
   }, [])
 
+  // Configuración de automatización (por perfil)
+  useEffect(() => {
+    const load = () => {
+      window.api?.getAutomationConfig().then(setAutomationConfig).catch(() => {})
+    }
+    load()
+    window.addEventListener('profile:updated', load)
+    return () => window.removeEventListener('profile:updated', load)
+  }, [])
+
   const handleUpdateApp = (patch: Partial<JobApplication>) => {
     if (!currentApp || !window.api) return
     const updated = { ...currentApp, ...patch, updatedAt: Date.now() }
@@ -239,6 +267,13 @@ export function Vacantes() {
       setCurrentApp(updated)
     }
     setActiveTab('new')
+  }
+
+  const handleImportFromSearch = (text: string, job: LinkedInJob) => {
+    handleNewApp()
+    setVacancyText(text)
+    setActiveTab('new')
+    void handleAnalyze(text, job.url)
   }
 
   const handleContinueDraft = () => {
@@ -281,7 +316,7 @@ export function Vacantes() {
     setActiveTab('new')
   }
 
-  const handleAnalyze = async (text: string) => {
+  const handleAnalyze = async (text: string, sourceUrl?: string) => {
     if (!window.api) return
     setAnalyzing(true)
     const unsub = window.api.onInvestigatePhase((p) => setPhase(p.message))
@@ -330,6 +365,7 @@ export function Vacantes() {
         recipientEmail: '',
         emailSubject: '',
         interviewQuestions: [],
+        ...(sourceUrl ? { sourceUrl } : {}),
       }
       await window.api.saveJob(app)
       setCurrentApp(app)
@@ -354,6 +390,7 @@ export function Vacantes() {
       app.updatedAt = Date.now()
       await window.api.saveJob(app)
       setCurrentApp({ ...app })
+      await maybeOfferAutomation(app)
     } catch (err) {
       const msg = err instanceof Error ? err.message : t('vacantes.errorUnknown')
       setError(msg)
@@ -362,6 +399,78 @@ export function Vacantes() {
       setPhase(null)
       setAnalyzing(false)
       setGeneratingLetters(false)
+    }
+  }
+
+  const runAutomation = async (app: JobApplication, config: Partial<AutomationConfig>) => {
+    if (!window.api) return
+    setAutomationRunning(true)
+    const updates: Partial<JobApplication> = {}
+    try {
+      if (config.autoCv) {
+        try {
+          const style = config.cvStyle || 'ats'
+          let summary: string | undefined
+          if (config.cvSummaryId) {
+            try {
+              const options = await window.api.generateSummaryOptions(app.vacancyText, app.atsReport)
+              summary = options.find((o) => o.id === config.cvSummaryId)?.summary || options[0]?.summary
+            } catch { /* sin resumen por defecto */ }
+          }
+          updates.cvStyle = style
+          updates.cvContent = await window.api.generateCV(app.vacancyText, app.atsReport, style, undefined, summary)
+        } catch { /* continúa con el resto */ }
+      }
+      if (config.autoQuestions) {
+        try {
+          updates.interviewQuestions = await window.api.generateInterviewQuestions(app.vacancyText, app.atsReport)
+        } catch { /* continúa */ }
+      }
+    } finally {
+      setAutomationRunning(false)
+    }
+
+    if (Object.keys(updates).length > 0) {
+      const updated = { ...app, ...updates, updatedAt: Date.now() }
+      try { await window.api.saveJob(updated) } catch { /* noop */ }
+      setCurrentApp(updated)
+      if (updates.cvStyle) { setCvStyle(updates.cvStyle); setCvContent(updates.cvContent || '') }
+      if (updates.interviewQuestions) setInterviewQuestions(updates.interviewQuestions)
+    }
+
+    if (config.askBeforeApply !== false) setPendingApplyConfirm(true)
+  }
+
+  const maybeOfferAutomation = async (app: JobApplication) => {
+    if (!window.api) return
+    try {
+      const [cfg, jobs] = await Promise.all([window.api.getAutomationConfig(), window.api.getJobs()])
+      setAutomationConfig(cfg)
+      const count = jobs.filter((j) => j.status !== 'draft').length
+      setAppliedCount(count)
+      if (cfg.dontOfferAgain) return
+      if (count >= 5 || cfg.enabled) {
+        offerAppRef.current = app
+        setShowAutomationOffer(true)
+      }
+    } catch { /* noop */ }
+  }
+
+  const handleConfirmAutomation = async (config: Partial<AutomationConfig>) => {
+    const app = offerAppRef.current
+    offerAppRef.current = null
+    setShowAutomationOffer(false)
+    if (window.api) {
+      try { setAutomationConfig(await window.api.saveAutomationConfig(config)) } catch { /* noop */ }
+    }
+    if (app) await runAutomation(app, config)
+  }
+
+  const handleSkipAutomation = async (dontOfferAgain: boolean) => {
+    offerAppRef.current = null
+    setShowAutomationOffer(false)
+    if (dontOfferAgain && window.api) {
+      try { setAutomationConfig(await window.api.saveAutomationConfig({ dontOfferAgain: true })) } catch { /* noop */ }
     }
   }
 
@@ -473,6 +582,17 @@ export function Vacantes() {
             {t('vacantes.newVacancy')}
           </button>
           <button
+            onClick={() => setActiveTab('search')}
+            className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+              activeTab === 'search'
+                ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            <Search className="w-4 h-4" />
+            {t('jobSearch.tab')}
+          </button>
+          <button
             onClick={() => setActiveTab('category')}
             className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
               activeTab === 'category'
@@ -549,6 +669,13 @@ export function Vacantes() {
               <div className="flex items-center justify-center py-8 text-gray-400">
                 <Loader2 className="w-5 h-5 animate-spin mr-2" />
                 <span className="text-sm">{t('vacantes.analyzing')}</span>
+              </div>
+            )}
+
+            {automationRunning && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-sm text-blue-700 dark:text-blue-300">
+                <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                <span>{t('automation.running')}</span>
               </div>
             )}
 
@@ -639,12 +766,18 @@ export function Vacantes() {
                       questions={interviewQuestions}
                       generating={generatingQuestions}
                       onGenerate={handleGenerateQuestions}
+                      company={currentApp?.company}
+                      position={currentApp?.position}
                     />
                   </div>
                 )}
               </>
             ) : null}
           </div>
+        </div>
+
+        <div className={activeTab === 'search' ? '' : 'hidden'}>
+          <JobSearch onUseVacancy={handleImportFromSearch} />
         </div>
 
         <div className={activeTab === 'category' ? '' : 'hidden'}>
@@ -673,6 +806,26 @@ export function Vacantes() {
         variant="default"
         onConfirm={handleContinueDraft}
         onCancel={handleDiscardDraft}
+      />
+
+      <AutomationOfferModal
+        open={showAutomationOffer}
+        appliedCount={appliedCount}
+        initial={automationConfig ?? AUTOMATION_FALLBACK}
+        running={automationRunning}
+        onConfirm={handleConfirmAutomation}
+        onSkip={handleSkipAutomation}
+      />
+
+      <ConfirmDialog
+        open={pendingApplyConfirm}
+        title={t('automation.applyPromptTitle')}
+        message={t('automation.applyPromptMessage')}
+        confirmLabel={t('automation.applyConfirm')}
+        cancelLabel={t('automation.applyCancel')}
+        variant="default"
+        onConfirm={() => { setPendingApplyConfirm(false); void handleConfirmApplied() }}
+        onCancel={() => setPendingApplyConfirm(false)}
       />
     </div>
   )

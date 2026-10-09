@@ -60,16 +60,24 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
   const getStyleName = useCallback((id: string | null, templates: CvTemplate[]): string => {
     const builtin = BUILTIN_STYLES.find(s => s.id === id)
     if (builtin) return builtin.name
-    if (id && id.startsWith('custom:')) {
-      const tmpl = templates.find(t => `custom:${t.id}` === id)
+    if (id) {
+      const tmpl = templates.find(t => t.id === id || `custom:${t.id}` === id)
       if (tmpl) return tmpl.name
     }
     return id || ''
   }, [BUILTIN_STYLES])
+
+  const templateIdFromStyle = useCallback((styleId: string): string =>
+    styleId.startsWith('custom:')
+      ? styleId.slice('custom:'.length)
+      : styleId.startsWith('seed-')
+        ? styleId
+        : `seed-${styleId}`, [])
   const [step, setStep] = useState<CvStep>(currentStyle && currentContent ? 'generated' : 'style')
   const [generating, setGenerating] = useState(false)
   const [selectedStyle, setSelectedStyle] = useState<string | null>(currentStyle)
   const [content, setContent] = useState(currentContent)
+  const [profilePhoto, setProfilePhoto] = useState<string>('')
   const [copied, setCopied] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [savedPath, setSavedPath] = useState<string | null>(null)
@@ -161,7 +169,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
       const config = buildCfgConfig()
       await updateSettings({ emailConfig: config })
 
-      const pdfBase64 = await window.api.renderCvPdfBase64(content, selectedStyle || 'ats')
+      const pdfBase64 = await window.api.renderCvPdfBase64(withPhoto(content), selectedStyle || 'ats')
       if (!pdfBase64) {
         setSendResult({ ok: false, message: t('sendCv.pdfError') })
         return
@@ -189,6 +197,17 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
     window.api?.getCvTemplates().then(setCustomTemplates)
   }, [])
 
+  useEffect(() => {
+    window.api?.getProfile().then((p) => {
+      if (p?.photo) setProfilePhoto(p.photo)
+    }).catch(() => {})
+  }, [])
+
+  const withPhoto = (html: string): string => {
+    if (!profilePhoto || !html.includes('{{FOTO-PERFIL}}')) return html
+    return html.split('{{FOTO-PERFIL}}').join(profilePhoto)
+  }
+
   useEffect(() => { setContent(currentContent) }, [currentContent])
   useEffect(() => { setSelectedStyle(currentStyle) }, [currentStyle])
   useEffect(() => () => { if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current) }, [])
@@ -196,8 +215,8 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
   useEffect(() => {
     if (!editRef.current) return
     if (editMode) {
-      lastEditedHtmlRef.current = content
-      editRef.current.innerHTML = content
+      lastEditedHtmlRef.current = withPhoto(content)
+      editRef.current.innerHTML = withPhoto(content)
     } else {
       const edited = lastEditedHtmlRef.current
       if (edited !== content) {
@@ -215,7 +234,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
 
   useEffect(() => {
     if (tab === 'preview' && editMode && editRef.current) {
-      editRef.current.innerHTML = lastEditedHtmlRef.current || content
+      editRef.current.innerHTML = lastEditedHtmlRef.current || withPhoto(content)
     }
   }, [tab])
 
@@ -240,7 +259,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
   }, [customTemplates])
 
   const persistInstructionToTemplate = useCallback(async (styleId: string, instruction: string): Promise<void> => {
-    const templateId = styleId.startsWith('custom:') ? styleId.slice('custom:'.length) : `seed-${styleId}`
+    const templateId = templateIdFromStyle(styleId)
     const existing = customTemplates.find(t => t.id === templateId)
     const template: CvTemplate = {
       id: templateId,
@@ -257,7 +276,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
         ? prev.map(t => (t.id === templateId ? template : t))
         : [...prev, template],
     )
-  }, [customTemplates, BUILTIN_STYLES])
+  }, [customTemplates, BUILTIN_STYLES, templateIdFromStyle])
 
   const handleChooseStyle = async (styleId: string) => {
     if (!window.api || generating) return
@@ -286,7 +305,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
       const result = await window.api.generateCV(vacancyText, atsReport, selectedStyle, customPrompt, summary)
       setContent(result)
       onSave(selectedStyle, result)
-      const summaryTmplId = selectedStyle.startsWith('custom:') ? selectedStyle.slice('custom:'.length) : `seed-${selectedStyle}`
+      const summaryTmplId = templateIdFromStyle(selectedStyle)
       const summaryTmpl = customTemplates.find(t => t.id === summaryTmplId)
       if (summaryTmpl?.extraPrompt) notify(t('cvGenerator.templateHasInstructions'), 'info')
       setStep('generated')
@@ -308,7 +327,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
       const result = await window.api.generateCV(vacancyText, atsReport, styleId, customPrompt)
       setContent(result)
       onSave(styleId, result)
-      const regenTmplId = styleId.startsWith('custom:') ? styleId.slice('custom:'.length) : `seed-${styleId}`
+      const regenTmplId = templateIdFromStyle(styleId)
       const regenTmpl = customTemplates.find(t => t.id === regenTmplId)
       if (regenTmpl?.extraPrompt) notify(t('cvGenerator.templateHasInstructions'), 'info')
     } catch (err) {
@@ -370,7 +389,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
   }
 
   const handleCopy = async () => {
-    await window.api?.copyToClipboard(content)
+    await window.api?.copyToClipboard(withPhoto(content))
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -380,7 +399,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
     setDownloading(true)
     setSavedPath(null)
     try {
-      const path = await window.api.downloadCvPdf(content, selectedStyle!)
+      const path = await window.api.downloadCvPdf(withPhoto(content), selectedStyle!)
       if (path) setSavedPath(path)
     } catch (err) {
       const msg = err instanceof Error ? err.message : t('cvGenerator.errorDownloading')
@@ -797,7 +816,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
                 contentEditable={editMode}
                 suppressContentEditableWarning={true}
                 onInput={handlePreviewInput}
-                {...(!editMode ? { dangerouslySetInnerHTML: { __html: content } } : {})}
+                {...(!editMode ? { dangerouslySetInnerHTML: { __html: withPhoto(content) } } : {})}
               />
             </div>
           )}

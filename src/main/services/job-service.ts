@@ -1,4 +1,4 @@
-import type { ATSReport, Profile, AppSettings, InterviewQuestion } from '../../shared/types'
+import type { ATSReport, SalaryRange, Profile, AppSettings, InterviewQuestion } from '../../shared/types'
 import { completeChatCompletion } from './llm-service'
 import { readJSON } from './storage'
 import { SETTINGS_FILE } from '../utils/paths'
@@ -34,8 +34,21 @@ Debes responder ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sig
   "quickFixes": ["acciones rápidas que el candidato puede tomar para mejorar su aplicación, incluyendo formas de reformular experiencia existente"],
   "analysis": "análisis detallado en markdown del match, destacando cómo el perfil del candidato PUEDE ser relevante para la vacante incluso si no es un match perfecto. Incluye recomendaciones específicas para reformular la experiencia.",
   "company": "nombre real y específico de la empresa que publica la vacante, o cadena vacía si no aparece explícitamente",
-  "position": "título real y específico del puesto ofertado, o cadena vacía si no aparece explícitamente"
+  "position": "título real y específico del puesto ofertado, o cadena vacía si no aparece explícitamente",
+  "salaryRange": {
+    "min": <número o null: extremo inferior del rango salarial de referencia>,
+    "max": <número o null: extremo superior del rango salarial de referencia>,
+    "currency": "código ISO 4217 de la moneda (ej. DOP, USD, EUR)",
+    "period": "mensual o anual o hora",
+    "note": "aclaración breve sobre la estimación o su fuente, o cadena vacía"
+  }
 }
+REGLAS para salaryRange:
+- Estima un rango salarial de REFERENCIA para el puesto y su ubicación/empresa, usando la vacante y, si está disponible, la INVESTIGACIÓN DE EMPRESA (fuentes en línea).
+- Usa la moneda local del país de la vacante cuando no se especifique otra. Indica la moneda con su código ISO 4217 (DOP, USD, EUR, MXN, COP, etc.).
+- min y max deben ser números (sin símbolos ni separadores de miles). Si solo tienes una referencia puntual, repite el valor en min y max.
+- Si no hay base suficiente para estimar, usa null en min y max, deja currency como cadena vacía y explica brevemente en note.
+- No inventes cifras exactas: ofrece un rango aproximado y aclara en note que es una estimación de referencia.
 REGLAS CRÍTICAS para company y position:
 - Extrae SOLO datos reales y específicos presentes en el texto de la vacante.
 - La empresa debe ser un nombre propio real (ej: "Google", "Mercado Libre", "Banco Santander"), NO una frase descriptiva.
@@ -84,6 +97,32 @@ REGLAS ANTI-ALUCINACION (OBLIGATORIAS, PRIORIDAD ABSOLUTA):
 2. PROHIBICION DE ADAPTACION: Si la vacante pide una habilidad que el candidato NO tiene (ej. "experiencia en OBS Studio"), NO la afirmes ni la disfraces con "disponible para aprender", "habil para aprender rapidamente", "familiarizado con", "conocimientos basicos de" o similares. La carta solo menciona lo que el candidato ya sabe y ha hecho.
 3. CERO JUSTIFICACIONES: No escribas notas, parentesis ni meta-comentarios como "(no tengo experiencia en esto)". Si no puedes afirmar algo con el perfil, no lo escribas.
 4. PROHIBIDO PLACEHOLDERS: No uses corchetes de plantilla ([Nombre], [Tu nombre], [Empresa], [Puesto], [Título]) ni texto genérico. Escribe la carta completa usando los datos reales del perfil.${LANGUAGE_INSTRUCTION}`
+
+/** Normaliza el rango salarial devuelto por el modelo a un objeto seguro. */
+function parseSalaryRange(value: unknown): SalaryRange | null {
+  if (!value) return null
+  if (typeof value === 'string') {
+    const text = value.trim()
+    return text ? { note: text } : null
+  }
+  if (typeof value !== 'object') return null
+  const raw = value as Record<string, unknown>
+  const toNum = (v: unknown): number | null => {
+    if (typeof v === 'number' && Number.isFinite(v)) return v
+    if (typeof v === 'string') {
+      const n = Number(v.replace(/[^\d.-]/g, ''))
+      return Number.isFinite(n) ? n : null
+    }
+    return null
+  }
+  const min = toNum(raw.min)
+  const max = toNum(raw.max)
+  const currency = typeof raw.currency === 'string' ? raw.currency.trim().toUpperCase().slice(0, 3) : ''
+  const period = typeof raw.period === 'string' ? raw.period.trim().toLowerCase() : ''
+  const note = typeof raw.note === 'string' ? raw.note.trim() : ''
+  if (min === null && max === null && !note) return null
+  return { min, max, currency, period, note }
+}
 
 function guessVacancyMeta(text: string): { company: string; position: string } {
   const clean = (s: string) => s.trim().replace(/\s+/g, ' ').replace(/[.,;:]+$/, '').slice(0, 60)
@@ -167,6 +206,7 @@ export async function analyzeVacancy(
       analysis: parsed.analysis ?? response,
       company: typeof parsed.company === 'string' ? parsed.company : '',
       position: typeof parsed.position === 'string' ? parsed.position : '',
+      salaryRange: parseSalaryRange(parsed.salaryRange),
     }
   } catch {
     return {

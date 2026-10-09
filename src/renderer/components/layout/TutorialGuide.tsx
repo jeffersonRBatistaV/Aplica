@@ -37,6 +37,20 @@ export function useTutorial() {
           },
         },
         {
+          popover: {
+            title: t('tutorial.jobSearchTitle'),
+            description: t('tutorial.jobSearchDesc'),
+          },
+        },
+        {
+          element: '#nav-whatsapp',
+          popover: {
+            title: t('tutorial.whatsappTitle'),
+            description: t('tutorial.whatsappDesc'),
+            side: 'right' as const,
+          },
+        },
+        {
           element: '#nav-stats',
           popover: {
             title: t('tutorial.statsTitle'),
@@ -50,6 +64,12 @@ export function useTutorial() {
             title: t('tutorial.roadmapTitle'),
             description: t('tutorial.roadmapDesc'),
             side: 'right' as const,
+          },
+        },
+        {
+          popover: {
+            title: t('tutorial.interviewTitle'),
+            description: t('tutorial.interviewDesc'),
           },
         },
         {
@@ -74,6 +94,12 @@ export function useTutorial() {
             title: t('tutorial.settingsTitle'),
             description: t('tutorial.settingsDesc'),
             side: 'right' as const,
+          },
+        },
+        {
+          popover: {
+            title: t('tutorial.automationTitle'),
+            description: t('tutorial.automationDesc'),
           },
         },
       ],

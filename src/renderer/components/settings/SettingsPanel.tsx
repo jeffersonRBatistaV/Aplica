@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Cloud, BookText, Shield, Palette, User, Download, Languages, Mail, Search, ScanText, MessageCircle } from 'lucide-react'
+import { X, Cloud, BookText, Shield, Palette, User, Download, Languages, Mail, Search, ScanText, MessageCircle, Bot } from 'lucide-react'
 import { useSettings } from '../../contexts/SettingsContext'
 import { useTheme } from '../../contexts/ThemeContext'
 import { useNotification } from '../../contexts/NotificationContext'
@@ -13,10 +13,11 @@ import { ProfileWizard } from '../profile/ProfileWizard'
 import { DataExport } from './DataExport'
 import { OcrSettings } from './OcrSettings'
 import { WhatsAppSettings } from './WhatsAppSettings'
+import { AutomationConfig } from './AutomationConfig'
 import type { ThemeMode, Profile } from '../../../shared/types'
 import { useTranslation } from 'react-i18next'
 
-type Tab = 'api' | 'prompts' | 'privacy' | 'appearance' | 'profile' | 'data' | 'email' | 'research' | 'ocr' | 'whatsapp'
+type Tab = 'api' | 'prompts' | 'privacy' | 'appearance' | 'profile' | 'data' | 'email' | 'research' | 'ocr' | 'whatsapp' | 'automation'
 
 const tabs: { id: Tab; labelKey: string; icon: typeof Cloud }[] = [
   { id: 'profile', labelKey: 'settingsPanel.tabs.profile', icon: User },
@@ -24,6 +25,7 @@ const tabs: { id: Tab; labelKey: string; icon: typeof Cloud }[] = [
   { id: 'email', labelKey: 'settingsPanel.tabs.email', icon: Mail },
   { id: 'research', labelKey: 'settingsPanel.tabs.research', icon: Search },
   { id: 'ocr', labelKey: 'settingsPanel.tabs.ocr', icon: ScanText },
+  { id: 'automation', labelKey: 'settingsPanel.tabs.automation', icon: Bot },
   { id: 'prompts', labelKey: 'settingsPanel.tabs.prompts', icon: BookText },
   { id: 'privacy', labelKey: 'settingsPanel.tabs.privacy', icon: Shield },
   { id: 'appearance', labelKey: 'settingsPanel.tabs.appearance', icon: Palette },
@@ -194,6 +196,10 @@ export function SettingsPanel({ onClose, initialTab = 'profile' }: SettingsPanel
 
         {activeTab === 'whatsapp' && (
           <WhatsAppSettings />
+        )}
+
+        {activeTab === 'automation' && (
+          <AutomationConfig />
         )}
 
         {activeTab === 'appearance' && (

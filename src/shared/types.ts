@@ -196,6 +196,15 @@ export interface StreamParams {
 
 export type ThemeMode = 'light' | 'dark' | 'system'
 
+/** Rango salarial de referencia estimado a partir de la investigación web. */
+export interface SalaryRange {
+  min?: number | null
+  max?: number | null
+  currency?: string
+  period?: string
+  note?: string
+}
+
 export interface ATSReport {
   matchScore: number
   keywordsPresent: string[]
@@ -206,6 +215,7 @@ export interface ATSReport {
   analysis: string
   company?: string
   position?: string
+  salaryRange?: SalaryRange | null
 }
 
 export interface CvTemplate {
@@ -252,6 +262,33 @@ export interface InterviewQuestion {
   question: string
   answer: string
   category: string
+}
+
+export interface LinkedInJob {
+  id: string
+  title: string
+  company: string
+  location: string
+  url: string
+  postedAt?: string
+  source: 'linkedin' | 'web'
+}
+
+export interface LinkedInJobDetail {
+  description: string
+  title?: string
+  company?: string
+  location?: string
+}
+
+export interface AutomationConfig {
+  enabled: boolean
+  autoCv: boolean
+  autoQuestions: boolean
+  cvStyle: string | null
+  cvSummaryId: string | null
+  askBeforeApply: boolean
+  dontOfferAgain: boolean
 }
 
 export interface JobCategory {
@@ -318,6 +355,10 @@ export interface WhatsAppScanResult {
   vacancies: WhatsAppVacancy[]
   scanned: number
   phases: string[]
+  /** true si WhatsApp Web se desincronizó (frame desacoplado) durante el escaneo. */
+  pageError?: boolean
+  /** true si se reconectó la sesión con éxito y el escaneo pudo continuar. */
+  recovered?: boolean
 }
 
 export interface WhatsAppConfig {

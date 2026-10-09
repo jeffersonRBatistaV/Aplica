@@ -5,7 +5,7 @@ import { readProfile } from '../services/profile-reader'
 import { SETTINGS_FILE, PROFILE_PATH, USER_PROFILE_PATH, PROFILES_FILE, DATA_DIR, CV_TEMPLATES_FILE } from '../utils/paths'
 import { getActiveProfileFiles, ensureParentDir } from '../services/profile-data'
 import { getActiveProfile } from '../services/profile-scope'
-import type { Conversation, AppSettings, StreamParams, JobApplication, Profile, ATSReport, CvTemplate, InterviewQuestion, ImportResult, ImportStats, JobCategory, CvVersion } from '../../shared/types'
+import type { Conversation, AppSettings, StreamParams, JobApplication, Profile, ATSReport, CvTemplate, InterviewQuestion, ImportResult, ImportStats, JobCategory, CvVersion, LinkedInJob, LinkedInJobDetail, AutomationConfig } from '../../shared/types'
 import { streamChatCompletion, abortCurrentStream, listModels } from '../services/llm-service'
 import { ThrottledStream } from '../utils/throttled-stream'
 import { analyzeVacancy, generateCoverLetters, correctVacancyText, generateInterviewQuestions } from '../services/job-service'
@@ -19,6 +19,8 @@ import { getUsage, resetUsage } from '../services/usage-service'
 import { testEmailConnection, sendEmail, SMTP_PRESETS } from '../services/email-service'
 import type { EmailConfig, EmailPayload } from '../../shared/types'
 import { getSeedTemplates, wrapHtml } from '../services/cv-templates-seed'
+import { searchLinkedInJobs, fetchLinkedInJob } from '../services/linkedin-service'
+import { getAutomationConfig, saveAutomationConfig } from '../services/automation-service'
 import { extractTextFromImage } from '../services/ocr-service'
 import { getExchangeRate } from '../services/currency-service'
 import { investigate, investigateHealth, discoverBackend } from '../services/investigate-service'
@@ -238,6 +240,27 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
   safeHandle('cv:generateSample', async (_event, prompt: string): Promise<string> => {
     const html = await generateSampleCv(prompt)
     return wrapHtml(html)
+  })
+
+  // ── LinkedIn Job Search (endpoint guest, sin login) ──
+  safeHandle('linkedin:search', async (_event, keywords: string, location?: string, limit?: number): Promise<LinkedInJob[]> => {
+    return searchLinkedInJobs(keywords, location, limit)
+  })
+  safeHandle('linkedin:job', async (_event, input: string): Promise<LinkedInJobDetail | null> => {
+    return fetchLinkedInJob(input)
+  })
+  safeHandle('shell:openExternal', async (_event, url: string): Promise<void> => {
+    if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) return
+    const { shell } = await import('electron')
+    await shell.openExternal(url)
+  })
+
+  // ── Automation (perfil) ──
+  safeHandle('automation:get', async (): Promise<AutomationConfig> => {
+    return getAutomationConfig()
+  })
+  safeHandle('automation:set', async (_event, config: Partial<AutomationConfig>): Promise<AutomationConfig> => {
+    return saveAutomationConfig(config)
   })
 
   // ── Job Categories (CV por categoría) ──
@@ -886,9 +909,10 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
 
     try {
       const pdfBuffer = await renderCvPdf(htmlContent, styleName)
+      const isInterview = styleName === 'entrevista'
       const { filePath, canceled } = await dialog.showSaveDialog({
-        title: 'Guardar CV',
-        defaultPath: `CV-${styleName}.pdf`,
+        title: isInterview ? 'Guardar PDF' : 'Guardar CV',
+        defaultPath: isInterview ? 'Preguntas-Entrevista.pdf' : `CV-${styleName}.pdf`,
         filters: [{ name: 'PDF', extensions: ['pdf'] }],
       })
       if (canceled || !filePath) return null
@@ -928,7 +952,7 @@ async function renderCvPdf(bodyHtml: string, styleName: string): Promise<Buffer>
 }
 
 function buildCvHtml(bodyHtml: string, styleName: string): string {
-  const labels: Record<string, string> = { ats: 'ATS-Friendly', moderno: 'Moderno', tradicional: 'Tradicional' }
+  const labels: Record<string, string> = { ats: 'ATS-Friendly', moderno: 'Moderno', tradicional: 'Tradicional', entrevista: 'Preguntas de Entrevista' }
   return `<!DOCTYPE html>
 <html lang="es">
 <head>

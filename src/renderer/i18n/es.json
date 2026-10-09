@@ -189,7 +189,12 @@
     "gaps": "Brechas",
     "quickFixes": "Quick Fixes",
     "detailedAnalysis": "Análisis Detallado",
-    "noData": "Sin datos"
+    "noData": "Sin datos",
+    "salaryTitle": "Salario de referencia",
+    "salaryEstimated": "Estimación orientativa basada en investigación web.",
+    "salaryPerMonth": "mensual",
+    "salaryPerYear": "anual",
+    "salaryPerHour": "por hora"
   },
   "coverLetter": {
     "title": "Cartas Generadas",
@@ -265,7 +270,11 @@
     "generating": "Generando...",
     "generatingQuestions": "Generando preguntas personalizadas...",
     "questionsCount": "{{count}} preguntas",
-    "emptyState": "Genera preguntas de entrevista personalizadas para esta vacante basadas en tu perfil y el reporte ATS"
+    "emptyState": "Genera preguntas de entrevista personalizadas para esta vacante basadas en tu perfil y el reporte ATS",
+    "download": "Descargar PDF",
+    "generatingPdf": "Generando PDF...",
+    "pdfSaved": "PDF guardado en:",
+    "errorDownloading": "Error al descargar PDF"
   },
   "kanban": {
     "columnDraft": "Borrador",
@@ -378,6 +387,7 @@
       "email": "Correo",
       "research": "Investigación",
       "ocr": "OCR",
+      "automation": "Automatizaciones",
       "prompts": "Prompts",
       "privacy": "Privacidad",
       "appearance": "Apariencia",
@@ -481,7 +491,7 @@
     "searchProvider": "Motor de búsqueda",
     "searchProviderAuto": "Automático (mejor disponible)",
     "searchProviderDuckDuckGo": "DuckDuckGo (gratis, sin API key)",
-    "searchProviderSearxng": "SearXNG (gratis, metabuscardor)",
+    "searchProviderSearxng": "SearXNG (gratis, metabuscador)",
     "searchProviderBing": "Bing (gratis, sin API key)",
     "searchProviderBrave": "Brave Search",
     "searchProviderGoogle": "Google Custom Search",
@@ -612,6 +622,12 @@
     "chatDesc": "Conversa con la IA para practicar entrevistas, resolver dudas y recibir consejos laborales.",
     "jobsTitle": "Vacantes",
     "jobsDesc": "Analiza ofertas de trabajo, genera CV personalizados, cartas de presentación y prepárate para entrevistas.",
+    "jobSearchTitle": "Buscar empleo",
+    "jobSearchDesc": "En Vacantes, la pestaña «Buscar empleo» te permite encontrar ofertas en LinkedIn e importarlas con un clic para analizarlas.",
+    "whatsappTitle": "WhatsApp",
+    "whatsappDesc": "Conecta tu WhatsApp para detectar vacantes en grupos y canales automáticamente y pasarlas a tu flujo de postulación.",
+    "interviewTitle": "Entrevistas y CV",
+    "interviewDesc": "Tras analizar una vacante puedes generar CV en varios estilos, cartas de presentación y preguntas de entrevista (descargables en PDF).",
     "statsTitle": "Estadísticas",
     "statsDesc": "Visualiza tu progreso, métricas de postulaciones y recibe consejos para mejorar tu perfil.",
     "roadmapTitle": "Roadmap",
@@ -622,6 +638,8 @@
     "tutorialDesc": "Puedes volver a esta guía en cualquier momento haciendo clic aquí.",
     "settingsTitle": "Configuración",
     "settingsDesc": "Conecta tu API (Ollama, OpenAI, etc.), personaliza la apariencia y gestiona tus datos.",
+    "automationTitle": "Automatizaciones",
+    "automationDesc": "En Configuración › Automatizaciones puedes automatizar la generación de CV y preguntas, con confirmación en los pasos importantes. También puedes editar los prompts de tus plantillas de CV.",
     "continue": "Continuar",
     "previous": "Anterior",
     "skipGuide": "Saltar guía"
@@ -644,6 +662,7 @@
     "saveProfile": "Guardar Perfil",
     "saving": "Guardando...",
     "yourProfile": "Tu perfil",
+    "selectArea": "Selecciona tu área profesional",
     "contactInfo": "Información de Contacto",
     "photo": "Foto de perfil",
     "selectPhoto": "Seleccionar foto",
@@ -733,10 +752,10 @@
       "over15": "Más de 15 años"
     },
     "englishLevels": {
-      "basic": "B�sico",
+      "basic": "Básico",
       "intermediate": "Intermedio",
       "advanced": "Avanzado",
-      "native": "Nativo / Biling�e"
+      "native": "Nativo / Bilingüe"
     }
   },
   "emailConfig": {
@@ -779,6 +798,51 @@
     "defaultSubjectGeneric": "Postulación a vacante",
     "defaultBody": "Estimado/a reclutador/a,\n\nAdjunto mi CV para su consideración.\n\nQuedo a su disposición para cualquier consulta.\n\nSaludos cordiales."
   },
+  "jobSearch": {
+    "tab": "Buscar empleo",
+    "keywordsPlaceholder": "Puesto, palabras clave…",
+    "locationPlaceholder": "Ubicación (opcional)",
+    "loginHint": "Búsqueda pública de LinkedIn, no necesitas iniciar sesión.",
+    "search": "Buscar",
+    "searching": "Buscando vacantes…",
+    "noResults": "No se encontraron vacantes. Prueba con otras palabras clave o ubicación.",
+    "error": "No se pudieron cargar las vacantes. Inténtalo de nuevo.",
+    "results": "{{count}} vacante encontrada",
+    "results_plural": "{{count}} vacantes encontradas",
+    "useVacancy": "Usar vacante"
+  },
+  "automation": {
+    "title": "Automatización de postulaciones",
+    "description": "Cuando analizas una vacante, deja que Aplica genere el CV y las preguntas de entrevista por ti. Los pasos importantes siempre te pedirán confirmación.",
+    "enabled": "Activar automatización",
+    "enabledHint": "Ofrece automatizar cada vez que analizas una vacante.",
+    "autoCv": "Generar CV automáticamente",
+    "autoCvHint": "Crea el CV con el estilo y el resumen por defecto, sin preguntarte.",
+    "cvStyle": "Estilo de CV por defecto",
+    "summary": "Resumen por defecto",
+    "summaryAuto": "Elegir automáticamente",
+    "summaryTecnicista": "Técnico",
+    "summaryEjecutivo": "Ejecutivo",
+    "summaryCreativo": "Creativo",
+    "autoQuestions": "Generar preguntas de entrevista",
+    "autoQuestionsHint": "Prepara preguntas y respuestas para la entrevista.",
+    "askBeforeApply": "Confirmar antes de marcar como aplicada",
+    "askBeforeApplyHint": "Al terminar te preguntará si marcar la vacante como aplicada.",
+    "dontOfferAgain": "No volver a preguntar",
+    "dontOfferAgainHint": "Deja de ofrecer la automatización al analizar vacantes. Puedes reactivarla aquí.",
+    "saved": "Automatización guardada",
+    "saving": "Guardando…",
+    "running": "Automatizando: generando CV y preguntas de entrevista…",
+    "offerTitle": "¿Automatizar esta postulación?",
+    "offerDescription": "Ya has aplicado a {{count}} vacantes. Deja que Aplica prepare esta postulación automáticamente.",
+    "offerEmailNote": "El correo con la carta de presentación quedará preparado; el envío lo confirmas tú.",
+    "offerSkip": "Ahora no",
+    "offerConfirm": "Automatizar",
+    "applyPromptTitle": "Marcar como aplicada",
+    "applyPromptMessage": "La automatización terminó. ¿Quieres marcar esta vacante como Aplicada?",
+    "applyConfirm": "Marcar como aplicada",
+    "applyCancel": "Todavía no"
+  },
   "whatsapp": {
     "title": "Vacantes por WhatsApp",
     "connect": "Conectar",
@@ -817,6 +881,9 @@
     "scanDeep": "Escaneo profundo (50 msg/grupo)",
     "scanEmpty": "No se detectaron vacantes en los grupos seleccionados.",
     "scanFailed": "No se pudo completar el escaneo.",
+    "scanPageError": "WhatsApp Web se desincronizó y no se pudo reconectar. Prueba a reconectar o vuelve a intentar el escaneo.",
+    "scanRecovered": "WhatsApp Web se reconectó y el escaneo se completó.",
+    "reconnect": "Reconectar",
     "noGroupsSelected": "Selecciona al menos un grupo primero.",
     "enableMonitoring": "Monitorear en tiempo real",
     "monitoringActive": "Monitoreo activo",

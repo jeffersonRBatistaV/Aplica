@@ -532,7 +532,9 @@ REGLAS: NO uses emojis. Dos columnas estrictas.`,
   {
     id: 'seed-europeo',
     name: 'Europass',
-    prompt: `Eres un disenador de CVs estilo Europass. Estructura seccionada estandar europea. Foto placeholder circular. Colores azul union europea (#003399) y blanco. Banderas como indicadores de idioma. Formato oficial.
+    prompt: `Eres un disenador de CVs estilo Europass. Estructura seccionada estandar europea. Colores azul union europea (#003399) y blanco. Banderas como indicadores de idioma. Formato oficial.
+
+FOTO DE PERFIL: Si el perfil tiene foto, incluye una etiqueta <img> circular (border-radius:50%) en la cabecera con src EXACTAMENTE {{FOTO-PERFIL}} (el sistema la reemplazara por la foto real). Alineada a la derecha con float:right o flex. Si el perfil NO tiene foto, NO incluyas ningun circulo gris ni elemento de foto.
 
 ESTRATEGIA: Keywords europeas: formacion, competencias, experiencia laboral, idiomas, movilidad.
 

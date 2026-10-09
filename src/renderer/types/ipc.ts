@@ -1,4 +1,4 @@
-import type { Conversation, AppSettings, StreamParams, Profile, JobApplication, ATSReport, CvTemplate, InterviewQuestion, UsageStats, ImportResult, Roadmap, JobCategory, InvestigateResult, CvVersion, EmailConfig, EmailPayload, EmailPreset, EmailResult, WhatsAppConfig, WhatsAppGroup, WhatsAppScanResult, WhatsAppStatus, WhatsAppVacancy } from '../../shared/types'
+import type { Conversation, AppSettings, StreamParams, Profile, JobApplication, ATSReport, CvTemplate, InterviewQuestion, UsageStats, ImportResult, Roadmap, JobCategory, InvestigateResult, CvVersion, EmailConfig, EmailPayload, EmailPreset, EmailResult, WhatsAppConfig, WhatsAppGroup, WhatsAppScanResult, WhatsAppStatus, WhatsAppVacancy, LinkedInJob, LinkedInJobDetail, AutomationConfig } from '../../shared/types'
 
 export interface UpdateInfo {
   version: string
@@ -124,6 +124,14 @@ export interface ElectronAPI {
   deleteCvTemplate: (id: string) => Promise<void>
   resetCvTemplates: () => Promise<void>
   generateSampleCv: (prompt: string) => Promise<string>
+
+  // LinkedIn Job Search
+  searchLinkedInJobs: (keywords: string, location?: string, limit?: number) => Promise<LinkedInJob[]>
+  getLinkedInJob: (input: string) => Promise<LinkedInJobDetail | null>
+  openExternal: (url: string) => Promise<void>
+
+  getAutomationConfig: () => Promise<AutomationConfig>
+  saveAutomationConfig: (config: Partial<AutomationConfig>) => Promise<AutomationConfig>
 
   // Job Categories (CV por categoría)
   getCategories: (areaId?: string) => Promise<JobCategory[]>

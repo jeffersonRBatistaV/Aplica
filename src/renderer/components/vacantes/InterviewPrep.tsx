@@ -1,15 +1,18 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { MessageCircle, ChevronDown, ChevronUp, RefreshCw, Loader2, Sparkles } from 'lucide-react'
+import { MessageCircle, ChevronDown, ChevronUp, RefreshCw, Loader2, Sparkles, Download } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '../ui/Button'
+import { useNotification } from '../../contexts/NotificationContext'
 import type { InterviewQuestion } from '../../../shared/types'
 
 interface InterviewPrepProps {
   questions: InterviewQuestion[]
   generating: boolean
   onGenerate: () => void
+  company?: string
+  position?: string
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -22,6 +25,20 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 function getCategoryColor(category: string): string {
   return CATEGORY_COLORS[category] || 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function renderText(markdown: string): string {
+  return escapeHtml(markdown || '')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n/g, '<br>')
 }
 
 function QuestionCard({ q }: { q: InterviewQuestion }) {
@@ -63,8 +80,40 @@ function QuestionCard({ q }: { q: InterviewQuestion }) {
   )
 }
 
-export function InterviewPrep({ questions, generating, onGenerate }: InterviewPrepProps) {
+export function InterviewPrep({ questions, generating, onGenerate, company, position }: InterviewPrepProps) {
   const { t } = useTranslation()
+  const { notify } = useNotification()
+  const [downloadingPdf, setDownloadingPdf] = useState(false)
+
+  const handleDownloadPdf = async () => {
+    if (!window.api || questions.length === 0) return
+    setDownloadingPdf(true)
+    try {
+      const subtitle = [company, position].filter(Boolean).join(' · ')
+      const rows = questions
+        .map(
+          (q) => `
+        <section style="margin-bottom:14px;page-break-inside:avoid;">
+          <div style="font-size:9pt;text-transform:uppercase;letter-spacing:.04em;color:#6b7280;margin-bottom:2px;">${escapeHtml(q.category)}</div>
+          <div style="font-weight:600;margin-bottom:4px;">${renderText(q.question)}</div>
+          <div style="color:#374151;">${renderText(q.answer)}</div>
+        </section>`,
+        )
+        .join('')
+      const html = `<div style="padding:18mm 16mm;">
+        <h1 style="font-size:18pt;margin:0 0 2px;">${escapeHtml(t('interviewPrep.title'))}</h1>
+        ${subtitle ? `<p style="margin:0 0 16px;color:#6b7280;">${escapeHtml(subtitle)}</p>` : ''}
+        ${rows}
+      </div>`
+      const path = await window.api.downloadCvPdf(html, 'entrevista')
+      if (path) notify(`${t('interviewPrep.pdfSaved')} ${path}`, 'success')
+    } catch {
+      notify(t('interviewPrep.errorDownloading'), 'error')
+    } finally {
+      setDownloadingPdf(false)
+    }
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -75,6 +124,15 @@ export function InterviewPrep({ questions, generating, onGenerate }: InterviewPr
         <div className="flex items-center gap-2">
           {questions.length > 0 && (
             <span className="text-xs text-gray-400">{t('interviewPrep.questionsCount', { count: questions.length })}</span>
+          )}
+          {questions.length > 0 && (
+            <Button variant="secondary" size="sm" onClick={() => void handleDownloadPdf()} disabled={downloadingPdf}>
+              {downloadingPdf ? (
+                <><Loader2 className="w-3.5 h-3.5 animate-spin" /> {t('interviewPrep.generatingPdf')}</>
+              ) : (
+                <><Download className="w-3.5 h-3.5" /> {t('interviewPrep.download')}</>
+              )}
+            </Button>
           )}
           <Button
             variant="secondary"

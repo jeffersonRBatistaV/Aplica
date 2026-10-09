@@ -5,6 +5,13 @@ import { CV_TEMPLATES_FILE, SETTINGS_FILE } from '../utils/paths'
 
 const LANGUAGE_INSTRUCTION = '\n\nIMPORTANTE: Responde SIEMPRE en el MISMO IDIOMA en el que está escrita la vacante. Si la vacante está en inglés, responde en inglés. Si está en español, responde en español. Si está en otro idioma, responde en ese mismo idioma.'
 
+function stripPhoto(profile: Profile): Profile {
+  const { photo: _photo, ...rest } = profile
+  return rest as Profile
+}
+
+const PHOTO_INSTRUCTION = `\n\nREGLA DE FOTO DE PERFIL:- Si el perfil del candidato tiene foto (campo "photo" con data URL), incluye la foto como una etiqueta <img> con src EXACTAMENTE igual a este token: {{FOTO-PERFIL}}. La etiqueta debe tener estilo circular (border-radius: 50%), borde blanco, entre 18mm y 24mm de diámetro, y quedar alineada arriba a la derecha de la cabecera del CV (usa float: right si es necesario, con márgenes pequeños).- El token {{FOTO-PERFIL}} es OBLIGATORIO como valor de src: el sistema lo reemplazará por la foto real del candidato. NUNCA inventes otra URL, uses placeholders tipo [foto], rutas locales ni imágenes de relleno.- Si el perfil NO tiene foto, NO incluyas ninguna etiqueta <img> ni ninguna caja/placeholder de foto en el CV.- NO uses emojis ni texto alternativo inventado: si incluyes alt, usa el nombre real del candidato.`
+
 const LAYOUT_RULES = `
 
 REGLAS ANTI-ALUCINACION (OBLIGATORIAS, tienen PRIORIDAD ABSOLUTA):
@@ -40,11 +47,29 @@ async function getConfig(): Promise<LLMConfig> {
   }
 }
 
+function normalizeTemplateId(style: string): string | undefined {
+  if (style.startsWith('custom:')) return style.slice('custom:'.length)
+  if (style.startsWith('seed-')) return style
+  return undefined
+}
+
+async function getTemplatePrompt(style: string): Promise<string | undefined> {
+  const templateId = normalizeTemplateId(style)
+  if (!templateId) return undefined
+  try {
+    const templates = await readJSON<CvTemplate[]>(CV_TEMPLATES_FILE)
+    const prompt = templates?.find((t) => t.id === templateId)?.prompt
+    return prompt && prompt.trim() ? prompt : undefined
+  } catch {
+    return undefined
+  }
+}
+
 async function getTemplateExtraPrompt(style: string): Promise<string | undefined> {
   try {
     const templates = await readJSON<CvTemplate[]>(CV_TEMPLATES_FILE)
     if (!templates?.length) return undefined
-    const templateId = style.startsWith('custom:') ? style.slice('custom:'.length) : `seed-${style}`
+    const templateId = normalizeTemplateId(style) ?? `seed-${style}`
     return templates.find((t) => t.id === templateId)?.extraPrompt
   } catch {
     return undefined
@@ -253,7 +278,7 @@ export async function generateSummaryOptions(
   const config = await getConfig()
 
   const profileSection = profile
-    ? `\n\n## PERFIL DEL CANDIDATO\n\`\`\`json\n${JSON.stringify(profile, null, 2)}\n\`\`\``
+    ? `\n\n## PERFIL DEL CANDIDATO\n\`\`\`json\n${JSON.stringify(stripPhoto(profile), null, 2)}\n\`\`\``
     : '\n\n## PERFIL DEL CANDIDATO\nNo hay perfil disponible.'
 
   const atsSection = atsReport
@@ -306,13 +331,14 @@ export async function generateCV(
   chosenSummary?: string,
 ): Promise<string> {
   const config = await getConfig()
-  const basePrompt = customPrompt || STYLE_PROMPTS[style] || STYLE_PROMPTS.ats
+  const templatePrompt = await getTemplatePrompt(style)
+  const basePrompt = customPrompt || templatePrompt || STYLE_PROMPTS[style] || STYLE_PROMPTS.ats
   const extraPrompt = await getTemplateExtraPrompt(style)
   const prompt = extraPrompt ? `${basePrompt}\n\n## INSTRUCCIONES ADICIONALES DEL USUARIO (OBLIGATORIO aplicarlas SIEMPRE en cada generacion)\n${extraPrompt}` : basePrompt
-  const fullPrompt = prompt + LAYOUT_RULES
+  const fullPrompt = prompt + LAYOUT_RULES + PHOTO_INSTRUCTION
 
   const profileSection = profile
-    ? `\n\n## PERFIL DEL CANDIDATO\n\`\`\`json\n${JSON.stringify(profile, null, 2)}\n\`\`\``
+    ? `\n\n## PERFIL DEL CANDIDATO\n\`\`\`json\n${JSON.stringify(stripPhoto(profile), null, 2)}\n\`\`\``
     : '\n\n## PERFIL DEL CANDIDATO\nNo hay perfil disponible.'
 
   const atsSection = atsReport
@@ -344,13 +370,14 @@ export async function regenerateCV(
 ): Promise<string> {
   const config = await getConfig()
   const styleLabel = style === 'ats' ? 'ATS-Friendly' : style === 'moderno' ? 'Moderno' : style === 'tradicional' ? 'Tradicional' : 'Personalizado'
-  const basePrompt = customPrompt || STYLE_PROMPTS[style] || STYLE_PROMPTS.ats
+  const templatePrompt = await getTemplatePrompt(style)
+  const basePrompt = customPrompt || templatePrompt || STYLE_PROMPTS[style] || STYLE_PROMPTS.ats
   const extraPrompt = await getTemplateExtraPrompt(style)
   const prompt = extraPrompt ? `${basePrompt}\n\n## INSTRUCCIONES ADICIONALES DEL USUARIO (OBLIGATORIO aplicarlas SIEMPRE en cada generacion)\n${extraPrompt}` : basePrompt
-  const fullPrompt = prompt + LAYOUT_RULES
+  const fullPrompt = prompt + LAYOUT_RULES + PHOTO_INSTRUCTION
 
   const profileSection = profile
-    ? `\n\n## PERFIL DEL CANDIDATO\n\`\`\`json\n${JSON.stringify(profile, null, 2)}\n\`\`\``
+    ? `\n\n## PERFIL DEL CANDIDATO\n\`\`\`json\n${JSON.stringify(stripPhoto(profile), null, 2)}\n\`\`\``
     : '\n\n## PERFIL DEL CANDIDATO\nNo hay perfil disponible.'
 
   const atsSection = atsReport

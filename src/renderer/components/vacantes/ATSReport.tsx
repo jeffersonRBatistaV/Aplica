@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { RefreshCw, CheckCircle2, XCircle, AlertTriangle, Lightbulb, TrendingUp, CheckSquare, Square, Loader2, X } from 'lucide-react'
+import { RefreshCw, CheckCircle2, XCircle, AlertTriangle, Lightbulb, TrendingUp, CheckSquare, Square, Loader2, X, Banknote } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Button } from '../ui/Button'
@@ -10,6 +10,17 @@ interface ATSReportViewProps {
   report: ATSReport
   onRefresh: () => void
   onAddKeywords?: (keywords: { keyword: string; level: string }[]) => Promise<void>
+}
+
+function formatAmount(n: number, currency?: string): string {
+  if (currency && /^[A-Z]{3}$/.test(currency)) {
+    try {
+      return new Intl.NumberFormat(undefined, { style: 'currency', currency, maximumFractionDigits: 0 }).format(n)
+    } catch {
+      // Moneda inválida: se formatea sin símbolo.
+    }
+  }
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(n)
 }
 
 function ScoreBadge({ score }: { score: number }) {
@@ -103,6 +114,27 @@ export function ATSReportView({ report, onRefresh, onAddKeywords }: ATSReportVie
     }
   }
 
+  const sr = report.salaryRange
+  const salaryText = sr
+    ? sr.min != null && sr.max != null
+      ? sr.min === sr.max
+        ? formatAmount(sr.min, sr.currency)
+        : `${formatAmount(sr.min, sr.currency)} – ${formatAmount(sr.max, sr.currency)}`
+      : sr.min != null
+        ? `≥ ${formatAmount(sr.min, sr.currency)}`
+        : sr.max != null
+          ? `≤ ${formatAmount(sr.max, sr.currency)}`
+          : null
+    : null
+  const salaryPeriod = sr ? (() => {
+    const p = (sr.period || '').toLowerCase()
+    if (/(mensual|month)/.test(p)) return t('atsReport.salaryPerMonth')
+    if (/(anual|year|año)/.test(p)) return t('atsReport.salaryPerYear')
+    if (/(hora|hour)/.test(p)) return t('atsReport.salaryPerHour')
+    return sr.period || ''
+  })() : ''
+  const hasSalary = !!sr && (salaryText != null || !!sr.note)
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -117,6 +149,24 @@ export function ATSReportView({ report, onRefresh, onAddKeywords }: ATSReportVie
       <div className="flex justify-center py-4">
         <ScoreBadge score={report.matchScore} />
       </div>
+
+      {/* Reference Salary Range */}
+      {hasSalary && (
+        <div className="p-3 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/10">
+          <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400 mb-2 flex items-center gap-1">
+            <Banknote className="w-3.5 h-3.5" />
+            {t('atsReport.salaryTitle')}
+          </p>
+          {salaryText && (
+            <div className="flex items-baseline gap-2">
+              <span className="text-lg font-bold text-emerald-800 dark:text-emerald-300">{salaryText}</span>
+              {salaryPeriod && <span className="text-xs text-emerald-700 dark:text-emerald-400">/ {salaryPeriod}</span>}
+            </div>
+          )}
+          {sr?.note && <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">{sr.note}</p>}
+          <p className="text-[11px] text-gray-400 mt-2">{t('atsReport.salaryEstimated')}</p>
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 gap-3">

@@ -108,6 +108,15 @@ const api = {
   resetCvTemplates: () => ipcRenderer.invoke('cv:resetTemplates'),
   generateSampleCv: (prompt) => ipcRenderer.invoke('cv:generateSample', prompt),
 
+  // ── LinkedIn Job Search ──
+  searchLinkedInJobs: (keywords, location, limit) => ipcRenderer.invoke('linkedin:search', keywords, location, limit),
+  getLinkedInJob: (input) => ipcRenderer.invoke('linkedin:job', input),
+  openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
+
+  // ── Automation ──
+  getAutomationConfig: () => ipcRenderer.invoke('automation:get'),
+  saveAutomationConfig: (config) => ipcRenderer.invoke('automation:set', config),
+
   // ── Job Categories (CV por categoría) ──
   getCategories: (areaId) => ipcRenderer.invoke('category:list', areaId),
   saveCategory: (category) => ipcRenderer.invoke('category:save', category),
