@@ -33,16 +33,29 @@ const PHONE_RE =
 
 const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/
 
+/**
+ * Palabras FUERTES por categoría (peso 3). Deben identificar el área por sí solas.
+ * Las palabras ambiguas ("técnico", "soporte", "analista"…) van en WEAK_CATEGORY_KEYWORDS
+ * (peso 1): un técnico de refrigeración o un analista de compras NO son IT.
+ */
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
   'Tecnología / IT': [
-    'software', 'desarrollador', 'desarrolladora', 'developer', 'frontend',
-    'backend', 'full stack', 'devops', 'data', 'machine learning', 'it', 'ti',
-    'sistemas', 'cloud', 'programador', 'programadora', 'ux', 'ui',
-    'informática', 'informatica', 'ofimática', 'ofimatica', 'hardware',
-    'soporte técnico', 'soporte tecnico', 'código', 'codigo', 'programación',
-    'programacion', 'analista de sistemas', 'ciberseguridad', 'base de datos',
-    'tech', 'programador web', 'desarrollador de', 'ingeniero de software',
-    'analista', 'soporte', 'técnico', 'tecnico', 'digital',
+    'software', 'desarrollador', 'desarrolladora', 'desarrolladores', 'developer',
+    'developers', 'frontend', 'front-end', 'backend', 'back-end', 'full stack',
+    'fullstack', 'full-stack', 'devops', 'machine learning', 'cloud',
+    'programador', 'programadora', 'programadores', 'soporte técnico',
+    'soporte tecnico', 'soporte ti', 'soporte it', 'técnico de soporte',
+    'tecnico de soporte', 'help desk', 'helpdesk', 'mesa de ayuda',
+    'código', 'codigo', 'programación', 'programacion', 'analista de sistemas',
+    'analista de datos', 'ciencia de datos', 'ciberseguridad', 'base de datos',
+    'bases de datos', 'ingeniero de software', 'ingeniería de software',
+    'ingeniero en sistemas', 'ingeniería en sistemas', 'ingenieria en sistemas',
+    'licenciado en sistemas', 'infraestructura tecnológica', 'infraestructura ti',
+    'redes y servidores', 'servidores', 'qa', 'sql', 'javascript', 'typescript',
+    'python', 'java', 'react', 'node.js', 'angular', '.net', 'php', 'kotlin',
+    'android', 'ios', 'aws', 'azure', 'api', 'apis', 'noc', 'tic',
+    'páginas web', 'paginas web', 'sitios web', 'desarrollo web', 'desarrollo de software',
+    'equipo de desarrollo', 'field engineer', 'ingeniero de soporte', 'soporte de campo',
   ],
   'Salud / Medicina': [
     'médico', 'medico', 'doctor', 'doctora', 'enfermero', 'enfermera', 'salud',
@@ -63,6 +76,7 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   'Ventas / Marketing': [
     'ventas', 'marketing', 'comercial', 'social media', 'seo', 'publicidad',
     'brand', 'e-commerce', 'business development', 'vendedor', 'vendedora',
+    'soporte comercial', 'cobros de deudas', 'comisiones',
     'asesor comercial', 'agente de ventas', 'community manager',
     'creador de contenido', 'copywriter', 'redes sociales', 'atención al cliente',
     'atencion al cliente', 'marketing digital', 'trade marketing',
@@ -73,10 +87,13 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
     'proyectos', 'construcción', 'construccion', 'manufactura', 'mantenimiento',
     'técnico de mantenimiento', 'tecnico de mantenimiento', 'eléctricos',
     'electricos', 'plomería', 'plomeria', 'arquitecto', 'obras', 'topografía',
-    'topografia',
+    'topografia', 'refrigeración', 'refrigeracion', 'aire acondicionado',
+    'aires acondicionados', 'electromecánica', 'electromecanica', 'electricista',
+    'técnico eléctrico', 'tecnico electrico', 'mecánico', 'mecanico', 'soldador',
+    'control de calidad', 'técnico de calidad', 'tecnico de calidad',
   ],
   'Legal / Jurídico': [
-    'abogado', 'abogada', 'legal', 'jurídico', 'juridico', 'derecho',
+    'abogado', 'abogada', 'abogados', 'legal', 'jurídico', 'juridico', 'derecho',
     'corporativo', 'litigio', 'compliance', 'notario', 'consultor legal',
     'servicios legales',
   ],
@@ -91,7 +108,9 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
     'agente de call center', 'vendedor de piso', 'promotor', 'mercaderista',
     'recepcion', 'auxiliar', 'dactilógrafo', 'digitador', 'asistente administrativo',
     'administración', 'administracion', 'secretariado', 'atención al público',
-    'atencion al publico', 'vigilante', 'seguridad', 'guardia', 'turnero',
+    'atencion al publico', 'vigilante', 'guardia', 'turnero', 'compras',
+    'importaciones', 'sourcing', 'encargada administrativa', 'administrativa',
+    'cuentas por cobrar', 'hotel', 'hotelería', 'hoteleria', 'housekeeping',
     'mozo', 'cocinero', 'cocinera', 'ayudante de cocina', 'chef', 'barista',
     'repositor', 'despacho', 'inventario', 'bodega', 'empaque', 'producción',
     'produccion', 'planta', 'fábrica', 'fabrica', 'operario de', 'lider de equipo',
@@ -103,6 +122,57 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
     'photoshop', 'coreldraw', 'diseño gráfico', 'diseno grafico', 'edición de video',
     'edicion de video',
   ],
+}
+
+/** Palabras ambiguas (peso 1): solo suman, nunca deciden el área por sí solas. */
+const WEAK_CATEGORY_KEYWORDS: Record<string, string[]> = {
+  'Tecnología / IT': [
+    'sistemas', 'data', 'datos', 'tech', 'tecnología', 'tecnologia', 'digital',
+    'analista', 'soporte', 'técnico', 'tecnico', 'informática', 'informatica',
+    'hardware', 'redes', 'ux', 'ui', 'web', 'apps', 'aplicaciones',
+  ],
+  'Ingeniería': ['proyectos', 'calidad', 'técnica', 'tecnica'],
+  'Administrativo / Oficina': ['seguridad', 'producción', 'produccion', 'office', 'personal'],
+}
+
+/** Términos de categoría que se mueven a la lista débil (si quedaron en la fuerte). */
+const DEMOTED: Record<string, string[]> = {
+  'Ingeniería': ['proyectos'],
+  'Administrativo / Oficina': ['seguridad', 'producción', 'produccion', 'office'],
+}
+
+const KW_BOUNDARY = (kw: string) =>
+  new RegExp(`(?<![\\p{L}\\p{N}_])${escapeRegExp(kw)}(?![\\p{L}\\p{N}_])`, 'giu')
+
+interface CompiledCategory {
+  name: string
+  strong: RegExp[]
+  weak: RegExp[]
+}
+
+let compiledCategories: CompiledCategory[] | null = null
+
+function getCompiledCategories(): CompiledCategory[] {
+  if (compiledCategories) return compiledCategories
+  compiledCategories = Object.entries(CATEGORY_KEYWORDS).map(([name, kws]) => {
+    const demoted = new Set(DEMOTED[name] ?? [])
+    return {
+      name,
+      strong: kws.filter((k) => !demoted.has(k)).map(KW_BOUNDARY),
+      weak: (WEAK_CATEGORY_KEYWORDS[name] ?? []).map(KW_BOUNDARY),
+    }
+  })
+  return compiledCategories
+}
+
+// "TI"/"IT" solo cuentan en MAYÚSCULAS ("para ti", "it's" no son tecnología).
+const IT_ACRONYM_RE = /(?<![\p{L}\p{N}_])(?:TI|IT)(?![\p{L}\p{N}_])/gu
+
+function countMatches(re: RegExp, text: string): number {
+  re.lastIndex = 0
+  let n = 0
+  while (re.exec(text) !== null) n++
+  return n
 }
 
 const COMPANY_PATTERNS = [
@@ -149,7 +219,7 @@ export function isVacancyInArea(
 }
 
 const POSITION_PATTERNS = [
-  /^(?:Position|Puesto|Role|Rol|Title|Título|Cargo)\s*[:]\s*(.+)/i,
+  /^[^\p{L}\n]*(?:Position|Posici[oó]n|Puesto|Vacante|Role|Rol|Title|T[ií]tulo|Cargo)[\s*_~]*:[\s*_~]*(.+)$/imu,
 ]
 
 function isBoilerplate(text: string): boolean {
@@ -178,28 +248,133 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-function countKeywordMatches(text: string, kw: string): number {
-  const re = new RegExp(`\\b${escapeRegExp(kw)}\\b`, 'gi')
-  let count = 0
-  while (re.exec(text) !== null) count++
-  return count
+const STRONG_WEIGHT = 3
+const WEAK_WEIGHT = 1
+/** Las coincidencias en el título/puesto pesan más que en el cuerpo. */
+const TITLE_MULTIPLIER = 3
+/** Puntuación mínima para asignar un área (≈ una palabra fuerte). */
+const MIN_CATEGORY_SCORE = 3
+
+function scoreText(text: string, cat: CompiledCategory): number {
+  let score = 0
+  for (const re of cat.strong) score += countMatches(re, text) * STRONG_WEIGHT
+  for (const re of cat.weak) score += countMatches(re, text) * WEAK_WEIGHT
+  if (cat.name === 'Tecnología / IT') score += countMatches(IT_ACRONYM_RE, text) * WEAK_WEIGHT
+  return score
 }
 
-function classifyCategory(text: string): string {
+/**
+ * Clasifica el área de una vacante. El título pesa x3; si ninguna categoría supera
+ * el mínimo o hay empate en cabeza → 'General / Otra' (antes el empate lo ganaba
+ * siempre Tecnología por ser la primera de la lista).
+ */
+export function classifyCategory(text: string, title?: string): string {
+  const scores = getCompiledCategories().map((cat) => ({
+    name: cat.name,
+    score: scoreText(text, cat) + (title ? scoreText(title, cat) * (TITLE_MULTIPLIER - 1) : 0),
+  }))
+  scores.sort((a, b) => b.score - a.score)
+  const [first, second] = scores
+  if (!first || first.score < MIN_CATEGORY_SCORE) return 'General / Otra'
+  if (second && second.score === first.score) return 'General / Otra'
+  return first.name
+}
+
+// ── ¿Es realmente una oferta de empleo? ──
+
+/** Señales claras de contratación: al menos una es obligatoria. */
+const HIRING_SIGNALS = [
+  'vacante', 'vacantes', 'vacancy', 'contratando', 'contratamos', 'hiring',
+  'puesto', 'posición', 'posicion', 'posiciones', 'position', 'requisitos',
+  'requirements', 'cv', 'c.v', 'curriculum', 'currículum', 'hoja de vida',
+  'resume', 'buscamos', 'se busca', 'busco', 'estamos buscando', 'en búsqueda',
+  'en busqueda', 'en busca de', 'buscando', 'busca', 'se solicita', 'solicitamos', 'está solicitando',
+  'esta solicitando', 'reclutamiento', 'recluta', 'reclutando', 'oportunidad laboral',
+  'oferta laboral', 'oferta de empleo', 'empleo', 'pasantía', 'pasantia', 'pasante',
+  'únete a nuestro equipo', 'unete a nuestro equipo', 'join our team',
+  'looking for', 'salario', 'sueldo', 'postúlate', 'postulate', 'postula', 'aplicar',
+  'convocatoria', 'job', 'jobs',
+  // Formas muy habituales en grupos LATAM que antes no contaban como señal
+  'se necesita', 'se necesitan', 'necesitamos', 'necesito', 'se requiere', 'se requieren',
+  'requerimos', 'requiere', 'contratación', 'contratacion', 'contratar', 'plaza', 'plazas',
+  'oportunidad de empleo', 'oportunidad de trabajo', 'oferta de trabajo', 'trabajo',
+  'empleos', 'reclutamos', 'seleccionamos', 'incorporar', 'incorporamos', 'incorporación',
+  'incorporacion', 'personal para', 'se solicitan', 'solicito', 'aplica ya', 'aplicar ya',
+  "we're hiring", 'we are hiring', 'now hiring', 'open position', 'open role',
+  'enviar cv', 'envía tu cv', 'envia tu cv', 'enviar hoja de vida', 'interesados enviar',
+  'interesadas enviar', 'disponibilidad inmediata', 'medio tiempo', 'tiempo completo',
+  'full time', 'part time', 'remoto', 'remote',
+].map(KW_BOUNDARY)
+
+/** Señales de que NO es una vacante (cursos, ventas, alquileres, sorteos…). */
+// "taller", "precio" o "promoción" se quitaron: aparecen en vacantes reales
+// ("taller mecánico", "oportunidad de promoción") y tumbaban ofertas válidas.
+const NON_VACANCY_SIGNALS = [
+  'curso', 'cursos', 'diplomado', 'webinar', 'masterclass', 'inscripciones',
+  'inscríbete', 'inscribete', 'matrícula', 'matricula', 'se vende', 'vendo',
+  'alquilo', 'alquiler', 'se alquila', 'descuento', 'oferta especial', 'rifa',
+  'sorteo', 'cupos limitados', 'certificación incluida',
+].map(KW_BOUNDARY)
+
+/** Frases que indican que el contacto es el propio autor del mensaje ("escríbeme al privado"). */
+const DM_CONTACT_RE =
+  /\b(al privado|por privado|al interno|por interno|al dm|por dm|inbox|al pv|por pv|escr[ií]beme|escr[ií]banme|me escriben|interesad[oa]s?|comenta(?:r)?|comuníquese|comuniquese|contáctame|contactame|al wsp|al whats?app|por whats?app)\b/i
+
+/**
+ * Versión del detector. Al cambiarla, los mensajes ya revisados y descartados se vuelven
+ * a evaluar una vez (antes quedaban marcados para siempre aunque el detector mejorase).
+ */
+export const DETECTOR_VERSION = 3
+
+/** Mensaje "dudoso": tiene pinta de oferta pero la heurística no basta para confirmarla. */
+export function isVacancyCandidate(text: string): boolean {
+  if (!text || text.trim().length < 40) return false
+  if (countSignals(HIRING_SIGNALS, text) > 0) return true
   const lower = text.toLowerCase()
-  let best = 'General / Otra'
-  let bestScore = 0
-  for (const [cat, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
-    let score = 0
-    for (const kw of keywords) {
-      score += countKeywordMatches(lower, kw)
-    }
-    if (score > bestScore) {
-      bestScore = score
-      best = cat
-    }
+  let hits = 0
+  for (const kw of EMPLOYMENT_KEYWORDS) if (lower.includes(kw)) hits++
+  return hits >= 3
+}
+
+/** Áreas válidas que puede devolver el clasificador (para la IA). */
+export const VACANCY_CATEGORIES = [...Object.keys(CATEGORY_KEYWORDS), 'General / Otra']
+
+/**
+ * Extrae un teléfono de contacto del texto de una vacante (para enviar el CV por WhatsApp).
+ * Exige 8–15 dígitos para no confundir fechas, salarios o rangos.
+ */
+export function extractVacancyPhone(text: string | undefined): string | undefined {
+  if (!text) return undefined
+  const re = new RegExp(PHONE_RE.source, 'gi')
+  for (const m of text.matchAll(re)) {
+    let raw = m[0].replace(/^[^+\d(]+/, '').trim()
+    if (raw.includes(')') && !raw.includes('(')) raw = `(${raw}`
+    const digits = raw.replace(/\D/g, '')
+    if (digits.length < 8 || digits.length > 15) continue
+    if (/^(19|20)\d{2}\D+(19|20)\d{2}$/.test(raw)) continue
+    return raw
   }
-  return best
+  return undefined
+}
+
+/** "50588887777@c.us" → "+50588887777". Los ids @lid no son teléfonos. */
+export function phoneFromAuthor(author: string | undefined): string | undefined {
+  const m = author?.match(/^(\d{8,15})@c\.us$/)
+  return m ? `+${m[1]}` : undefined
+}
+
+function countSignals(res: RegExp[], text: string): number {
+  return res.reduce((n, re) => n + (countMatches(re, text) > 0 ? 1 : 0), 0)
+}
+
+/** true si el texto parece una oferta de empleo (no un curso, anuncio o venta). */
+export function looksLikeVacancy(text: string): boolean {
+  const hiring = countSignals(HIRING_SIGNALS, text)
+  if (hiring === 0) return false
+  const nonVacancy = countSignals(NON_VACANCY_SIGNALS, text)
+  // Un anuncio de curso suele decir "requisitos" o "postúlate"; exigir más evidencia.
+  if (nonVacancy > 0 && hiring < nonVacancy + 2) return false
+  return true
 }
 
 function extractCompany(text: string): string | undefined {
@@ -217,13 +392,21 @@ function extractCompany(text: string): string | undefined {
 function extractPosition(text: string): string {
   for (const pattern of POSITION_PATTERNS) {
     const m = text.match(pattern)
-    if (m && !isBoilerplate(m[1])) return m[1].trim()
+    const value = m?.[1].replace(/[*_~]+/g, '').trim()
+    if (value && !isBoilerplate(value)) return value
   }
   const lines = text.split('\n')
   for (const line of lines) {
-    const t = line.trim()
+    const t = line.replace(/[*_~]+/g, '').trim()
     if (t.length >= 10 && t.length <= 60 && !isBoilerplate(t)) return t
   }
+  // Mensajes de una sola línea larga: "Se necesita mesero con experiencia, horario…" →
+  // el puesto suele ir justo tras el verbo de contratación.
+  const m = text.match(
+    /(?:se necesita[n]?|necesitamos|requerimos|se requiere[n]?|buscamos|se busca[n]?|busco|solicitamos|se solicita[n]?|contratamos|vacante(?: de)?|plaza(?: de)?)\s*:?\s+(?:un[ao]?s?\s+|el\s+|la\s+)?([^.,;:!?\n]{3,50})/i,
+  )
+  const guess = m?.[1].replace(/[*_~]+/g, '').trim()
+  if (guess && !isBoilerplate(guess)) return guess.charAt(0).toUpperCase() + guess.slice(1)
   return ''
 }
 
@@ -258,17 +441,24 @@ export function detectVacancy(
   const contactWords = CONTACT_KEYWORDS.filter((c) => lower.includes(c)).length
   if (contactWords >= 2) score += 6
 
-  // WhatsApp: nos interesan vacantes que aporten algún medio de contacto
-  // (correo, teléfono o enlace). Las ofertas sin ningún contacto se descartan.
-  if (!hasEmail && !hasPhone && !hasUrl) return null
+  // WhatsApp: se necesita algún medio de contacto. Si el texto no trae correo, teléfono
+  // ni enlace, el autor del mensaje es el contacto (en un grupo siempre se le puede
+  // escribir), sobre todo cuando dice "al privado", "interesados", etc.
+  const authorPhone = phoneFromAuthor(author)
+  const dmHint = DM_CONTACT_RE.test(combined)
+  if (!hasEmail && !hasPhone && !hasUrl) {
+    if (!authorPhone) return null
+    if (dmHint) score += 6
+  }
 
   if (score < 8) return null
+  if (!looksLikeVacancy(combined)) return null
 
   const company = extractCompany(combined) || groupName
   const position = extractPosition(combined) || 'Vacante detectada'
-  const category = classifyCategory(combined)
+  const category = classifyCategory(combined, position)
   const email = emailMatch?.[0]
-  const phone = hasPhone ? phoneMatch![0].trim() : undefined
+  const phone = hasPhone ? phoneMatch![0].trim() : (!hasEmail && !hasUrl ? authorPhone : undefined)
   const sourceUrl = hasUrl ? urlMatch![0] : undefined
 
   return {

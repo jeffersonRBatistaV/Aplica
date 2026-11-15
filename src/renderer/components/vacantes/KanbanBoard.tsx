@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Clock, Send, Calendar, Briefcase, XCircle, Eye, MoreHorizontal, Trash2, Search } from 'lucide-react'
+import { Clock, Send, Calendar, Briefcase, XCircle, Eye, MoreHorizontal, Trash2, Search, ClipboardPaste, Globe, MessageCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Button } from '../ui/Button'
 import type { JobApplication, JobStatus } from '../../../shared/types'
+import { daysSince, followUpBase, FOLLOW_UP_AFTER_DAYS, JOBS_CHANGED_EVENT, notifyJobsChanged, VACANTES_TAB_EVENT } from '../../lib/agenda'
+import { useNavigation } from '../../contexts/AppContext'
 
 interface KanbanBoardProps {
   onSelect: (app: JobApplication) => void
@@ -11,6 +13,7 @@ interface KanbanBoardProps {
 
 export function KanbanBoard({ onSelect }: KanbanBoardProps) {
   const { t } = useTranslation()
+  const { setCurrentView } = useNavigation()
   const [jobs, setJobs] = useState<JobApplication[]>([])
   const [loading, setLoading] = useState(true)
   const [menuOpen, setMenuOpen] = useState<string | null>(null)
@@ -71,9 +74,11 @@ export function KanbanBoard({ onSelect }: KanbanBoardProps) {
     const handler = () => loadJobs()
     window.addEventListener('data:imported', handler)
     window.addEventListener('profile:updated', handler)
+    window.addEventListener(JOBS_CHANGED_EVENT, handler)
     return () => {
       window.removeEventListener('data:imported', handler)
       window.removeEventListener('profile:updated', handler)
+      window.removeEventListener(JOBS_CHANGED_EVENT, handler)
     }
   }, [])
 
@@ -91,6 +96,7 @@ export function KanbanBoard({ onSelect }: KanbanBoardProps) {
     const updated = { ...job, status: newStatus, interviewDate: newStatus === 'interview' ? job.interviewDate : undefined, updatedAt: Date.now() }
     await window.api.saveJob(updated)
     setJobs(prev => prev.map(j => j.id === id ? updated : j))
+    notifyJobsChanged()
     setMenuOpen(null)
     setMenuRect(null)
   }
@@ -101,6 +107,7 @@ export function KanbanBoard({ onSelect }: KanbanBoardProps) {
     const updated = { ...pendingInterviewJob, status: 'interview' as JobStatus, interviewDate: ts, updatedAt: Date.now() }
     await window.api.saveJob(updated)
     setJobs(prev => prev.map(j => j.id === pendingInterviewJob.id ? updated : j))
+    notifyJobsChanged()
     setPendingInterviewJob(null)
     setInterviewDateInput('')
   }
@@ -109,6 +116,7 @@ export function KanbanBoard({ onSelect }: KanbanBoardProps) {
     if (!window.api) return
     await window.api.deleteJob(id)
     setJobs(prev => prev.filter(j => j.id !== id))
+    notifyJobsChanged()
     setConfirmDeleteId(null)
     setMenuOpen(null)
     setMenuRect(null)
@@ -161,7 +169,26 @@ export function KanbanBoard({ onSelect }: KanbanBoardProps) {
         </select>
       </div>
 
-      {filteredJobs.length === 0 && (
+      {!loading && jobs.length === 0 && (
+        <div className="flex flex-col items-center text-center py-12 px-4 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700">
+          <Briefcase className="w-10 h-10 mb-3 text-blue-400" />
+          <p className="text-base font-semibold text-gray-700 dark:text-gray-200">{t('emptyStates.board.title')}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 max-w-md">{t('emptyStates.board.desc')}</p>
+          <div className="flex flex-wrap justify-center gap-2 mt-5">
+            <button onClick={() => window.dispatchEvent(new CustomEvent(VACANTES_TAB_EVENT, { detail: 'new' }))} className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700">
+              <ClipboardPaste className="w-4 h-4" />{t('emptyStates.board.paste')}
+            </button>
+            <button onClick={() => setCurrentView('browser')} className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800">
+              <Globe className="w-4 h-4" />{t('emptyStates.board.search')}
+            </button>
+            <button onClick={() => setCurrentView('whatsapp')} className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800">
+              <MessageCircle className="w-4 h-4 text-green-600" />{t('emptyStates.board.whatsapp')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {jobs.length > 0 && filteredJobs.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 text-gray-400">
           <Search className="w-10 h-10 mb-3 opacity-40" />
           <p className="text-sm">{t('kanban.noResults')}</p>
@@ -247,6 +274,19 @@ export function KanbanBoard({ onSelect }: KanbanBoardProps) {
                               })}
                             </span>
                           )}
+                          {job.status === 'applied' && (() => {
+                            const days = daysSince(followUpBase(job))
+                            const due = days >= FOLLOW_UP_AFTER_DAYS
+                            return (
+                              <span
+                                title={due ? t('kanban.followUpDue') : undefined}
+                                className={`inline-flex items-center gap-1 mt-1 ml-1 text-xs px-1.5 py-0.5 rounded ${due ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium' : 'text-gray-400'}`}
+                              >
+                                <Clock className="w-3 h-3" />
+                                {t('kanban.daysAgo', { count: days })}
+                              </span>
+                            )
+                          })()}
                         </div>
 
                         <div>

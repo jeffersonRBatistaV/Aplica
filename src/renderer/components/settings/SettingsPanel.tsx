@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Cloud, BookText, Shield, Palette, User, Download, Languages, Mail, Search, ScanText, MessageCircle, Bot } from 'lucide-react'
+import { Wand2, X, Cloud, BookText, Shield, Palette, User, Download, Mail, Search, ScanText, MessageCircle, Bot, SlidersHorizontal, Type } from 'lucide-react'
 import { useSettings } from '../../contexts/SettingsContext'
 import { useTheme } from '../../contexts/ThemeContext'
 import { useNotification } from '../../contexts/NotificationContext'
@@ -14,24 +14,30 @@ import { DataExport } from './DataExport'
 import { OcrSettings } from './OcrSettings'
 import { WhatsAppSettings } from './WhatsAppSettings'
 import { AutomationConfig } from './AutomationConfig'
+import { ApiSetupModal } from './ApiSetupModal'
 import type { ThemeMode, Profile } from '../../../shared/types'
 import { useTranslation } from 'react-i18next'
+import { getFontScale, setFontScale, getShowAdvanced, setShowAdvanced, type FontScale } from '../../lib/ui-prefs'
 
-type Tab = 'api' | 'prompts' | 'privacy' | 'appearance' | 'profile' | 'data' | 'email' | 'research' | 'ocr' | 'whatsapp' | 'automation'
+export type SettingsTab = 'api' | 'prompts' | 'privacy' | 'appearance' | 'profile' | 'data' | 'email' | 'research' | 'ocr' | 'whatsapp' | 'automation'
+type Tab = SettingsTab
 
-const tabs: { id: Tab; labelKey: string; icon: typeof Cloud }[] = [
+/** advanced: pestañas técnicas que se ocultan hasta activar "Opciones avanzadas". */
+const tabs: { id: Tab; labelKey: string; icon: typeof Cloud; advanced?: boolean }[] = [
   { id: 'profile', labelKey: 'settingsPanel.tabs.profile', icon: User },
   { id: 'api', labelKey: 'settingsPanel.tabs.api', icon: Cloud },
   { id: 'email', labelKey: 'settingsPanel.tabs.email', icon: Mail },
-  { id: 'research', labelKey: 'settingsPanel.tabs.research', icon: Search },
-  { id: 'ocr', labelKey: 'settingsPanel.tabs.ocr', icon: ScanText },
-  { id: 'automation', labelKey: 'settingsPanel.tabs.automation', icon: Bot },
-  { id: 'prompts', labelKey: 'settingsPanel.tabs.prompts', icon: BookText },
-  { id: 'privacy', labelKey: 'settingsPanel.tabs.privacy', icon: Shield },
-  { id: 'appearance', labelKey: 'settingsPanel.tabs.appearance', icon: Palette },
   { id: 'whatsapp', labelKey: 'settingsPanel.tabs.whatsapp', icon: MessageCircle },
+  { id: 'automation', labelKey: 'settingsPanel.tabs.automation', icon: Bot },
+  { id: 'appearance', labelKey: 'settingsPanel.tabs.appearance', icon: Palette },
   { id: 'data', labelKey: 'settingsPanel.tabs.data', icon: Download },
+  { id: 'research', labelKey: 'settingsPanel.tabs.research', icon: Search, advanced: true },
+  { id: 'ocr', labelKey: 'settingsPanel.tabs.ocr', icon: ScanText, advanced: true },
+  { id: 'prompts', labelKey: 'settingsPanel.tabs.prompts', icon: BookText, advanced: true },
+  { id: 'privacy', labelKey: 'settingsPanel.tabs.privacy', icon: Shield, advanced: true },
 ]
+
+const FONT_SCALES: FontScale[] = ['sm', 'md', 'lg', 'xl']
 
 interface SettingsPanelProps {
   onClose: () => void
@@ -47,6 +53,19 @@ export function SettingsPanel({ onClose, initialTab = 'profile' }: SettingsPanel
   const [profile, setProfile] = useState<Profile | null>(null)
   const [profileLoaded, setProfileLoaded] = useState(false)
   const [showWizard, setShowWizard] = useState(false)
+  const [showAdvanced, setShowAdvancedState] = useState(
+    () => getShowAdvanced() || !!tabs.find((tb) => tb.id === initialTab)?.advanced,
+  )
+  const [showAiWizard, setShowAiWizard] = useState(false)
+  const [fontScale, setFontScaleState] = useState<FontScale>(getFontScale)
+  const visibleTabs = tabs.filter((tb) => showAdvanced || !tb.advanced)
+
+  const toggleAdvanced = () => {
+    const next = !showAdvanced
+    setShowAdvancedState(next)
+    setShowAdvanced(next)
+    if (!next && tabs.find((tb) => tb.id === activeTab)?.advanced) setActiveTab('profile')
+  }
 
   useEffect(() => {
     if (window.api) {
@@ -99,7 +118,7 @@ export function SettingsPanel({ onClose, initialTab = 'profile' }: SettingsPanel
 
       {/* Tabs */}
       <div className="flex flex-wrap border-b border-gray-200 dark:border-gray-800 px-4" role="tablist">
-        {tabs.map((tab) => {
+        {visibleTabs.map((tab) => {
           const Icon = tab.icon
           return (
             <button
@@ -119,17 +138,50 @@ export function SettingsPanel({ onClose, initialTab = 'profile' }: SettingsPanel
           )
         })}
       </div>
+      <div className="flex items-center justify-between px-6 py-2 border-b border-gray-100 dark:border-gray-800/60">
+        <span className="text-xs text-gray-400">
+          {showAdvanced ? t('settingsPanel.advancedOnHint') : t('settingsPanel.advancedOffHint')}
+        </span>
+        <button
+          onClick={toggleAdvanced}
+          aria-pressed={showAdvanced}
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-blue-600 dark:hover:text-blue-400"
+        >
+          <SlidersHorizontal className="w-3.5 h-3.5" />
+          {showAdvanced ? t('settingsPanel.hideAdvanced') : t('settingsPanel.showAdvanced')}
+        </button>
+      </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto scrollbar-thin p-4 sm:p-6">
         {activeTab === 'api' && (
+          <div className="space-y-4">
+          <button
+            onClick={() => setShowAiWizard(true)}
+            className="w-full flex items-center gap-3 p-3 rounded-xl border-2 border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 text-left hover:border-blue-400"
+          >
+            <Wand2 className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0" />
+            <div>
+              <div className="text-sm font-medium text-blue-800 dark:text-blue-200">{t('aiSetup.wizardButton')}</div>
+              <div className="text-xs text-blue-700/80 dark:text-blue-300/80">{t('aiSetup.wizardButtonDesc')}</div>
+            </div>
+          </button>
+          {showAiWizard && (
+            <ApiSetupModal
+              onComplete={() => { setShowAiWizard(false); notify(t('aiSetup.connected'), 'success') }}
+              onCancel={() => setShowAiWizard(false)}
+            />
+          )}
           <ApiConfig
+            key={settings.api.baseUrl}
             baseUrl={settings.api.baseUrl}
             apiKey={settings.api.apiKey}
             model={settings.api.model}
             visionModel={settings.api.visionModel}
-            onChange={(api) => updateSettings({ api })}
+            maxContextTokens={settings.api.maxContextTokens}
+            onChange={(api) => updateSettings({ api: { ...settings.api, ...api } })}
           />
+          </div>
         )}
 
         {activeTab === 'email' && (
@@ -253,6 +305,30 @@ export function SettingsPanel({ onClose, initialTab = 'profile' }: SettingsPanel
                     <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       {locale === 'en' ? t('language.en') : t('language.es')}
                     </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <Type className="w-4 h-4" />
+                {t('settingsPanel.textSize')}
+              </label>
+              <div className="grid grid-cols-4 gap-2">
+                {FONT_SCALES.map((scale, i) => (
+                  <button
+                    key={scale}
+                    onClick={() => { setFontScale(scale); setFontScaleState(scale) }}
+                    aria-pressed={fontScale === scale}
+                    className={`p-3 rounded-xl border-2 text-center transition-all ${
+                      fontScale === scale
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                    }`}
+                  >
+                    <div className="font-semibold text-gray-700 dark:text-gray-300" style={{ fontSize: `${12 + i * 3}px` }}>Aa</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t(`settingsPanel.textSizes.${scale}`)}</div>
                   </button>
                 ))}
               </div>

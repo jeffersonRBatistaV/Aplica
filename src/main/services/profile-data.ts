@@ -12,6 +12,7 @@ import {
   CATEGORIES_FILE,
   FOLDERS_FILE,
   CV_VERSIONS_FILE,
+  BROWSER_FILE,
   SETTINGS_FILE,
   profileChatsFile,
   profileJobsFile,
@@ -24,6 +25,7 @@ import {
   profileEmailConfigFile,
   profileWhatsAppFile,
   profileAutomationFile,
+  profileBrowserFile,
 } from '../utils/paths'
 import { getActiveProfileId } from './profile-scope'
 import type { AppSettings, EmailConfig } from '../../shared/types'
@@ -40,6 +42,7 @@ export interface ActiveProfileFiles {
   emailConfigFile: string
   whatsappFile: string
   automationFile: string
+  browserFile: string
 }
 
 const SCOPED_FILE_NAMES = [
@@ -70,6 +73,7 @@ export async function getActiveProfileFiles(): Promise<ActiveProfileFiles> {
       emailConfigFile: profileEmailConfigFile(pid),
       whatsappFile: profileWhatsAppFile(pid),
       automationFile: profileAutomationFile(pid),
+      browserFile: profileBrowserFile(pid),
     }
   }
   return {
@@ -84,6 +88,7 @@ export async function getActiveProfileFiles(): Promise<ActiveProfileFiles> {
     emailConfigFile: path.join(DATA_DIR, 'email-config.json'),
     whatsappFile: path.join(DATA_DIR, 'whatsapp.json'),
     automationFile: path.join(DATA_DIR, 'automation.json'),
+    browserFile: BROWSER_FILE,
   }
 }
 

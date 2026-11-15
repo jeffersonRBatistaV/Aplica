@@ -1,12 +1,26 @@
 import { app } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
 import QRCode from 'qrcode'
 import { readJSON, writeJSON, ensureDir } from './storage'
 import { SETTINGS_FILE, WHATSAPP_SESSION_DIR } from '../utils/paths'
 import { getActiveProfileFiles } from './profile-data'
 import { extractTextFromImage } from './ocr-service'
-import { detectVacancy, isVacancyInArea } from '../../shared/vacancy-detection'
+import {
+  classifyCategory,
+  detectVacancy,
+  isVacancyInArea,
+  looksLikeVacancy,
+  isVacancyCandidate,
+  phoneFromAuthor,
+  buildVacancyId,
+  contentFingerprint,
+  DETECTOR_VERSION,
+  VACANCY_CATEGORIES,
+} from '../../shared/vacancy-detection'
+import { completeChatCompletion } from './llm-service'
 import { getActiveProfile } from './profile-scope'
 import type {
   AppSettings,
@@ -59,6 +73,8 @@ interface WhatsAppStore {
   config: WhatsAppConfig
   queue: WhatsAppVacancy[]
   processedMessageIds: string[]
+  /** Versión del detector con la que se marcaron los processedMessageIds. */
+  detectorVersion?: number
 }
 
 const MAX_PROCESSED_IDS = 3000
@@ -209,7 +225,10 @@ function getLLMConfig(settings: AppSettings | null): { baseUrl: string; apiKey: 
 }
 
 function cleanBrowserLocks(dir: string): void {
-  const locks = ['SingletonLock', 'SingletonSocket', 'SingletonCookie']
+  // `lockfile` es el mutex de Chromium en Windows: puppeteer lo detecta tras un
+  // fallo de lanzamiento y lanza "The browser is already running for…"
+  // aunque ya no haya proceso vivo (BrowserLauncher.js en puppeteer-core).
+  const locks = ['SingletonLock', 'SingletonSocket', 'SingletonCookie', 'lockfile']
   for (const name of locks) {
     try {
       const p = path.join(dir, name)
@@ -217,6 +236,36 @@ function cleanBrowserLocks(dir: string): void {
     } catch {
       /* best-effort cleanup */
     }
+  }
+}
+
+const execFileAsync = promisify(execFile)
+
+/**
+ * Mata procesos de navegador (Edge/Chrome/Chromium/headless_shell) que tengan
+ * el perfil de WhatsApp en su command line. Necesario en Windows porque el
+ * mutex del perfil no se libera si el proceso quedó huérfano tras un crash,
+ * y ningún archivo de lock se puede borrar mientras el proceso viva.
+ */
+async function killBrowserProcessesForProfile(profileDir: string): Promise<void> {
+  const escaped = profileDir.replace(/'/g, "''")
+  try {
+    if (process.platform === 'win32') {
+      const script =
+        "Get-CimInstance Win32_Process | " +
+        "Where-Object { $_.Name -match '^(msedge|chrome|chromium|headless)' -and $_.CommandLine -like '*" +
+        escaped +
+        "*' } | " +
+        'ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }'
+      await execFileAsync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
+        windowsHide: true,
+        timeout: 10000,
+      })
+    } else {
+      await execFileAsync('pkill', ['-f', profileDir], { timeout: 10000 })
+    }
+  } catch {
+    /* pkill/pgrep devuelven exit code si no hay coincidencias; no importa */
   }
 }
 
@@ -252,6 +301,8 @@ function resolveBrowserExecutable(): string | undefined {
 
 interface ProcessMessageResult {
   vacancy: WhatsAppVacancy | null
+  /** Detectada pero descartada por no ser de tu área (filtro del perfil). */
+  filteredByArea?: boolean
   /**
    * true cuando el mensaje tenía media pero NO se pudo descargar
    * (media expirada/evicted o error de red). Se usa para marcar el mensaje
@@ -280,6 +331,125 @@ async function downloadMessageMedia(
   return undefined
 }
 
+/** Presupuesto de llamadas a la IA por escaneo (evita escaneos eternos/caros). */
+const AI_BUDGET_PER_SCAN = 60
+let aiBudget = AI_BUDGET_PER_SCAN
+
+interface AiVerdict {
+  isVacancy: boolean
+  title?: string
+  company?: string
+  category?: string
+  email?: string
+  phone?: string
+  url?: string
+}
+
+function parseJsonObject(raw: string): Record<string, unknown> | null {
+  const cleaned = raw.replace(/```(?:json)?/gi, '').trim()
+  const start = cleaned.indexOf('{')
+  const end = cleaned.lastIndexOf('}')
+  if (start < 0 || end <= start) return null
+  try {
+    const parsed = JSON.parse(cleaned.slice(start, end + 1))
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null
+  } catch {
+    return null
+  }
+}
+
+function str(v: unknown): string | undefined {
+  return typeof v === 'string' && v.trim() && !/^(null|n\/a|none|desconocid[oa])$/i.test(v.trim()) ? v.trim() : undefined
+}
+
+/** Pide a la IA que confirme si el mensaje es una oferta de empleo y extraiga sus datos. */
+async function classifyWithAi(text: string, logDebug?: (line: string) => void): Promise<AiVerdict | null> {
+  if (aiBudget <= 0) return null
+  const store = await readStore()
+  if (store.config.aiAssist === false) return null
+  const settings = await readJSON<AppSettings>(SETTINGS_FILE)
+  const llm = getLLMConfig(settings)
+  if (!llm || !settings?.api?.configured) return null
+  aiBudget--
+  const system = [
+    'Clasificas mensajes de grupos de WhatsApp de empleo. Responde SOLO un objeto JSON, sin markdown.',
+    'isVacancy=true solo si el mensaje OFRECE un puesto de trabajo, pasantía o freelance (alguien contrata).',
+    'isVacancy=false para: personas buscando empleo, cursos, ventas, publicidad, cadenas, saludos, estafas evidentes ("gana dinero desde casa sin experiencia" con pagos por adelantado).',
+    `category debe ser exactamente una de: ${VACANCY_CATEGORIES.join(' | ')}.`,
+    'title: el puesto concreto (p. ej. "Desarrollador Backend Node.js"), nunca frases genéricas como "Estamos contratando".',
+    'company: nombre de la empresa si aparece; si no, null. email/phone/url: el contacto para postular si aparece; si no, null.',
+    'Formato: {"isVacancy": boolean, "title": string|null, "company": string|null, "category": string, "email": string|null, "phone": string|null, "url": string|null}',
+  ].join('\n')
+  try {
+    const raw = await completeChatCompletion(
+      llm,
+      [
+        { role: 'system', content: system },
+        { role: 'user', content: text.slice(0, 3500) },
+      ],
+      undefined,
+      'whatsapp_classify',
+      settings?.privacy?.excludeFromTraining,
+    )
+    const obj = parseJsonObject(raw)
+    if (!obj) {
+      logDebug?.(`  ai: respuesta no JSON (${raw.slice(0, 80)})`)
+      return null
+    }
+    const category = str(obj.category)
+    return {
+      isVacancy: obj.isVacancy === true || obj.isVacancy === 'true',
+      title: str(obj.title),
+      company: str(obj.company),
+      category: category && VACANCY_CATEGORIES.includes(category) ? category : undefined,
+      email: str(obj.email),
+      phone: str(obj.phone),
+      url: str(obj.url),
+    }
+  } catch (err) {
+    logDebug?.(`  ai: ERROR ${err instanceof Error ? err.message : String(err)}`)
+    return null
+  }
+}
+
+/** Construye la vacante a partir del veredicto de la IA (mensaje que la heurística no confirmó). */
+function vacancyFromAi(
+  verdict: AiVerdict,
+  combined: string,
+  ocrText: string,
+  author: string,
+  groupName: string,
+  groupId: string,
+  messageTime: number,
+): WhatsAppVacancy | null {
+  const email = verdict.email || combined.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0]
+  const sourceUrl = verdict.url || combined.match(/https?:\/\/[^\s)<>]+/i)?.[0]
+  const phone = verdict.phone || (!email && !sourceUrl ? phoneFromAuthor(author) : undefined)
+  if (!email && !phone && !sourceUrl) return null
+  const title = verdict.title || 'Vacante detectada'
+  const company = verdict.company || groupName
+  const category = verdict.category || classifyCategory(combined, title)
+  return {
+    id: buildVacancyId(groupId, { email, phone, sourceUrl, title, company, category }),
+    fingerprint: contentFingerprint({ email, phone, sourceUrl, title, company, category, groupName }),
+    title,
+    company,
+    category,
+    snippet: combined.slice(0, 200),
+    vacancyText: combined,
+    groupId,
+    groupName,
+    messageTime,
+    author,
+    hasImage: !!ocrText,
+    ocrText: ocrText || undefined,
+    email,
+    phone,
+    sourceUrl,
+    aiVerified: true,
+  }
+}
+
 async function processMessage(
   msg: WaMessage,
   groupName: string,
@@ -290,7 +460,11 @@ async function processMessage(
   const body = msg.body || ''
   let ocrText = ''
   let mediaUnavailable = false
-  if (msg.hasMedia && (msg.type === 'image' || msg.type === 'document')) {
+  const mime = String((msg as { _data?: { mimetype?: string } })._data?.mimetype || '')
+  // Los documentos solo se pasan por OCR si son imágenes; un PDF o DOCX no es OCR-able
+  // y antes rompía el OCR (el texto del pie del documento sí se analiza).
+  const ocrable = msg.type === 'image' || (msg.type === 'document' && /^image\//i.test(mime))
+  if (msg.hasMedia && ocrable) {
     try {
       const downloaded = await withOcrLock(async () => {
         const media = await downloadMessageMedia(msg, logDebug)
@@ -316,23 +490,63 @@ async function processMessage(
     }
   }
 
-  const vacant = detectVacancy(body, ocrText, msg.author || '', groupName, groupId, msg.timestamp * 1000)
+  const author = msg.author || ''
+  const messageTime = msg.timestamp * 1000
+  const combined = [body, ocrText].filter(Boolean).join('\n')
+  let vacant = detectVacancy(body, ocrText, author, groupName, groupId, messageTime)
+
   if (vacant) {
-    const added = await addToQueue(vacant)
-    return { vacancy: added ? vacant : null, mediaUnavailable }
+    // Detectada por heurística: si el puesto o el área quedaron genéricos, la IA los afina.
+    if (vacant.title === 'Vacante detectada' || vacant.category === 'General / Otra') {
+      const verdict = await classifyWithAi(combined, logDebug)
+      if (verdict && !verdict.isVacancy) {
+        logDebug?.('  ai: descartada (no es oferta)')
+        vacant = null
+      } else if (verdict) {
+        vacant = {
+          ...vacant,
+          title: verdict.title || vacant.title,
+          company: verdict.company || vacant.company,
+          category: verdict.category || vacant.category,
+          aiVerified: true,
+        }
+      }
+    }
+  } else if (isVacancyCandidate(combined)) {
+    // Dudoso: la heurística no lo confirma pero tiene pinta de oferta → que decida la IA.
+    const verdict = await classifyWithAi(combined, logDebug)
+    if (verdict?.isVacancy) {
+      vacant = vacancyFromAi(verdict, combined, ocrText, author, groupName, groupId, messageTime)
+      logDebug?.(`  ai: ${vacant ? 'vacante confirmada' : 'vacante sin contacto'}`)
+    }
   }
-  return { vacancy: vacant, mediaUnavailable }
+
+  if (vacant) {
+    const outcome = await addToQueue(vacant)
+    return { vacancy: outcome === 'filtered' ? null : vacant, mediaUnavailable, filteredByArea: outcome === 'filtered' }
+  }
+  return { vacancy: null, mediaUnavailable }
 }
 
 async function readStore(): Promise<WhatsAppStore> {
   const file = (await getActiveProfileFiles()).whatsappFile
   await ensureDir(path.dirname(file))
   const data = await readJSON<WhatsAppStore>(file)
-  if (data && Array.isArray(data.queue)) return data
+  if (data && Array.isArray(data.queue)) {
+    // Detector nuevo → los mensajes descartados con el detector viejo se re-evalúan una vez.
+    if (data.detectorVersion !== DETECTOR_VERSION) {
+      data.processedMessageIds = []
+      data.detectorVersion = DETECTOR_VERSION
+      await writeJSON(file, data)
+    }
+    if (!Array.isArray(data.processedMessageIds)) data.processedMessageIds = []
+    return data
+  }
   return {
-    config: { monitoredGroups: [], realtime: false, strictAreaFilter: true, vacancyQueue: [], processedMessageIds: [] },
+    config: { monitoredGroups: [], realtime: false, strictAreaFilter: false, aiAssist: true, vacancyQueue: [], processedMessageIds: [] },
     queue: [],
     processedMessageIds: [],
+    detectorVersion: DETECTOR_VERSION,
   }
 }
 
@@ -342,28 +556,28 @@ async function writeStore(store: WhatsAppStore): Promise<void> {
   await writeJSON(file, store)
 }
 
-async function addToQueue(vacancy: WhatsAppVacancy): Promise<boolean> {
+async function addToQueue(vacancy: WhatsAppVacancy): Promise<'added' | 'duplicate' | 'filtered'> {
   const store = await readStore()
-  const strict = store.config.strictAreaFilter ?? true
+  const strict = store.config.strictAreaFilter ?? false
   const profile = await getActiveProfile().catch(() => null)
   if (profile && !isVacancyInArea(vacancy.category, profile.area, strict)) {
     console.log(
       `[wa:queue] descartada por área: "${vacancy.title}" (${vacancy.category}) vs área del perfil (${profile.area}) strict=${strict}`,
     )
-    return false
+    return 'filtered'
   }
   // Dedup 1: id determinista de grupo (mismo grupo + misma clave de contacto → mismo id).
-  if (store.queue.some((v) => v.id === vacancy.id)) return true
+  if (store.queue.some((v) => v.id === vacancy.id)) return 'duplicate'
   // Dedup 2: huella global de contenido (sin groupId). La misma oferta publicada en
   // distintos grupos o mensajes (p. ej. realtime + escaneo profundo, o 2 grupos con la
   // misma vacante) produce la misma huella → no se añade dos veces a la cola.
   if (vacancy.fingerprint && store.queue.some((v) => v.fingerprint === vacancy.fingerprint)) {
     console.log(`[wa:queue] dedupe por huella: "${vacancy.title}" en ${vacancy.groupName} ya en cola`)
-    return true
+    return 'duplicate'
   }
   store.queue.unshift(vacancy)
   await writeStore(store)
-  return true
+  return 'added'
 }
 
 async function persistProcessed(serial: string): Promise<void> {
@@ -428,14 +642,15 @@ async function flushRealtimePending(): Promise<void> {
     return
   }
   const batch = realtimePending.splice(0, REALTIME_BATCH)
+  aiBudget = Math.max(aiBudget, REALTIME_BATCH)
   for (const msg of batch) {
     try {
       const chat = await msg.getChat()
       const serial = msg.id._serialized
       if (!serial || (await isProcessed(serial))) continue
-      const { vacancy, mediaUnavailable } = await processMessage(msg, chat.name || msg.from, msg.from)
+      const { vacancy, mediaUnavailable, filteredByArea } = await processMessage(msg, chat.name || msg.from, msg.from)
       if (vacancy) emit({ type: 'vacancy', payload: vacancy })
-      if (vacancy || !msg.hasMedia || mediaUnavailable) await persistProcessed(serial)
+      if (vacancy || filteredByArea || !msg.hasMedia || mediaUnavailable) await persistProcessed(serial)
     } catch {
       /* realtime message errors are non-fatal */
     }
@@ -635,6 +850,7 @@ export async function connectWhatsApp(): Promise<WhatsAppStatusEvent> {
   })
 
   const sessionDir = path.join(WHATSAPP_SESSION_DIR, 'session-aplica')
+  await killBrowserProcessesForProfile(sessionDir)
   cleanBrowserLocks(sessionDir)
 
   try {
@@ -642,8 +858,11 @@ export async function connectWhatsApp(): Promise<WhatsAppStatusEvent> {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     if (msg.includes('already running') || msg.includes('userDataDir')) {
-      console.log('[wa] browser lock detected, cleaning and retrying…')
+      console.log('[wa] browser lock detected, killing leftover process and retrying…')
+      await killBrowserProcessesForProfile(sessionDir)
       cleanBrowserLocks(sessionDir)
+      // Windows libera el mutex del perfil de forma asíncrona tras el kill
+      await new Promise((resolve) => setTimeout(resolve, 1500))
       try {
         await newClient.initialize()
       } catch (retryErr) {
@@ -667,15 +886,29 @@ export async function connectWhatsApp(): Promise<WhatsAppStatusEvent> {
   return getStatusEvent()
 }
 
-export async function disconnectWhatsApp(): Promise<void> {
-  realtimeOn = false
-  if (client) {
+const DESTROY_TIMEOUT_MS = 8000
+
+/**
+ * Destruye el cliente con timeout (browser.close() puede colgarse si el
+ * proceso quedó insensible) y después barre procesos huérfanos + lockfiles
+ * para que el próximo `initialize()` no choque con "browser is already running".
+ */
+async function destroyClientSafely(toDestroy: WaClient | null): Promise<void> {
+  if (toDestroy) {
     try {
-      await client.destroy()
+      await withTimeout(toDestroy.destroy(), DESTROY_TIMEOUT_MS, 'client.destroy')
     } catch {
-      /* already closed */
+      /* already closed, hung, or missing */
     }
   }
+  const sessionDir = path.join(WHATSAPP_SESSION_DIR, 'session-aplica')
+  await killBrowserProcessesForProfile(sessionDir)
+  cleanBrowserLocks(sessionDir)
+}
+
+export async function disconnectWhatsApp(): Promise<void> {
+  realtimeOn = false
+  await destroyClientSafely(client)
   detachRealtimeHandler()
   clearReadyWatchdog()
   client = null
@@ -924,6 +1157,8 @@ export async function scanWhatsAppGroups(groupIds: string[], limit = 100): Promi
   const result: WhatsAppVacancy[] = []
   const phases: string[] = []
   let scanned = 0
+  let filteredCount = 0
+  aiBudget = AI_BUDGET_PER_SCAN
   let pageError = false
   let recovered = false
   let recoveryDisabled = false
@@ -994,14 +1229,20 @@ export async function scanWhatsAppGroups(groupIds: string[], limit = 100): Promi
       if (msg.hasMedia && (msg.type === 'image' || msg.type === 'document')) {
         emit({ type: 'phase', payload: `OCR ${scanned}/${messages.length} en ${name}` })
       }
-      const { vacancy, mediaUnavailable } = await processMessage(msg, name || gid, gid, debugLog)
-      debugLog(`[scan]   ${serial} -> ${vacancy ? 'VACANTE OK' : 'no detectada'}`)
+      const { vacancy, mediaUnavailable, filteredByArea } = await processMessage(msg, name || gid, gid, debugLog)
+      debugLog(`[scan]   ${serial} -> ${vacancy ? 'VACANTE OK' : filteredByArea ? 'filtrada por área' : 'no detectada'}`)
       if (vacancy) result.push(vacancy)
+      if (filteredByArea) filteredCount++
       // Marcar como procesado cuando hay detección, cuando no hay media, o cuando
       // la media ya no se puede descargar (expirada/evicted) para no reintentarla en
       // cada escaneo. Las imágenes SÍ descargadas y sin detectar se re-OCRean luego.
-      if (vacancy || !msg.hasMedia || mediaUnavailable) await persistProcessed(serial)
+      if (vacancy || filteredByArea || !msg.hasMedia || mediaUnavailable) await persistProcessed(serial)
     }
+  }
+  if (filteredCount > 0) {
+    const note = `${filteredCount} vacantes detectadas se descartaron por no ser de tu área (puedes desactivar el filtro estricto en Ajustes → WhatsApp)`
+    phases.push(note)
+    emit({ type: 'phase', payload: note })
   }
   debugLog(`[scan] fin: ${scanned} revisados, ${result.length} vacantes${pageError ? ` (pageError${recovered ? ', recuperado' : ''})` : ''}`)
   debugLogEnabled = false
@@ -1017,7 +1258,12 @@ export async function scanWhatsAppGroups(groupIds: string[], limit = 100): Promi
 export async function getWhatsAppQueue(): Promise<WhatsAppVacancy[]> {
   const store = await readStore()
   const profile = await getActiveProfile().catch(() => null)
-  const strict = store.config.strictAreaFilter ?? true
+  const strict = store.config.strictAreaFilter ?? false
+  // Re-clasifica con el detector actual: vacantes guardadas con el clasificador antiguo
+  // (p. ej. "Técnico en Refrigeración" como IT) se corrigen o se descartan.
+  store.queue = store.queue
+    .filter((v) => v.aiVerified || !v.vacancyText || looksLikeVacancy(v.vacancyText))
+    .map((v) => (v.vacancyText && !v.aiVerified ? { ...v, category: classifyCategory(v.vacancyText, v.title) } : v))
   let queue = store.queue
   if (profile) {
     const kept = queue.filter((v) => isVacancyInArea(v.category, profile.area, strict))
@@ -1062,25 +1308,99 @@ export async function getWhatsAppConfig(): Promise<WhatsAppConfig> {
 
 export async function setWhatsAppConfig(config: WhatsAppConfig): Promise<void> {
   const store = await readStore()
-  store.config = config
+  // Merge: evita que una copia vieja de la config (p. ej. desde otra vista) borre campos.
+  store.config = { ...store.config, ...config }
   await writeStore(store)
   await applyConfig()
 }
 
-export async function shutdownWhatsApp(): Promise<void> {
-  realtimeOn = false
-  if (client) {
+export interface WhatsAppSendPayload {
+  phone: string
+  message?: string
+  attachment?: { filename: string; contentBase64: string; mimetype?: string }
+}
+
+/**
+ * Resuelve un teléfono escrito a mano ("+505 8888-7777", "8888 7777") a un id de chat de WhatsApp.
+ * Si el número no trae código de país, se toma el del propio número vinculado.
+ */
+async function resolveChatId(c: WaClient, rawPhone: string): Promise<string | null> {
+  let digits = (rawPhone || '').replace(/\D/g, '')
+  if (digits.startsWith('00')) digits = digits.slice(2)
+  if (digits.length < 7 || digits.length > 15) return null
+  const candidates = [digits]
+  const own = (c as unknown as { info?: { wid?: { user?: string } } }).info?.wid?.user
+  if (own && /^\d+$/.test(own) && own.length > digits.length) {
+    const cc = own.slice(0, own.length - digits.length)
+    if (cc.length >= 1 && cc.length <= 3) candidates.push(cc + digits)
+  }
+  for (const candidate of candidates) {
     try {
-      await client.destroy()
+      const id = await withTimeout(c.getNumberId(candidate), PAGE_HEALTH_TIMEOUT_MS, 'getNumberId')
+      if (id?._serialized) return id._serialized
     } catch {
-      /* already closed */
+      /* se prueba el siguiente candidato */
     }
   }
+  return null
+}
+
+/** Envía un mensaje (y opcionalmente un documento, p. ej. el CV en PDF) a un número de WhatsApp. */
+export async function sendWhatsAppMessage(payload: WhatsAppSendPayload): Promise<{ ok: boolean; error?: string }> {
+  if (!client || status !== 'connected') {
+    return { ok: false, error: 'WhatsApp no está conectado. Vincúlalo desde la sección WhatsApp.' }
+  }
+  const c = client
+  const chatId = await resolveChatId(c, payload.phone)
+  if (!chatId) {
+    return { ok: false, error: 'El número no tiene WhatsApp o no es válido. Incluye el código de país (p. ej. +505…).' }
+  }
+  try {
+    const message = payload.message?.trim()
+    // sendSeen: false — el `sendSeen` interno de whatsapp-web.js rompe con las
+    // versiones recientes de WhatsApp Web ("Data passed to getter must include
+    // an id property"). No necesitamos marcar el chat como leído.
+    if (message) await withTimeout(c.sendMessage(chatId, message, { sendSeen: false }), MEDIA_DOWNLOAD_TIMEOUT_MS, 'sendMessage')
+    if (payload.attachment?.contentBase64) {
+      const wwa = (await import('whatsapp-web.js')) as { default?: unknown; MessageMedia?: unknown }
+      const mod = (wwa.default ?? wwa) as { MessageMedia: new (mimetype: string, data: string, filename?: string) => unknown }
+      const media = new mod.MessageMedia(
+        payload.attachment.mimetype || 'application/pdf',
+        payload.attachment.contentBase64,
+        payload.attachment.filename || 'CV.pdf',
+      )
+      await withTimeout(
+        c.sendMessage(chatId, media as import('whatsapp-web.js').MessageMedia, { sendMediaAsDocument: true, sendSeen: false }),
+        MEDIA_DOWNLOAD_TIMEOUT_MS * 2,
+        'sendMessage(media)',
+      )
+    }
+    return { ok: true }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    return { ok: false, error: `No se pudo enviar por WhatsApp: ${msg}` }
+  }
+}
+
+export async function shutdownWhatsApp(): Promise<void> {
+  realtimeOn = false
+  await destroyClientSafely(client)
   detachRealtimeHandler()
   clearReadyWatchdog()
   client = null
 }
 
-app.on('before-quit', () => {
-  void shutdownWhatsApp()
+let shutdownStarted = false
+
+app.on('before-quit', (event) => {
+  if (shutdownStarted) return
+  shutdownStarted = true
+  // Da tiempo a cerrar el navegador de WhatsApp antes de que Electron salga;
+  // sin esto el proceso Edge puede quedar huérfano y bloquear la sesión.
+  event.preventDefault()
+  const forceExit = setTimeout(() => app.exit(1), DESTROY_TIMEOUT_MS + 5000)
+  void shutdownWhatsApp().finally(() => {
+    clearTimeout(forceExit)
+    app.exit(0)
+  })
 })

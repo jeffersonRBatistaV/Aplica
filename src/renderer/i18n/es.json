@@ -21,11 +21,12 @@
   },
   "sidebar": {
     "title": "Aplica",
-    "chat": "Chat",
+    "chat": "Asistente IA",
     "jobs": "Vacantes",
     "stats": "Estadísticas",
     "roadmap": "Roadmap",
     "whatsapp": "WhatsApp",
+    "browser": "Navegador",
     "conversations": "Conversaciones",
     "newChat": "Nuevo chat (Ctrl+N)",
     "searchConversations": "Buscar conversaciones...",
@@ -46,7 +47,9 @@
     "confirmDelete": "Eliminar",
     "messagesCount": "msj",
     "resultCount": "{{count}} resultado",
-    "resultCount_plural": "{{count}} resultados"
+    "resultCount_plural": "{{count}} resultados",
+    "home": "Inicio",
+    "navigation": "Navegación"
   },
   "mainLayout": {
     "noActiveConversation": "Sin conversación activa",
@@ -177,18 +180,18 @@
     "deleteJobConfirmButton": "Eliminar"
   },
   "atsReport": {
-    "title": "Reporte ATS",
+    "title": "Tu compatibilidad con la vacante",
     "reAnalyze": "Re-analizar",
-    "match": "Match",
-    "keywordsPresent": "Keywords Presentes",
-    "keywordsMissing": "Keywords Faltantes",
+    "match": "de coincidencia",
+    "keywordsPresent": "Lo que ya tienes",
+    "keywordsMissing": "Lo que piden y no aparece en tu perfil",
     "none": "Ninguno",
     "adding": "Agregando...",
     "addSelected": "Agregar seleccionados ({{count}})",
-    "strengths": "Fortalezas",
-    "gaps": "Brechas",
-    "quickFixes": "Quick Fixes",
-    "detailedAnalysis": "Análisis Detallado",
+    "strengths": "Tus puntos fuertes",
+    "gaps": "Lo que podrías reforzar",
+    "quickFixes": "Mejoras rápidas para tu CV",
+    "detailedAnalysis": "Ver análisis completo",
     "noData": "Sin datos",
     "salaryTitle": "Salario de referencia",
     "salaryEstimated": "Estimación orientativa basada en investigación web.",
@@ -198,10 +201,10 @@
   },
   "coverLetter": {
     "title": "Cartas Generadas",
-    "variationA": "Variación A · Cold Email",
-    "variationB": "Variación B · Cover Letter",
-    "coldEmail": "Cold Email",
-    "coverLetter": "Cover Letter",
+    "variationA": "Opción A · Mensaje corto",
+    "variationB": "Opción B · Carta formal",
+    "coldEmail": "Mensaje corto",
+    "coverLetter": "Carta formal",
     "copy": "Copiar",
     "copied": "Copiado",
     "copyEmail": "Copiar email del destinatario",
@@ -261,7 +264,17 @@
     "versionsTitle": "Versiones del CV",
     "versionRestored": "Versión restaurada",
     "editText": "Editar texto",
-    "doneEditing": "Listo"
+    "doneEditing": "Listo",
+    "saveToTemplateQuestion": "¿Guardar la instrucción en la plantilla?",
+    "saveToTemplateDesc": "La instrucción se añadirá a la plantilla y se aplicará automáticamente a todos los CV que generes con ella.",
+    "saveToTemplateConfirm": "Guardar en la plantilla",
+    "saveThisTimeOnly": "Solo esta vez"
+  },
+  "templates": {
+    "edited": "Editada",
+    "seedEditHint": "Puedes volver al diseño original con «Restaurar predeterminadas» (tus plantillas propias se conservan).",
+    "userInstructions": "Instrucciones del usuario",
+    "userInstructionsPlaceholder": "Ej: siempre incluir sección de idiomas, no usar emojis..."
   },
   "interviewPrep": {
     "title": "Preparación para la Entrevista",
@@ -303,7 +316,11 @@
     "searchPlaceholder": "Buscar por empresa, puesto o categoría...",
     "searchPlaceholderDesc": "Filtra por texto en el tablero.",
     "allCategories": "Todas las categorías",
-    "noResults": "No se encontraron resultados."
+    "noResults": "No se encontraron resultados.",
+    "daysAgo_one": "hace {{count}} día",
+    "daysAgo_other": "hace {{count}} días",
+    "daysAgo": "hace {{count}} días",
+    "followUpDue": "Toca enviar un seguimiento"
   },
   "profile": {
     "editProfile": "Editar Perfil",
@@ -415,7 +432,21 @@
     "system": "Sistema",
     "fontSize": "Tamaño de texto",
     "savePreferences": "Guardar preferencias",
-    "preferencesSaved": "Preferencias guardadas"
+    "preferencesSaved": "Preferencias guardadas",
+    "whatsappAiAssist": "Verificar con IA los mensajes dudosos",
+    "whatsappAiAssistDesc": "Cuando un mensaje parece una oferta pero la detección automática no está segura, la IA lo confirma y extrae puesto, empresa y área. Consume tokens de tu API (máx. 60 consultas por escaneo).",
+    "advancedOnHint": "Mostrando todas las opciones",
+    "advancedOffHint": "Solo lo esencial",
+    "showAdvanced": "Opciones avanzadas",
+    "hideAdvanced": "Ocultar avanzadas",
+    "advancedOptions": "Opciones avanzadas",
+    "textSize": "Tamaño del texto",
+    "textSizes": {
+      "sm": "Pequeño",
+      "md": "Normal",
+      "lg": "Grande",
+      "xl": "Muy grande"
+    }
   },
   "apiConfig": {
     "provider": "Proveedor",
@@ -631,6 +662,8 @@
     "statsTitle": "Estadísticas",
     "statsDesc": "Visualiza tu progreso, métricas de postulaciones y recibe consejos para mejorar tu perfil.",
     "roadmapTitle": "Roadmap",
+    "browserTitle": "Navegador",
+    "browserDesc": "Navega ofertas de empleo dentro de Aplica, rellena formularios con tus datos, adjunta tu CV y deja que el asistente IA te ayude con la postulación.",
     "roadmapDesc": "Consulta tu plan profesional personalizado con fases, acciones y prioridades para impulsar tu carrera.",
     "profileTitle": "Mi Perfil",
     "profileDesc": "Completa y actualiza tu perfil profesional con experiencia, educación, proyectos y habilidades.",
@@ -642,11 +675,69 @@
     "automationDesc": "En Configuración › Automatizaciones puedes automatizar la generación de CV y preguntas, con confirmación en los pasos importantes. También puedes editar los prompts de tus plantillas de CV.",
     "continue": "Continuar",
     "previous": "Anterior",
-    "skipGuide": "Saltar guía"
+    "skipGuide": "Saltar guía",
+    "homeTitle": "Inicio",
+    "homeDesc": "Tu agenda diaria: entrevistas próximas, seguimientos pendientes, borradores listos para enviar y tu meta semanal de postulaciones."
   },
   "confirmDialog": {
     "confirm": "Eliminar",
     "cancel": "Cancelar"
+  },
+  "browser": {
+    "back": "Atrás",
+    "forward": "Adelante",
+    "reload": "Recargar",
+    "stop": "Detener",
+    "home": "Inicio",
+    "addressPlaceholder": "Busca o escribe una dirección web",
+    "history": "Historial",
+    "clearHistory": "Borrar",
+    "noHistory": "Todavía no hay páginas visitadas.",
+    "openExternal": "Abrir en el navegador externo",
+    "zoomIn": "Acercar",
+    "zoomOut": "Alejar",
+    "quickLinks": "Accesos rápidos",
+    "openHint": "El navegador se abrirá aquí.",
+    "loadError": "No se pudo cargar la página.",
+    "profilePanel": "Mi perfil",
+    "agentPanel": "Asistente IA",
+    "analyze": "Analizar página",
+    "analyzeHint": "Abre una oferta y pulsa «Analizar página» para detectar los campos del formulario.",
+    "noFields": "No se han detectado campos de formulario en esta página.",
+    "undo": "Deshacer",
+    "fillSelected": "Rellenar seleccionados",
+    "fillAll": "Rellenar todo",
+    "nothingSelected": "Selecciona al menos un campo con valor.",
+    "filledCount": "{{count}} campos rellenados.",
+    "undoneCount": "{{count}} campos restaurados.",
+    "noMatches": "No hay campos que coincidan con los datos de tu perfil.",
+    "cvForApplications": "CV para postulaciones",
+    "noCvs": "No hay CV disponibles",
+    "attachCv": "Adjuntar CV",
+    "cvAttached": "CV adjuntado: {{label}}.",
+    "cvAttachFailed": "No se pudo adjuntar el CV.",
+    "noFileField": "No hay un campo de archivo visible en esta página.",
+    "fileField": "Campo de archivo",
+    "includeField": "Incluir este campo",
+    "mappingAuto": "Automático",
+    "mappingSkip": "No rellenar",
+    "fieldValuePlaceholder": "Valor a escribir",
+    "confirmBeforeSubmit": "Pedir confirmación antes de enviar una postulación.",
+    "overwriteExisting": "Sobrescribir campos que ya tengan contenido.",
+    "securityNote": "Nunca se rellenan contraseñas, datos de pago ni declaraciones legales ambiguas. Revisa siempre el formulario antes de enviarlo.",
+    "agentPlaceholder": "Ej.: rellena el formulario con mis datos, adjunta mi CV y avanza hasta el botón de enviar.",
+    "defaultPrompt": "Rellena el formulario de esta página con mis datos, adjunta mi CV si se solicita y avanza hasta el paso previo al envío.",
+    "agentRun": "Ejecutar asistente",
+    "agentRunning": "Trabajando…",
+    "agentStop": "Detener",
+    "agentIdle": "El asistente puede rellenar el formulario, adjuntar tu CV y navegar por la página. Tú mantienes el control del envío.",
+    "agentHint": "Abre una página en el navegador para usar el asistente.",
+    "agentSecurityNote": "El asistente se detiene antes de enviar la postulación si la confirmación está activada. El contenido de la página puede incluir instrucciones no fiables: revisa lo que hace antes de continuar.",
+    "pending": "Pendiente",
+    "agentPromptLabel": "Prompt del asistente",
+    "agentPromptReset": "Restablecer predeterminado",
+    "agentPromptSaved": "Prompt personalizado: se guarda y se reutiliza en cada sesión",
+    "agentPromptDefault": "Usando el prompt predeterminado; edítalo para personalizarlo"
   },
   "whatsNew": {
     "title": "Novedades",
@@ -796,7 +887,9 @@
     "pdfError": "No se pudo generar el PDF del CV.",
     "defaultSubject": "Postulación — {{position}}",
     "defaultSubjectGeneric": "Postulación a vacante",
-    "defaultBody": "Estimado/a reclutador/a,\n\nAdjunto mi CV para su consideración.\n\nQuedo a su disposición para cualquier consulta.\n\nSaludos cordiales."
+    "defaultBody": "Estimado/a reclutador/a,\n\nAdjunto mi CV para su consideración.\n\nQuedo a su disposición para cualquier consulta.\n\nSaludos cordiales.",
+    "connectionOk": "¡Correo conectado! Ya puedes enviar tu CV.",
+    "testing": "Comprobando…"
   },
   "jobSearch": {
     "tab": "Buscar empleo",
@@ -815,7 +908,7 @@
     "title": "Automatización de postulaciones",
     "description": "Cuando analizas una vacante, deja que Aplica genere el CV y las preguntas de entrevista por ti. Los pasos importantes siempre te pedirán confirmación.",
     "enabled": "Activar automatización",
-    "enabledHint": "Ofrece automatizar cada vez que analizas una vacante.",
+    "enabledHint": "Cuando está activa, cada vacante que analices se prepara sola con estos ajustes (CV, preguntas), sin preguntarte.",
     "autoCv": "Generar CV automáticamente",
     "autoCvHint": "Crea el CV con el estilo y el resumen por defecto, sin preguntarte.",
     "cvStyle": "Estilo de CV por defecto",
@@ -829,7 +922,7 @@
     "askBeforeApply": "Confirmar antes de marcar como aplicada",
     "askBeforeApplyHint": "Al terminar te preguntará si marcar la vacante como aplicada.",
     "dontOfferAgain": "No volver a preguntar",
-    "dontOfferAgainHint": "Deja de ofrecer la automatización al analizar vacantes. Puedes reactivarla aquí.",
+    "dontOfferAgainHint": "Solo aplica con la automatización apagada: deja de sugerirla al analizar vacantes.",
     "saved": "Automatización guardada",
     "saving": "Guardando…",
     "running": "Automatizando: generando CV y preguntas de entrevista…",
@@ -841,7 +934,11 @@
     "applyPromptTitle": "Marcar como aplicada",
     "applyPromptMessage": "La automatización terminó. ¿Quieres marcar esta vacante como Aplicada?",
     "applyConfirm": "Marcar como aplicada",
-    "applyCancel": "Todavía no"
+    "applyCancel": "Todavía no",
+    "failCv": "el CV",
+    "failQuestions": "las preguntas de entrevista",
+    "partialFail": "La automatización no pudo generar {{items}}. Revisa la conexión con la IA e inténtalo manualmente.",
+    "done": "Automatización completada: CV y preguntas listos."
   },
   "whatsapp": {
     "title": "Vacantes por WhatsApp",
@@ -861,7 +958,7 @@
       "failed": "Error"
     },
     "connectFailed": "No se pudo conectar a WhatsApp.",
-"groups": "Grupos y canales",
+    "groups": "Grupos y canales",
     "group": "Grupo",
     "channel": "Canal",
     "loadingGroups": "Cargando grupos y canales...",
@@ -919,5 +1016,369 @@
     "vision": "Modelo de visión",
     "visionDesc": "Usar siempre el modelo LLM de visión. Mejor calidad, requiere API configurada.",
     "info": "Este ajuste también aplica a las vacantes detectadas desde imágenes de WhatsApp."
+  },
+  "timeline": {
+    "title": "Historial",
+    "created": "Creada",
+    "followUp": "Seguimiento enviado",
+    "notes": "Notas privadas",
+    "notesPlaceholder": "Contactos, salario hablado, impresiones de la entrevista…"
+  },
+  "home": {
+    "greeting": "Hola",
+    "greetingName": "Hola, {{name}}",
+    "loading": "Cargando tu agenda…",
+    "pendingSummary_one": "Tienes {{count}} pendiente para hoy.",
+    "pendingSummary_other": "Tienes {{count}} pendientes para hoy.",
+    "pendingSummary": "Tienes {{count}} pendientes para hoy.",
+    "allClear": "Todo al día. Buen momento para postular a nuevas vacantes.",
+    "weeklyGoal": "Meta semanal",
+    "applications": "postulaciones",
+    "last7Days": "Últimos 7 días",
+    "actions": {
+      "newVacancy": "Analizar vacante",
+      "newVacancyHint": "Pega una oferta y obtén ATS, CV y carta",
+      "searchJobs": "Buscar empleo",
+      "searchJobsHint": "Navega portales y autocompleta formularios",
+      "whatsapp": "WhatsApp",
+      "whatsappHint": "Detecta vacantes en tus grupos",
+      "whatsappPending_one": "{{count}} vacante por revisar",
+      "whatsappPending_other": "{{count}} vacantes por revisar",
+      "whatsappPending": "{{count}} vacantes por revisar",
+      "askAi": "Preguntar a la IA",
+      "askAiHint": "Practica entrevistas o pide consejos"
+    },
+    "pipeline": "Tu embudo",
+    "openBoard": "Abrir tablero",
+    "interviews": "Próximas entrevistas",
+    "noInterviews": "No hay entrevistas en los próximos 14 días.",
+    "interviewsHint": "Abre la vacante para repasar las preguntas de preparación.",
+    "now": "Ahora",
+    "inHours_one": "en {{count}} h",
+    "inHours_other": "en {{count}} h",
+    "inHours": "en {{count}} h",
+    "inDays_one": "en {{count}} día",
+    "inDays_other": "en {{count}} días",
+    "inDays": "en {{count}} días",
+    "followUps": "Seguimientos pendientes",
+    "noFollowUps": "Ninguna postulación necesita seguimiento todavía.",
+    "daysSinceApplied_one": "postulada hace {{count}} día",
+    "daysSinceApplied_other": "postulada hace {{count}} días",
+    "daysSinceApplied": "postulada hace {{count}} días",
+    "daysSinceFollowUp_one": "último seguimiento hace {{count}} día",
+    "daysSinceFollowUp_other": "último seguimiento hace {{count}} días",
+    "daysSinceFollowUp": "último seguimiento hace {{count}} días",
+    "followUpAction": "Seguimiento",
+    "closeNoResponse": "Cerrar como sin respuesta",
+    "andMore": "y {{count}} más",
+    "readyDrafts": "Listas para enviar",
+    "noDrafts": "No hay borradores analizados pendientes.",
+    "noJobsYet": "Aún no tienes vacantes. Empieza analizando una oferta.",
+    "cvReady": "CV listo",
+    "untitled": "Sin título",
+    "followUp": {
+      "title": "Correo de seguimiento",
+      "generating": "Redactando seguimiento con IA…",
+      "to": "Para",
+      "subject": "Asunto",
+      "body": "Mensaje",
+      "regenerate": "Regenerar",
+      "copy": "Copiar",
+      "markDone": "Marcar como enviado",
+      "send": "Enviar",
+      "sent": "Seguimiento enviado",
+      "marked": "Seguimiento registrado",
+      "copied": "Copiado al portapapeles",
+      "error": "No se pudo generar el seguimiento.",
+      "sendError": "No se pudo enviar el correo.",
+      "noEmailConfig": "Configura tu correo SMTP en Configuración.",
+      "emailHint": "Configura tu correo SMTP en Configuración para enviarlo directamente; mientras tanto puedes copiarlo."
+    }
+  },
+  "roadmapView": {
+    "title": "Tu ruta profesional",
+    "loading": "Cargando tu ruta…",
+    "loadError": "Error al cargar el roadmap",
+    "generateError": "No se pudo generar la ruta. Revisa la conexión con la IA e inténtalo de nuevo.",
+    "goalSaveError": "No se pudo guardar tu meta.",
+    "noProfile": "Completa tu perfil profesional para trazar tu ruta.",
+    "goalTitle": "¿Cuál es tu norte?",
+    "goalSubtitle": "Define a dónde quieres llegar. La ruta se traza desde tu perfil actual hasta esta meta, paso a paso.",
+    "targetRole": "Puesto o meta al que quieres llegar",
+    "targetRolePlaceholder": "Ej.: {{title}} Senior en remoto para empresas de EE. UU.",
+    "why": "¿Por qué lo quieres?",
+    "whyPlaceholder": "Ej.: ganar en dólares, crecer técnicamente, más estabilidad para mi familia…",
+    "horizon": "¿En cuánto tiempo?",
+    "months_one": "{{count}} mes",
+    "months_other": "{{count}} meses",
+    "hoursPerWeek": "Horas por semana que puedes dedicar",
+    "market": "Mercado objetivo",
+    "workMode": "Modalidad",
+    "workModes": {
+      "cualquiera": "Cualquiera",
+      "remoto": "Remoto",
+      "hibrido": "Híbrido",
+      "presencial": "Presencial"
+    },
+    "salary": "Salario objetivo (opcional)",
+    "salaryPlaceholder": "Ej.: USD 2,500/mes",
+    "constraints": "Restricciones o contexto (opcional)",
+    "constraintsPlaceholder": "Ej.: trabajo a tiempo completo, presupuesto limitado para cursos, estudio de noche…",
+    "cancel": "Cancelar",
+    "drawRoute": "Trazar mi ruta",
+    "editGoal": "Editar mi norte",
+    "regenerate": "Regenerar",
+    "regenerating": "Trazando…",
+    "readyToDraw": "Tu norte: {{goal}}. Traza la ruta para llegar.",
+    "yourNorth": "Tu norte",
+    "generatedOn": "Trazada el {{date}}",
+    "progress": "{{done}} de {{total}} pasos completados",
+    "goalChanged": "Cambiaste tu norte después de trazar esta ruta. Regenérala para que apunte a la nueva meta.",
+    "gaps": "Lo que te separa de tu norte",
+    "today": "Hoy — punto de partida",
+    "destination": "Destino",
+    "finished": "¡Completaste la ruta! Es momento de redefinir tu siguiente norte.",
+    "youAreHere": "Estás aquí",
+    "stepsDone": "{{done}}/{{total}} pasos",
+    "deliverable": "Entregable",
+    "successCriteria": "Sabrás que lo lograste cuando:",
+    "priority": {
+      "alta": "alta",
+      "media": "media",
+      "baja": "baja"
+    }
+  },
+  "sendCvWhatsapp": {
+    "sendButton": "Enviar por WhatsApp",
+    "title": "Enviar CV por WhatsApp",
+    "phone": "Número de WhatsApp",
+    "phoneHint": "Detectado en la vacante. Incluye el código de país si no es de tu país.",
+    "message": "Mensaje",
+    "useCoverLetter": "Usar carta de presentación",
+    "defaultMessage": "Hola, buen día. Vi la vacante de {{position}} en {{company}} y me gustaría postularme. Adjunto mi CV. ¡Quedo atento(a)!",
+    "defaultMessageGeneric": "Hola, buen día. Vi su vacante y me gustaría postularme. Adjunto mi CV. ¡Quedo atento(a)!",
+    "sentOk": "CV enviado por WhatsApp",
+    "sendError": "Error al enviar por WhatsApp"
+  },
+  "friendlyError": {
+    "unknown": "Algo salió mal. Inténtalo de nuevo en unos segundos.",
+    "emailAuth": "Tu correo rechazó el acceso. Revisa que uses una «contraseña de aplicación» (no tu contraseña normal) y que esté bien copiada.",
+    "emailConnection": "No pudimos conectar con tu servidor de correo. Revisa tu conexión a internet y la configuración del correo.",
+    "emailRecipient": "La dirección del destinatario no parece válida. Revísala e inténtalo de nuevo.",
+    "whatsappDisconnected": "WhatsApp no está conectado. Vincúlalo escaneando el código QR en la sección WhatsApp.",
+    "whatsappNumber": "Ese número no tiene WhatsApp o está incompleto. Incluye el código de país (por ejemplo +505).",
+    "apiKey": "La clave de tu servicio de IA no es válida o caducó. Vuelve a pegarla en Ajustes.",
+    "apiQuota": "Tu cuenta del servicio de IA se quedó sin saldo o sin cuota. Revisa tu plan o usa otro proveedor.",
+    "rateLimit": "El servicio de IA recibió demasiadas peticiones seguidas. Espera un minuto y vuelve a intentarlo.",
+    "model": "El modelo de IA elegido no está disponible. Elige otro en Ajustes.",
+    "tooLong": "El texto es demasiado largo para la IA. Prueba con una vacante o CV más corto.",
+    "aiOffline": "No pudimos hablar con la IA. Si usas IA en tu equipo, asegúrate de que Ollama esté abierto.",
+    "network": "Parece que no hay conexión a internet. Revisa tu red e inténtalo de nuevo.",
+    "timeout": "La operación tardó demasiado. Inténtalo de nuevo; si se repite, prueba con un modelo más rápido.",
+    "server": "El servicio está teniendo problemas en este momento. Inténtalo de nuevo en unos minutos.",
+    "badResponse": "La IA respondió algo que no pudimos entender. Inténtalo otra vez.",
+    "howToFix": "Cómo arreglarlo",
+    "showDetails": "Ver detalles",
+    "hideDetails": "Ocultar detalles"
+  },
+  "aiSetup": {
+    "subtitle": "Aplica usa IA para escribir tus CVs y cartas. Elige cómo conectarla.",
+    "intro": "¿Cómo quieres usar la inteligencia artificial?",
+    "keyTitle": "Con una cuenta en línea",
+    "keyDesc": "Pegas una clave de Google, Groq, OpenAI… Funciona en cualquier computadora y es lo más rápido.",
+    "recommended": "Recomendado",
+    "localTitle": "En mi computadora (privado)",
+    "localDesc": "Usa Ollama, gratis y sin internet. Necesita una computadora con buena memoria.",
+    "free": "Gratis",
+    "advancedTitle": "Configuración manual",
+    "advancedDesc": "Para quien ya sabe qué servidor y modelo quiere usar.",
+    "detecting": "Buscando IA en tu computadora…",
+    "localFound": "¡Listo! Encontramos la IA en tu computadora ({{count}} modelos).",
+    "whichModel": "Modelo a usar",
+    "modelHint": "Ya elegimos el más adecuado. Solo cámbialo si sabes lo que haces.",
+    "localNotFound": "Todavía no encontramos la IA en tu computadora. Sigue estos pasos:",
+    "localStep1": "Descarga e instala Ollama desde",
+    "localStep2": "Abre la terminal y copia este comando para descargar un modelo (solo la primera vez):",
+    "localStep3": "Cuando termine, vuelve aquí y pulsa «Buscar de nuevo».",
+    "retry": "Buscar de nuevo",
+    "whichProvider": "¿Qué servicio vas a usar?",
+    "freeTier": "Tiene opción gratuita",
+    "getKey": "Obtener mi clave de {{provider}}",
+    "getKeyHint": "Se abrirá su página. Inicia sesión, crea una clave y cópiala.",
+    "pasteKey": "Pega tu clave aquí",
+    "check": "Comprobar",
+    "keyInvalid": "Esa clave no funcionó. Revisa que esté completa y que sea del servicio elegido.",
+    "keyOk": "¡Clave correcta! Ya puedes empezar.",
+    "changeModel": "Modelo elegido: {{model}} (cambiar)",
+    "useLocal": "Usar la IA de mi computadora",
+    "useKey": "Guardar y empezar",
+    "later": "Configurar más tarde",
+    "back": "Volver",
+    "saveError": "No se pudo guardar la configuración.",
+    "wizardButton": "Asistente de conexión",
+    "wizardButtonDesc": "Conecta la IA en pocos pasos, sin tecnicismos.",
+    "connected": "IA conectada correctamente"
+  },
+  "steps": {
+    "progress": "Tu postulación: {{done}} de {{total}} pasos",
+    "paste": "Vacante",
+    "match": "Compatibilidad",
+    "cv": "CV",
+    "send": "Enviar",
+    "interview": "Entrevista",
+    "next": {
+      "match": {
+        "title": "Revisa qué tan compatible eres",
+        "desc": "Te decimos qué ya tienes y qué te falta para esta vacante.",
+        "action": "Ver compatibilidad"
+      },
+      "cv": {
+        "title": "Crea tu CV para esta vacante",
+        "desc": "Elige un estilo y la IA lo adapta a lo que piden.",
+        "action": "Crear mi CV"
+      },
+      "send": {
+        "title": "¡Tu CV está listo! Envíalo",
+        "desc": "Mándalo por correo o WhatsApp desde aquí mismo.",
+        "action": "Enviar mi CV"
+      },
+      "interview": {
+        "title": "Prepárate para la entrevista",
+        "desc": "Practica con preguntas probables y respuestas sugeridas.",
+        "action": "Preparar entrevista"
+      }
+    },
+    "quickApply": "Postular rápido",
+    "quickApplying": "Creando tu CV…",
+    "quickApplyHint": "Crea el CV con tu estilo preferido y abre el envío en un solo paso",
+    "quickApplyReady": "Tu CV está listo. Revisa el mensaje y envíalo.",
+    "allDone": "¡Completaste todos los pasos de esta postulación! Mucho éxito 🍀"
+  },
+  "atsPlain": {
+    "verdict": {
+      "great": "¡Muy buena coincidencia! Tu perfil cumple con casi todo lo que piden ({{score}} %).",
+      "good": "Vas bien: cumples con buena parte de lo que piden. Con unos ajustes puedes destacar más.",
+      "low": "Esta vacante pide varias cosas que no aparecen en tu perfil ({{missing}}). Revisa si las tienes y agrégalas."
+    },
+    "applyToCv": "Aplicar a mi CV",
+    "applied": "Aplicado",
+    "applyHint": "Cuando crees tu CV podrás aplicar estas mejoras con un clic.",
+    "fixApplied": "Mejora aplicada a tu CV",
+    "levelTitle": "¿Qué nivel tienes en cada una?",
+    "levels": {
+      "basic": "Básico",
+      "intermediate": "Intermedio",
+      "advanced": "Avanzado"
+    },
+    "save": "Guardar"
+  },
+  "cvQuick": {
+    "shorter": {
+      "label": "Más corto",
+      "instruction": "Haz el CV más conciso: acorta las descripciones y elimina lo menos relevante para esta vacante."
+    },
+    "formal": {
+      "label": "Más formal",
+      "instruction": "Usa un tono más formal y profesional en todo el CV."
+    },
+    "achievements": {
+      "label": "Destacar logros",
+      "instruction": "Reescribe la experiencia destacando logros concretos y resultados medibles en lugar de tareas."
+    },
+    "keywords": {
+      "label": "Palabras de la vacante",
+      "instruction": "Incorpora de forma natural las palabras clave y requisitos de la vacante que correspondan a mi experiencia real, sin inventar nada."
+    },
+    "english": {
+      "label": "Traducir al inglés",
+      "instruction": "Traduce todo el CV al inglés profesional manteniendo el diseño."
+    },
+    "onePage": {
+      "label": "Que quepa en 1 página",
+      "instruction": "Ajusta el contenido para que el CV quepa en una sola página."
+    },
+    "applied": "Cambio aplicado a tu CV"
+  },
+  "timeHint": {
+    "cv": "suele tardar entre 20 y 60 segundos",
+    "analysis": "suele tardar menos de un minuto"
+  },
+  "templateDesigner": {
+    "howShouldItLook": "¿Cómo quieres que se vea?",
+    "layout": "Distribución",
+    "layouts": {
+      "single": "Una columna",
+      "twoColumn": "Dos columnas",
+      "sidebar": "Con barra lateral"
+    },
+    "tone": "Estilo",
+    "tones": {
+      "minimal": "Minimalista",
+      "modern": "Moderno",
+      "classic": "Clásico",
+      "creative": "Creativo"
+    },
+    "color": "Color principal",
+    "colors": {
+      "blue": "Azul",
+      "gray": "Gris",
+      "green": "Verde",
+      "purple": "Morado",
+      "red": "Rojo",
+      "black": "Blanco y negro"
+    },
+    "length": "Extensión",
+    "lengths": {
+      "onePage": "1 página",
+      "twoPages": "Hasta 2 páginas"
+    },
+    "extras": "Detalles",
+    "photo": "Con foto",
+    "icons": "Con íconos",
+    "writeManually": "Prefiero describirlo con mis palabras",
+    "backToOptions": "Volver a las opciones",
+    "manualPlaceholder": "Ej.: una columna, tipografía elegante, títulos en azul oscuro, muy espaciado…",
+    "previewOnSave": "La vista previa se crea automáticamente al guardar."
+  },
+  "achievements": {
+    "title": "Tus logros",
+    "unlocked": "{{count}} de {{total}} desbloqueados",
+    "sent": "CVs enviados",
+    "interviews": "Entrevistas",
+    "offers": "Ofertas",
+    "streak": "Semanas seguidas",
+    "nextLabel": "Próximo logro",
+    "mood": {
+      "start": "Cada búsqueda empieza con un primer envío. ¡Hoy puede ser el día!",
+      "keepGoing": "Buen comienzo. La constancia es lo que más resultados da: intenta enviar un CV más esta semana.",
+      "momentum": "¡Llevas varias semanas seguidas postulando! Ese ritmo es justo lo que funciona.",
+      "interviews": "¡Ya conseguiste entrevistas! Tu CV está funcionando. Prepárate bien y sigue así.",
+      "offer": "¡Recibiste una oferta! 🎉 Todo tu esfuerzo está dando frutos."
+    },
+    "milestones": {
+      "firstApplication": "Primer CV enviado",
+      "fiveApplications": "5 postulaciones",
+      "tenApplications": "10 postulaciones",
+      "twentyFiveApplications": "25 postulaciones",
+      "fiftyApplications": "50 postulaciones",
+      "firstInterview": "Primera entrevista",
+      "threeInterviews": "3 entrevistas",
+      "firstOffer": "Primera oferta",
+      "threeWeekStreak": "3 semanas seguidas"
+    }
+  },
+  "emptyStates": {
+    "board": {
+      "title": "Aquí verás todas tus postulaciones",
+      "desc": "Empieza agregando una vacante que te interese. Aplica te ayuda con el CV, la carta y el envío.",
+      "paste": "Pegar una vacante",
+      "search": "Buscar empleos",
+      "whatsapp": "Desde WhatsApp"
+    }
+  },
+  "dictation": {
+    "start": "Dictar",
+    "stop": "Detener dictado",
+    "listening": "Escuchando…"
   }
 }

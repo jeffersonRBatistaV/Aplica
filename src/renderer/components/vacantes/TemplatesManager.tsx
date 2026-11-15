@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react'
-import { FileText, Plus, Trash2, Check, Loader2, RotateCcw, Eye, EyeOff, ChevronDown, ChevronRight, X, AlertCircle } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { FileText, Plus, Trash2, Check, Loader2, RotateCcw, Eye, EyeOff, ChevronDown, ChevronRight, X, AlertCircle, Copy, Pencil } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '../ui/Button'
 import type { CvTemplate } from '../../../shared/types'
+import { TemplateDesigner } from './TemplateDesigner'
 
 interface TemplatesManagerProps {
   onSelect: (templateId: string) => void
@@ -9,7 +11,70 @@ interface TemplatesManagerProps {
 
 const SEED_PREFIX = 'seed-'
 
+// Pagina A4 a 96dpi: el preview se renderiza a tamano real y se escala al ancho disponible.
+const PAGE_W = 794
+const PAGE_H = 1123
+
+function ScaledPreview({ html, title, crop = 1, interactive = false }: { html: string; title: string; crop?: number; interactive?: boolean }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [scale, setScale] = useState(0)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const update = () => setScale(el.clientWidth / PAGE_W)
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  return (
+    <div ref={ref} className="relative w-full overflow-hidden bg-white" style={{ height: PAGE_H * scale * crop }}>
+      {scale > 0 && (
+        <iframe
+          srcDoc={html}
+          title={title}
+          sandbox=""
+          tabIndex={-1}
+          className={`absolute top-0 left-0 max-w-none border-0 origin-top-left ${interactive ? '' : 'pointer-events-none'}`}
+          style={{ width: PAGE_W, height: PAGE_H, transform: `scale(${scale})` }}
+        />
+      )}
+    </div>
+  )
+}
+
+function TemplateCardBody({ template, isSelected }: { template: CvTemplate; isSelected: boolean }) {
+  const { t } = useTranslation()
+  return (
+    <>
+      {template.sampleHtml ? (
+        <div className="rounded-t-[10px] overflow-hidden border-b border-gray-200 dark:border-gray-700">
+          <ScaledPreview html={template.sampleHtml} title={template.name} crop={0.62} />
+        </div>
+      ) : (
+        <div className="px-3 pt-3">
+          <FileText className={`w-6 h-6 ${isSelected ? 'text-blue-500' : 'text-gray-400'}`} />
+        </div>
+      )}
+      <div className="px-3 py-2">
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{template.name}</span>
+          {template.customized && (
+            <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">{t('templates.edited')}</span>
+          )}
+        </div>
+        {!template.sampleHtml && (
+          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{template.prompt.slice(0, 60)}...</div>
+        )}
+      </div>
+    </>
+  )
+}
+
 export function TemplatesManager({ onSelect }: TemplatesManagerProps) {
+  const { t } = useTranslation()
   const [templates, setTemplates] = useState<CvTemplate[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -17,6 +82,7 @@ export function TemplatesManager({ onSelect }: TemplatesManagerProps) {
   const [editingPrompt, setEditingPrompt] = useState(false)
   const [editTargetId, setEditTargetId] = useState<string | null>(null)
   const [editPromptText, setEditPromptText] = useState('')
+  const [editExtraPrompt, setEditExtraPrompt] = useState('')
   const [editName, setEditName] = useState('')
   const [savingClone, setSavingClone] = useState(false)
   const [generatingPreview, setGeneratingPreview] = useState(false)
@@ -46,6 +112,24 @@ export function TemplatesManager({ onSelect }: TemplatesManagerProps) {
 
   const selected = templates.find(t => t.id === selectedId)
   const isSeed = selectedId?.startsWith(SEED_PREFIX)
+
+  useEffect(() => {
+    setEditExtraPrompt(templates.find(t => t.id === selectedId)?.extraPrompt ?? '')
+  }, [selectedId])
+
+  const openCreateForm = () => {
+    setNewName('')
+    setNewPrompt('')
+    setEditExtraPrompt('')
+    setShowCreateForm(true)
+  }
+
+  const closeCreate = () => {
+    setNewName('')
+    setNewPrompt('')
+    setEditExtraPrompt('')
+    setShowCreateForm(false)
+  }
 
   const handleReset = async () => {
     if (!window.api) return
@@ -77,39 +161,48 @@ export function TemplatesManager({ onSelect }: TemplatesManagerProps) {
     setEditTargetId(selected.id)
     setEditName(selected.name)
     setEditPromptText(selected.prompt)
+    setEditExtraPrompt(selected.extraPrompt ?? '')
     setEditingPrompt(true)
   }
 
   const closeEdit = () => {
     setEditingPrompt(false)
     setEditTargetId(null)
+    setEditExtraPrompt('')
   }
 
   const handleSaveInPlace = async () => {
     if (!window.api || !editTargetId || !editName.trim() || !editPromptText.trim()) return
+    const existing = templates.find(t => t.id === editTargetId)
+    if (!existing) return
+    const promptChanged = editPromptText.trim() !== existing.prompt.trim()
+    const nameChanged = editName.trim() !== existing.name
     setSavingClone(true)
-    setGeneratingPreview(true)
     try {
-      const existing = templates.find(t => t.id === editTargetId)
       const template: CvTemplate = {
-        id: editTargetId,
+        ...existing,
         name: editName.trim(),
         prompt: editPromptText.trim(),
-        sampleHtml: existing?.sampleHtml ?? '',
-        createdAt: existing?.createdAt ?? Date.now(),
         updatedAt: Date.now(),
-        extraPrompt: existing?.extraPrompt,
+        extraPrompt: editExtraPrompt.trim() || undefined,
+        // Una predeterminada con prompt/nombre editado deja de actualizarse sola con nuevos disenos.
+        ...(existing.id.startsWith(SEED_PREFIX) && (promptChanged || nameChanged) ? { customized: true } : {}),
       }
       await window.api.saveCvTemplate(template)
-      try {
-        template.sampleHtml = await window.api.generateSampleCv(template.prompt)
-        await window.api.saveCvTemplate(template)
-      } catch {
-        // La plantilla ya quedó guardada aunque el preview no se regenere.
-      }
-      setTemplates(prev => prev.map(t => (t.id === editTargetId ? template : t)))
-      setSelectedId(editTargetId)
+      setTemplates(prev => prev.map(t => (t.id === template.id ? template : t)))
+      setSelectedId(template.id)
       closeEdit()
+      // La vista previa solo depende del prompt: no se regenera si solo cambian las instrucciones.
+      if (promptChanged) {
+        setGeneratingPreview(true)
+        try {
+          const withSample = { ...template, sampleHtml: await window.api.generateSampleCv(template.prompt) }
+          await window.api.saveCvTemplate(withSample)
+          setTemplates(prev => prev.map(t => (t.id === withSample.id ? withSample : t)))
+        } catch {
+          // La plantilla ya quedó guardada aunque el preview no se regenere.
+        }
+      }
     } catch {
       setError('Error al guardar plantilla')
     } finally {
@@ -124,6 +217,7 @@ export function TemplatesManager({ onSelect }: TemplatesManagerProps) {
     setGeneratingPreview(true)
     try {
       const id = crypto.randomUUID()
+      const source = templates.find(t => t.id === editTargetId)
       const cloneName = editName.trim().endsWith('(copia)') ? editName.trim() : `${editName.trim()} (copia)`
       const template: CvTemplate = {
         id,
@@ -132,6 +226,7 @@ export function TemplatesManager({ onSelect }: TemplatesManagerProps) {
         sampleHtml: '',
         createdAt: Date.now(),
         updatedAt: Date.now(),
+        extraPrompt: editExtraPrompt.trim() || source?.extraPrompt,
       }
       await window.api.saveCvTemplate(template)
 
@@ -163,6 +258,7 @@ export function TemplatesManager({ onSelect }: TemplatesManagerProps) {
         sampleHtml: '',
         createdAt: Date.now(),
         updatedAt: Date.now(),
+        extraPrompt: editExtraPrompt.trim() || undefined,
       }
       await window.api.saveCvTemplate(template)
 
@@ -174,6 +270,7 @@ export function TemplatesManager({ onSelect }: TemplatesManagerProps) {
       setSelectedId(template.id)
       setNewName('')
       setNewPrompt('')
+      setEditExtraPrompt('')
       setShowCreateForm(false)
     } catch {
       setError('Error al guardar plantilla')
@@ -208,7 +305,7 @@ export function TemplatesManager({ onSelect }: TemplatesManagerProps) {
               <RotateCcw className={`w-4 h-4 ${resetting ? 'animate-spin' : ''}`} />
               Restaurar predeterminadas
             </Button>
-            <Button variant="primary" size="sm" onClick={() => setShowCreateForm(!showCreateForm)}>
+            <Button variant="primary" size="sm" onClick={() => (showCreateForm ? closeCreate() : openCreateForm())}>
               <Plus className="w-4 h-4" />
               Nueva plantilla
             </Button>
@@ -227,28 +324,32 @@ export function TemplatesManager({ onSelect }: TemplatesManagerProps) {
         {showCreateForm && (
           <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 space-y-3 mb-6">
             <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Nombre de la plantilla</label>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{t('cvGenerator.templateName')}</label>
               <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)}
-                placeholder="Ej: Minimalista, Creativo, Ejecutivo..."
+                placeholder={t('cvGenerator.templateNamePlaceholder')}
                 className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Prompt — describe el estilo, colores, layout</label>
-              <textarea value={newPrompt} onChange={(e) => setNewPrompt(e.target.value)} rows={5}
-                placeholder="Ej: Estilo minimalista, una sola columna, tipografia sans-serif, colores grises y azul oscuro..."
-                className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 resize-y font-mono"
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">{t('templateDesigner.howShouldItLook')}</label>
+              <TemplateDesigner value={newPrompt} onChange={setNewPrompt} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{t('templates.userInstructions')}</label>
+              <textarea value={editExtraPrompt} onChange={(e) => setEditExtraPrompt(e.target.value)} rows={3}
+                placeholder={t('templates.userInstructionsPlaceholder')}
+                className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 resize-y"
               />
             </div>
             <div className="flex justify-end">
               <Button variant="primary" size="sm" onClick={handleCreateTemplate}
                 disabled={!newName.trim() || !newPrompt.trim() || savingNew}>
                 {savingNew ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                Guardar plantilla
+                {t('cvGenerator.saveTemplate')}
               </Button>
             </div>
             {!selected?.sampleHtml && (
-              <p className="text-xs text-amber-600 dark:text-amber-400">La vista previa se genera con IA al guardar.</p>
+              <p className="text-xs text-amber-600 dark:text-amber-400">{t('templateDesigner.previewOnSave')}</p>
             )}
           </div>
         )}
@@ -265,17 +366,13 @@ export function TemplatesManager({ onSelect }: TemplatesManagerProps) {
                     const isSelected = selectedId === t.id
                     return (
                       <button key={t.id} onClick={() => setSelectedId(isSelected ? null : t.id)}
-                        className={`p-4 rounded-xl border-2 text-left transition-all relative group ${
+                        className={`rounded-xl border-2 text-left transition-all relative group ${
                           isSelected
                             ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                             : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600'
                         }`}
                       >
-                        <FileText className={`w-6 h-6 mb-2 ${isSelected ? 'text-blue-500' : 'text-gray-400'}`} />
-                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{t.name}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
-                          {t.prompt.slice(0, 60)}...
-                        </div>
+                        <TemplateCardBody template={t} isSelected={isSelected} />
                       </button>
                     )
                   })}
@@ -291,19 +388,17 @@ export function TemplatesManager({ onSelect }: TemplatesManagerProps) {
                     const isSelected = selectedId === t.id
                     return (
                       <div key={t.id}
-                        className={`p-4 rounded-xl border-2 text-left transition-all relative group ${
+                        className={`rounded-xl border-2 text-left transition-all relative group ${
                           isSelected
                             ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                             : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600'
                         }`}
                       >
                         <button className="w-full text-left" onClick={() => setSelectedId(isSelected ? null : t.id)}>
-                          <FileText className={`w-6 h-6 mb-2 ${isSelected ? 'text-blue-500' : 'text-gray-400'}`} />
-                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{t.name}</div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{t.prompt.slice(0, 60)}...</div>
+                          <TemplateCardBody template={t} isSelected={isSelected} />
                         </button>
                         <button onClick={() => handleDelete(t.id)}
-                          className="absolute top-2 right-2 p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="absolute top-2 right-2 p-1 rounded bg-white/90 dark:bg-gray-800/90 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-0 group-hover:opacity-100 transition-opacity"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -355,12 +450,21 @@ export function TemplatesManager({ onSelect }: TemplatesManagerProps) {
                   <p className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap max-h-32 overflow-y-auto">{selected.prompt}</p>
                 </div>
 
-                {selected.extraPrompt && (
-                  <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
-                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Instrucciones del usuario (se aplican siempre)</p>
-                    <p className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap max-h-32 overflow-y-auto">{selected.extraPrompt}</p>
+                {/* User instructions */}
+                <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Instrucciones del usuario (se aplican siempre)</p>
+                    <Button variant="ghost" size="sm" onClick={handleEditClick} disabled={editingPrompt}>
+                      <Pencil className="w-3.5 h-3.5" />
+                      Editar
+                    </Button>
                   </div>
-                )}
+                  {selected.extraPrompt ? (
+                    <p className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap max-h-32 overflow-y-auto">{selected.extraPrompt}</p>
+                  ) : (
+                    <p className="text-xs text-gray-400 dark:text-gray-500">Sin instrucciones personalizadas. Añádelas para que se apliquen siempre a los CVs de esta plantilla.</p>
+                  )}
+                </div>
 
                 {/* Edit prompt form */}
                 {editingPrompt && (
@@ -379,11 +483,20 @@ export function TemplatesManager({ onSelect }: TemplatesManagerProps) {
                     </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       Los cambios en el prompt se aplican a los CVs que generes con esta plantilla.
+                      {editTargetId?.startsWith(SEED_PREFIX) && ` ${t('templates.seedEditHint')}`}
                     </p>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{t('templates.userInstructions')}</label>
+                      <textarea value={editExtraPrompt} onChange={(e) => setEditExtraPrompt(e.target.value)} rows={3}
+                        placeholder={t('templates.userInstructionsPlaceholder')}
+                        className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 resize-y"
+                      />
+                    </div>
                     <div className="flex flex-wrap justify-end gap-2">
                       <Button variant="ghost" size="sm" onClick={closeEdit}>Cancelar</Button>
                       <Button variant="secondary" size="sm" onClick={handleSaveClone} disabled={!editName.trim() || !editPromptText.trim() || savingClone}>
-                        Guardar como nueva
+                        <Copy className="w-4 h-4" />
+                        Guardar como copia
                       </Button>
                       <Button variant="primary" size="sm" onClick={handleSaveInPlace} disabled={!editName.trim() || !editPromptText.trim() || savingClone}>
                         {savingClone ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
@@ -407,15 +520,7 @@ export function TemplatesManager({ onSelect }: TemplatesManagerProps) {
                     <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
                       <p className="text-xs font-medium text-gray-500">Vista previa — John Doe</p>
                     </div>
-                    <div className="overflow-x-auto">
-                      <iframe
-                        srcDoc={selected.sampleHtml}
-                        title={`Preview ${selected.name}`}
-                        className="w-full border-0"
-                        style={{ height: '500px' }}
-                        sandbox="allow-same-origin"
-                      />
-                    </div>
+                    <ScaledPreview key={selected.id} html={selected.sampleHtml} title={`Preview ${selected.name}`} interactive />
                   </div>
                 )}
 

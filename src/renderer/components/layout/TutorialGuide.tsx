@@ -21,6 +21,14 @@ export function useTutorial() {
           },
         },
         {
+          element: '#nav-home',
+          popover: {
+            title: t('tutorial.homeTitle'),
+            description: t('tutorial.homeDesc'),
+            side: 'right' as const,
+          },
+        },
+        {
           element: '#nav-chat',
           popover: {
             title: t('tutorial.chatTitle'),
@@ -63,6 +71,14 @@ export function useTutorial() {
           popover: {
             title: t('tutorial.roadmapTitle'),
             description: t('tutorial.roadmapDesc'),
+            side: 'right' as const,
+          },
+        },
+        {
+          element: '#nav-browser',
+          popover: {
+            title: t('tutorial.browserTitle'),
+            description: t('tutorial.browserDesc'),
             side: 'right' as const,
           },
         },

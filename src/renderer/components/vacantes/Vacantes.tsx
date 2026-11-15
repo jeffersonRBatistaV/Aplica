@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Briefcase, Library, Columns, FileText, Loader2, AlertCircle, Layers, Check, Search } from 'lucide-react'
 import type { WhatsAppVacancy, LinkedInJob } from '../../../shared/types'
+import { extractVacancyPhone } from '../../../shared/vacancy-detection'
 import { VacancyInput } from './VacancyInput'
 import { ATSReportView } from './ATSReport'
 import { CoverLetterGenerator } from './CoverLetterGenerator'
@@ -12,10 +13,15 @@ import { JobSearch } from './JobSearch'
 import { AutomationOfferModal } from './AutomationOfferModal'
 import { KanbanBoard } from './KanbanBoard'
 import { TemplatesManager } from './TemplatesManager'
+import { JobTimeline } from './JobTimeline'
+import { ApplicationSteps, scrollToStep, type StepId } from './ApplicationSteps'
+import { notifyJobsChanged, OPEN_JOB_EVENT, VACANTES_TAB_EVENT } from '../../lib/agenda'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import type { ATSReport, JobApplication, InterviewQuestion, JobStatus, AutomationConfig } from '../../../shared/types'
 import { useTranslation } from 'react-i18next'
+import { useNotification } from '../../contexts/NotificationContext'
+import { friendlyMessage } from '../../lib/friendly-error'
 
 const DRAFT_KEY = 'aplica:vacancy-draft'
 
@@ -152,9 +158,10 @@ type Tab = 'new' | 'search' | 'category' | 'library' | 'board' | 'templates'
 
 export function Vacantes() {
   const { t } = useTranslation()
+  const { notify } = useNotification()
   const [activeTab, setActiveTab] = useState<Tab>('new')
   const [vacancyText, setVacancyText] = useState('')
-  const whatsappImportRef = useRef<{ id: string; text: string } | null>(null)
+  const whatsappImportRef = useRef<{ id: string; text: string; phone?: string } | null>(null)
   const [analyzing, setAnalyzing] = useState(false)
   const [atsReport, setAtsReport] = useState<ATSReport | null>(null)
   const [generatingLetters, setGeneratingLetters] = useState(false)
@@ -165,6 +172,10 @@ export function Vacantes() {
   const [cvStyle, setCvStyle] = useState<string | null>(null)
   const [cvContent, setCvContent] = useState('')
   const [recruiterEmail, setRecruiterEmail] = useState('')
+  const [recruiterPhone, setRecruiterPhone] = useState('')
+  const [quickApplying, setQuickApplying] = useState(false)
+  /** Cambia para pedir al CVGenerator que abra el envío (correo o WhatsApp). */
+  const [sendRequest, setSendRequest] = useState(0)
   const [emailSubject, setEmailSubject] = useState('')
   const [interviewQuestions, setInterviewQuestions] = useState<InterviewQuestion[]>([])
   const [generatingQuestions, setGeneratingQuestions] = useState(false)
@@ -220,9 +231,10 @@ export function Vacantes() {
       if (!vacancy) return
       handleNewApp()
       const text = vacancy.vacancyText || vacancy.snippet
-      whatsappImportRef.current = { id: vacancy.id, text }
+      whatsappImportRef.current = { id: vacancy.id, text, phone: vacancy.phone }
       setVacancyText(text)
       setRecruiterEmail(vacancy.email || '')
+      setRecruiterPhone(vacancy.phone || '')
       setActiveTab('new')
     }
     window.addEventListener('aplica:vacancyImport', handler)
@@ -239,10 +251,23 @@ export function Vacantes() {
     return () => window.removeEventListener('profile:updated', load)
   }, [])
 
+  // El proceso principal mantiene statusHistory/appliedAt: tras guardar se
+  // traen esos campos sin pisar ediciones locales en curso.
+  const syncServerFields = async (id: string) => {
+    const fresh = await window.api?.getJob(id).catch(() => null)
+    if (fresh) {
+      setCurrentApp((prev) => prev && prev.id === id
+        ? { ...prev, statusHistory: fresh.statusHistory, appliedAt: fresh.appliedAt, lastFollowUpAt: fresh.lastFollowUpAt }
+        : prev)
+    }
+    notifyJobsChanged()
+  }
+
   const handleUpdateApp = (patch: Partial<JobApplication>) => {
     if (!currentApp || !window.api) return
     const updated = { ...currentApp, ...patch, updatedAt: Date.now() }
-    window.api.saveJob(updated)
+    const statusChanged = patch.status !== undefined && patch.status !== currentApp.status
+    window.api.saveJob(updated).then(() => { if (statusChanged || 'notes' in patch) void syncServerFields(updated.id) })
     setCurrentApp(updated)
   }
 
@@ -253,6 +278,7 @@ export function Vacantes() {
       const updated = { ...currentApp, status: 'applied' as JobStatus, updatedAt: Date.now() }
       await window.api.saveJob(updated)
       setCurrentApp(updated)
+      void syncServerFields(updated.id)
     } finally {
       setConfirmingApplied(false)
     }
@@ -287,6 +313,7 @@ export function Vacantes() {
     setCvStyle(d.cvStyle)
     setCvContent(d.cvContent || '')
     setRecruiterEmail(d.recipientEmail || '')
+    setRecruiterPhone(d.recipientPhone || extractVacancyPhone(d.vacancyText) || '')
     setEmailSubject(d.emailSubject || '')
     setInterviewQuestions(d.interviewQuestions || [])
     localStorage.removeItem(DRAFT_KEY)
@@ -310,6 +337,7 @@ export function Vacantes() {
     setCvStyle(null)
     setCurrentApp(null)
     setRecruiterEmail('')
+    setRecruiterPhone('')
     setEmailSubject('')
     setInterviewQuestions([])
     setError(null)
@@ -347,6 +375,9 @@ export function Vacantes() {
         ? report.position
         : heuristicPosition || pickPositionLine(cleanText) || t('vacantes.title')
       const category = extractCategory(cleanText)
+      const importedPhone = whatsappImportRef.current?.phone
+      const phone = importedPhone || extractVacancyPhone(cleanText) || extractVacancyPhone(text) || ''
+      setRecruiterPhone(phone)
 
       const app: JobApplication = {
         id: crypto.randomUUID(),
@@ -363,6 +394,7 @@ export function Vacantes() {
         cvStyle: null,
         cvContent: '',
         recipientEmail: '',
+        ...(phone ? { recipientPhone: phone } : {}),
         emailSubject: '',
         interviewQuestions: [],
         ...(sourceUrl ? { sourceUrl } : {}),
@@ -392,7 +424,7 @@ export function Vacantes() {
       setCurrentApp({ ...app })
       await maybeOfferAutomation(app)
     } catch (err) {
-      const msg = err instanceof Error ? err.message : t('vacantes.errorUnknown')
+      const msg = err instanceof Error ? friendlyMessage(err) : t('vacantes.errorUnknown')
       setError(msg)
     } finally {
       unsub()
@@ -402,10 +434,15 @@ export function Vacantes() {
     }
   }
 
-  const runAutomation = async (app: JobApplication, config: Partial<AutomationConfig>) => {
+  const runAutomation = async (app: JobApplication, config: AutomationConfig) => {
     if (!window.api) return
+    if (!config.autoCv && !config.autoQuestions) {
+      if (config.askBeforeApply !== false) setPendingApplyConfirm(true)
+      return
+    }
     setAutomationRunning(true)
     const updates: Partial<JobApplication> = {}
+    const failures: string[] = []
     try {
       if (config.autoCv) {
         try {
@@ -415,30 +452,59 @@ export function Vacantes() {
             try {
               const options = await window.api.generateSummaryOptions(app.vacancyText, app.atsReport)
               summary = options.find((o) => o.id === config.cvSummaryId)?.summary || options[0]?.summary
-            } catch { /* sin resumen por defecto */ }
+            } catch { /* sin resumen por defecto: el generador elige */ }
           }
-          updates.cvStyle = style
-          updates.cvContent = await window.api.generateCV(app.vacancyText, app.atsReport, style, undefined, summary)
-        } catch { /* continúa con el resto */ }
+          const cv = await window.api.generateCV(app.vacancyText, app.atsReport, style, undefined, summary)
+          if (cv && cv.trim()) {
+            updates.cvStyle = style
+            updates.cvContent = cv
+          } else {
+            failures.push(t('automation.failCv'))
+          }
+        } catch (err) {
+          console.error('[automation] CV', err)
+          failures.push(t('automation.failCv'))
+        }
       }
       if (config.autoQuestions) {
         try {
-          updates.interviewQuestions = await window.api.generateInterviewQuestions(app.vacancyText, app.atsReport)
-        } catch { /* continúa */ }
+          const questions = await window.api.generateInterviewQuestions(app.vacancyText, app.atsReport)
+          if (questions?.length) updates.interviewQuestions = questions
+          else failures.push(t('automation.failQuestions'))
+        } catch (err) {
+          console.error('[automation] preguntas', err)
+          failures.push(t('automation.failQuestions'))
+        }
       }
     } finally {
       setAutomationRunning(false)
     }
 
     if (Object.keys(updates).length > 0) {
-      const updated = { ...app, ...updates, updatedAt: Date.now() }
+      // Se parte de la versión guardada para no pisar cambios hechos mientras corría.
+      const base = (await window.api.getJob(app.id).catch(() => null)) ?? app
+      const updated = { ...base, ...updates, updatedAt: Date.now() }
       try { await window.api.saveJob(updated) } catch { /* noop */ }
-      setCurrentApp(updated)
-      if (updates.cvStyle) { setCvStyle(updates.cvStyle); setCvContent(updates.cvContent || '') }
-      if (updates.interviewQuestions) setInterviewQuestions(updates.interviewQuestions)
+      notifyJobsChanged()
+      setCurrentApp((prev) => (prev && prev.id === app.id ? { ...prev, ...updates } : prev))
+      setCurrentAppIfSame(app.id, updates)
     }
 
+    if (failures.length > 0) {
+      notify(t('automation.partialFail', { items: failures.join(', ') }), 'error')
+    } else {
+      notify(t('automation.done'), 'success')
+    }
     if (config.askBeforeApply !== false) setPendingApplyConfirm(true)
+  }
+
+  // Refleja en la UI el resultado de la automatización solo si el usuario sigue en esa vacante.
+  const currentAppIdRef = useRef<string | null>(null)
+  currentAppIdRef.current = currentApp?.id ?? null
+  const setCurrentAppIfSame = (id: string, updates: Partial<JobApplication>) => {
+    if (currentAppIdRef.current !== id) return
+    if (updates.cvStyle) { setCvStyle(updates.cvStyle); setCvContent(updates.cvContent || '') }
+    if (updates.interviewQuestions) setInterviewQuestions(updates.interviewQuestions)
   }
 
   const maybeOfferAutomation = async (app: JobApplication) => {
@@ -446,24 +512,35 @@ export function Vacantes() {
     try {
       const [cfg, jobs] = await Promise.all([window.api.getAutomationConfig(), window.api.getJobs()])
       setAutomationConfig(cfg)
+      // Activada: se ejecuta directamente con la configuración guardada, sin preguntar.
+      if (cfg.enabled) {
+        await runAutomation(app, cfg)
+        return
+      }
       const count = jobs.filter((j) => j.status !== 'draft').length
       setAppliedCount(count)
       if (cfg.dontOfferAgain) return
-      if (count >= 5 || cfg.enabled) {
+      if (count >= 5) {
         offerAppRef.current = app
         setShowAutomationOffer(true)
       }
-    } catch { /* noop */ }
+    } catch (err) {
+      console.error('[automation]', err)
+    }
   }
 
   const handleConfirmAutomation = async (config: Partial<AutomationConfig>) => {
     const app = offerAppRef.current
     offerAppRef.current = null
     setShowAutomationOffer(false)
+    let effective: AutomationConfig = { ...(automationConfig ?? AUTOMATION_FALLBACK), ...config }
     if (window.api) {
-      try { setAutomationConfig(await window.api.saveAutomationConfig(config)) } catch { /* noop */ }
+      try {
+        effective = await window.api.saveAutomationConfig(config)
+        setAutomationConfig(effective)
+      } catch { /* se usa la config local */ }
     }
-    if (app) await runAutomation(app, config)
+    if (app) await runAutomation(app, effective)
   }
 
   const handleSkipAutomation = async (dontOfferAgain: boolean) => {
@@ -483,10 +560,32 @@ export function Vacantes() {
     setCvStyle(app.cvStyle)
     setCvContent(app.cvContent)
     setRecruiterEmail(app.recipientEmail || '')
+    setRecruiterPhone(app.recipientPhone || extractVacancyPhone(app.vacancyText) || '')
     setEmailSubject(app.emailSubject || '')
     setInterviewQuestions(app.interviewQuestions || [])
     setActiveTab('new')
   }
+
+  // Navegación desde Inicio: abrir una vacante concreta o una pestaña.
+  const selectAppRef = useRef(handleSelectApp)
+  selectAppRef.current = handleSelectApp
+  useEffect(() => {
+    const onOpen = async (e: Event) => {
+      const id = (e as CustomEvent<string>).detail
+      const job = id ? await window.api?.getJob(id).catch(() => null) : null
+      if (job) selectAppRef.current(job)
+    }
+    const onTab = (e: Event) => {
+      const tab = (e as CustomEvent<Tab>).detail
+      if (tab) setActiveTab(tab)
+    }
+    window.addEventListener(OPEN_JOB_EVENT, onOpen)
+    window.addEventListener(VACANTES_TAB_EVENT, onTab)
+    return () => {
+      window.removeEventListener(OPEN_JOB_EVENT, onOpen)
+      window.removeEventListener(VACANTES_TAB_EVENT, onTab)
+    }
+  }, [])
 
   const handleSaveLetter = async (type: 'A' | 'B', content: string) => {
     if (!currentApp || !window.api) return
@@ -533,6 +632,24 @@ export function Vacantes() {
     }
   }
 
+  // Aplica una sugerencia del análisis directamente al CV ya generado.
+  const handleApplyFixToCv = async (instruction: string) => {
+    if (!window.api || !cvContent || !cvStyle) return
+    try {
+      const result = await window.api.regenerateCV({
+        currentCv: cvContent,
+        style: cvStyle,
+        vacancyText,
+        atsReport,
+        instructions: instruction,
+      })
+      await handleSaveCV(cvStyle, result)
+      notify(t('atsPlain.fixApplied'), 'success')
+    } catch (err) {
+      notify(err instanceof Error ? err.message : t('vacantes.errorUnknown'), 'error')
+    }
+  }
+
   const handleUpdateReport = async () => {
     if (vacancyText) {
       await handleAnalyze(vacancyText)
@@ -554,6 +671,31 @@ export function Vacantes() {
       const updated = { ...currentApp, atsReport: report, updatedAt: Date.now() }
       await window.api.saveJob(updated)
       setCurrentApp(updated)
+    }
+  }
+
+  const handleNextStep = (step: StepId) => {
+    scrollToStep(step)
+    if (step === 'send') setSendRequest((n) => n + 1)
+    if (step === 'interview' && interviewQuestions.length === 0 && !generatingQuestions) void handleGenerateQuestions()
+  }
+
+  // "Postular rápido": crea el CV con el estilo preferido y abre directamente el envío.
+  const handleQuickApply = async () => {
+    if (!window.api || !currentApp || quickApplying) return
+    setQuickApplying(true)
+    setError(null)
+    try {
+      const style = automationConfig?.cvStyle || cvStyle || 'ats'
+      const cv = await window.api.generateCV(vacancyText, atsReport, style)
+      if (!cv?.trim()) throw new Error(t('automation.failCv'))
+      await handleSaveCV(style, cv)
+      notify(t('steps.quickApplyReady'), 'success')
+      setTimeout(() => { scrollToStep('cv'); setSendRequest((n) => n + 1) }, 50)
+    } catch (err) {
+      setError(err instanceof Error ? friendlyMessage(err) : t('vacantes.errorUnknown'))
+    } finally {
+      setQuickApplying(false)
     }
   }
 
@@ -643,11 +785,27 @@ export function Vacantes() {
       <div className="flex-1 overflow-y-auto scrollbar-thin">
         <div className={activeTab === 'new' ? '' : 'hidden'}>
           <div className="max-w-4xl mx-auto p-6 space-y-6">
-            <VacancyInput
-              onAnalyze={handleAnalyze}
-              analyzing={analyzing}
-              initialText={vacancyText}
-            />
+            {(currentApp || analyzing) && (
+              <ApplicationSteps
+                hasVacancy={!!vacancyText.trim()}
+                hasReport={!!atsReport}
+                hasCv={!!cvContent}
+                status={currentApp?.status ?? null}
+                hasQuestions={interviewQuestions.length > 0}
+                busy={analyzing || automationRunning || generatingLetters}
+                onNext={handleNextStep}
+                onQuickApply={handleQuickApply}
+                quickApplying={quickApplying}
+              />
+            )}
+
+            <div id="vac-step-paste">
+              <VacancyInput
+                onAnalyze={handleAnalyze}
+                analyzing={analyzing}
+                initialText={vacancyText}
+              />
+            </div>
 
             {error && (
               <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">
@@ -668,7 +826,7 @@ export function Vacantes() {
             {analyzing && (
               <div className="flex items-center justify-center py-8 text-gray-400">
                 <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                <span className="text-sm">{t('vacantes.analyzing')}</span>
+                <span className="text-sm">{t('vacantes.analyzing')} <span className="opacity-70">· {t('timeHint.analysis')}</span></span>
               </div>
             )}
 
@@ -709,12 +867,22 @@ export function Vacantes() {
                   </div>
                 </div>
 
+                {currentApp && (
+                  <JobTimeline
+                    job={currentApp}
+                    onNotesChange={(notes) => handleUpdateApp({ notes })}
+                  />
+                )}
+
                 {atsReport && !analyzing && (
+                  <div id="vac-step-match">
                   <ATSReportView
                     report={atsReport}
                     onRefresh={handleUpdateReport}
                     onAddKeywords={handleAddKeywords}
+                    onApplyToCv={cvContent ? handleApplyFixToCv : undefined}
                   />
+                  </div>
                 )}
 
                 {atsReport && (
@@ -728,8 +896,9 @@ export function Vacantes() {
                   />
                 )}
 
-                <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                <div id="vac-step-cv" className="border-t border-gray-200 dark:border-gray-700 pt-6 scroll-mt-4">
                   <CVGenerator
+                    sendRequest={sendRequest}
                     vacancyText={vacancyText}
                     atsReport={atsReport}
                     currentStyle={cvStyle}
@@ -738,6 +907,8 @@ export function Vacantes() {
                     jobId={currentApp?.id}
                     onSent={() => handleUpdateApp({ status: 'applied' })}
                     recipientEmail={recruiterEmail}
+                    recipientPhone={recruiterPhone}
+                    onPhoneChange={(p) => { setRecruiterPhone(p); if (currentApp && p !== currentApp.recipientPhone) handleUpdateApp({ recipientPhone: p }) }}
                     emailSubject={emailSubject}
                     coverLetterBody={coverLetterA}
                     companyName={currentApp?.company}
@@ -761,7 +932,7 @@ export function Vacantes() {
                 )}
 
                 {atsReport && (
-                  <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                  <div id="vac-step-interview" className="border-t border-gray-200 dark:border-gray-700 pt-6 scroll-mt-4">
                     <InterviewPrep
                       questions={interviewQuestions}
                       generating={generatingQuestions}

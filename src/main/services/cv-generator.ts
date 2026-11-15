@@ -5,12 +5,18 @@ import { CV_TEMPLATES_FILE, SETTINGS_FILE } from '../utils/paths'
 
 const LANGUAGE_INSTRUCTION = '\n\nIMPORTANTE: Responde SIEMPRE en el MISMO IDIOMA en el que está escrita la vacante. Si la vacante está en inglés, responde en inglés. Si está en español, responde en español. Si está en otro idioma, responde en ese mismo idioma.'
 
+/**
+ * La foto (data URL de cientos de KB) no se envía al modelo; en su lugar va la marca
+ * `tieneFoto: true` para que la plantilla sepa que debe incluir el token {{FOTO-PERFIL}}.
+ * Antes se quitaba sin avisar y el modelo creía que no había foto.
+ */
 function stripPhoto(profile: Profile): Profile {
-  const { photo: _photo, ...rest } = profile
-  return rest as Profile
+  const { photo, ...rest } = profile
+  const hasPhoto = typeof photo === 'string' && photo.startsWith('data:image/')
+  return (hasPhoto ? { ...rest, tieneFoto: true } : rest) as Profile
 }
 
-const PHOTO_INSTRUCTION = `\n\nREGLA DE FOTO DE PERFIL:- Si el perfil del candidato tiene foto (campo "photo" con data URL), incluye la foto como una etiqueta <img> con src EXACTAMENTE igual a este token: {{FOTO-PERFIL}}. La etiqueta debe tener estilo circular (border-radius: 50%), borde blanco, entre 18mm y 24mm de diámetro, y quedar alineada arriba a la derecha de la cabecera del CV (usa float: right si es necesario, con márgenes pequeños).- El token {{FOTO-PERFIL}} es OBLIGATORIO como valor de src: el sistema lo reemplazará por la foto real del candidato. NUNCA inventes otra URL, uses placeholders tipo [foto], rutas locales ni imágenes de relleno.- Si el perfil NO tiene foto, NO incluyas ninguna etiqueta <img> ni ninguna caja/placeholder de foto en el CV.- NO uses emojis ni texto alternativo inventado: si incluyes alt, usa el nombre real del candidato.`
+const PHOTO_INSTRUCTION = `\n\nREGLA DE FOTO DE PERFIL:- Si el perfil del candidato tiene foto (campo "tieneFoto": true), incluye la foto como una etiqueta <img> con src EXACTAMENTE igual a este token: {{FOTO-PERFIL}}. La etiqueta debe tener estilo circular (border-radius: 50%), borde blanco, entre 18mm y 24mm de diámetro, y quedar alineada arriba a la derecha de la cabecera del CV (usa float: right si es necesario, con márgenes pequeños).- El token {{FOTO-PERFIL}} es OBLIGATORIO como valor de src: el sistema lo reemplazará por la foto real del candidato. NUNCA inventes otra URL, uses placeholders tipo [foto], rutas locales ni imágenes de relleno.- Si el perfil NO tiene foto, NO incluyas ninguna etiqueta <img> ni ninguna caja/placeholder de foto en el CV.- NO uses emojis ni texto alternativo inventado: si incluyes alt, usa el nombre real del candidato.`
 
 const LAYOUT_RULES = `
 
@@ -54,8 +60,9 @@ function normalizeTemplateId(style: string): string | undefined {
 }
 
 async function getTemplatePrompt(style: string): Promise<string | undefined> {
-  const templateId = normalizeTemplateId(style)
-  if (!templateId) return undefined
+  // Los estilos integrados (ats/moderno/tradicional) usan su plantilla `seed-*`, asi que
+  // editar el prompt en el gestor de plantillas tambien les afecta. STYLE_PROMPTS queda de respaldo.
+  const templateId = normalizeTemplateId(style) ?? `seed-${style}`
   try {
     const templates = await readJSON<CvTemplate[]>(CV_TEMPLATES_FILE)
     const prompt = templates?.find((t) => t.id === templateId)?.prompt

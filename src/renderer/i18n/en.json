@@ -21,11 +21,12 @@
   },
   "sidebar": {
     "title": "Aplica",
-    "chat": "Chat",
+    "chat": "AI Assistant",
     "jobs": "Jobs",
     "stats": "Stats",
     "roadmap": "Roadmap",
     "whatsapp": "WhatsApp",
+    "browser": "Browser",
     "conversations": "Conversations",
     "newChat": "New chat (Ctrl+N)",
     "searchConversations": "Search conversations...",
@@ -46,7 +47,9 @@
     "confirmDelete": "Delete",
     "messagesCount": "msgs",
     "resultCount": "{{count}} result",
-    "resultCount_plural": "{{count}} results"
+    "resultCount_plural": "{{count}} results",
+    "home": "Home",
+    "navigation": "Navigation"
   },
   "mainLayout": {
     "noActiveConversation": "No active conversation",
@@ -177,18 +180,18 @@
     "deleteJobConfirmButton": "Delete"
   },
   "atsReport": {
-    "title": "ATS Report",
+    "title": "Your match with this job",
     "reAnalyze": "Re-analyze",
-    "match": "Match",
-    "keywordsPresent": "Keywords Present",
-    "keywordsMissing": "Keywords Missing",
+    "match": "match",
+    "keywordsPresent": "What you already have",
+    "keywordsMissing": "What they ask for that's not in your profile",
     "none": "None",
     "adding": "Adding...",
     "addSelected": "Add selected ({{count}})",
-    "strengths": "Strengths",
-    "gaps": "Gaps",
-    "quickFixes": "Quick Fixes",
-    "detailedAnalysis": "Detailed Analysis",
+    "strengths": "Your strengths",
+    "gaps": "What you could strengthen",
+    "quickFixes": "Quick improvements for your CV",
+    "detailedAnalysis": "See full analysis",
     "noData": "No data",
     "salaryTitle": "Reference salary",
     "salaryEstimated": "Guideline estimate based on web research.",
@@ -198,10 +201,10 @@
   },
   "coverLetter": {
     "title": "Generated Letters",
-    "variationA": "Variation A · Cold Email",
-    "variationB": "Variation B · Cover Letter",
-    "coldEmail": "Cold Email",
-    "coverLetter": "Cover Letter",
+    "variationA": "Option A · Short message",
+    "variationB": "Option B · Formal letter",
+    "coldEmail": "Short message",
+    "coverLetter": "Formal letter",
     "copy": "Copy",
     "copied": "Copied",
     "copyEmail": "Copy recipient email",
@@ -261,7 +264,17 @@
     "versionsTitle": "CV versions",
     "versionRestored": "Version restored",
     "editText": "Edit text",
-    "doneEditing": "Done"
+    "doneEditing": "Done",
+    "saveToTemplateQuestion": "Save this instruction to the template?",
+    "saveToTemplateDesc": "The instruction will be added to the template and applied automatically to every CV you generate with it.",
+    "saveToTemplateConfirm": "Save to template",
+    "saveThisTimeOnly": "Only this time"
+  },
+  "templates": {
+    "edited": "Edited",
+    "seedEditHint": "You can go back to the original design with \"Restore defaults\" (your own templates are kept).",
+    "userInstructions": "User instructions",
+    "userInstructionsPlaceholder": "e.g. always include a languages section, no emojis..."
   },
   "interviewPrep": {
     "title": "Interview Preparation",
@@ -303,7 +316,11 @@
     "searchPlaceholder": "Search by company, position or category...",
     "searchPlaceholderDesc": "Filter by text on the board.",
     "allCategories": "All categories",
-    "noResults": "No results found."
+    "noResults": "No results found.",
+    "daysAgo_one": "{{count}} day ago",
+    "daysAgo_other": "{{count}} days ago",
+    "daysAgo": "{{count}} days ago",
+    "followUpDue": "Time to send a follow-up"
   },
   "profile": {
     "editProfile": "Edit Profile",
@@ -415,7 +432,21 @@
     "system": "System",
     "fontSize": "Font size",
     "savePreferences": "Save preferences",
-    "preferencesSaved": "Preferences saved"
+    "preferencesSaved": "Preferences saved",
+    "whatsappAiAssist": "Verify ambiguous messages with AI",
+    "whatsappAiAssistDesc": "When a message looks like a job offer but automatic detection is unsure, the AI confirms it and extracts position, company and area. Uses your API tokens (max 60 calls per scan).",
+    "advancedOnHint": "Showing every option",
+    "advancedOffHint": "Just the essentials",
+    "showAdvanced": "Advanced options",
+    "hideAdvanced": "Hide advanced",
+    "advancedOptions": "Advanced options",
+    "textSize": "Text size",
+    "textSizes": {
+      "sm": "Small",
+      "md": "Normal",
+      "lg": "Large",
+      "xl": "Extra large"
+    }
   },
   "apiConfig": {
     "provider": "Provider",
@@ -631,6 +662,8 @@
     "statsTitle": "Statistics",
     "statsDesc": "View your progress, application metrics and receive advice to improve your profile.",
     "roadmapTitle": "Roadmap",
+    "browserTitle": "Browser",
+    "browserDesc": "Browse job offers inside Aplica, fill forms with your details, attach your CV, and let the AI assistant help you apply.",
     "roadmapDesc": "Check your personalized career plan with phases, actions, and priorities to boost your career.",
     "profileTitle": "My Profile",
     "profileDesc": "Complete and update your professional profile with experience, education, projects, and skills.",
@@ -642,11 +675,69 @@
     "automationDesc": "Under Settings › Automations you can automate CV and question generation, with confirmation on important steps. You can also edit the prompts of your CV templates.",
     "continue": "Continue",
     "previous": "Previous",
-    "skipGuide": "Skip guide"
+    "skipGuide": "Skip guide",
+    "homeTitle": "Home",
+    "homeDesc": "Your daily agenda: upcoming interviews, pending follow-ups, drafts ready to send and your weekly application goal."
   },
   "confirmDialog": {
     "confirm": "Delete",
     "cancel": "Cancel"
+  },
+  "browser": {
+    "back": "Back",
+    "forward": "Forward",
+    "reload": "Reload",
+    "stop": "Stop",
+    "home": "Home",
+    "addressPlaceholder": "Search or enter a web address",
+    "history": "History",
+    "clearHistory": "Clear",
+    "noHistory": "No pages visited yet.",
+    "openExternal": "Open in external browser",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "quickLinks": "Quick links",
+    "openHint": "The browser will open here.",
+    "loadError": "The page could not be loaded.",
+    "profilePanel": "My profile",
+    "agentPanel": "AI assistant",
+    "analyze": "Analyze page",
+    "analyzeHint": "Open a job offer and click “Analyze page” to detect the form fields.",
+    "noFields": "No form fields were detected on this page.",
+    "undo": "Undo",
+    "fillSelected": "Fill selected",
+    "fillAll": "Fill all",
+    "nothingSelected": "Select at least one field with a value.",
+    "filledCount": "{{count}} fields filled.",
+    "undoneCount": "{{count}} fields restored.",
+    "noMatches": "No fields match your profile data.",
+    "cvForApplications": "CV for applications",
+    "noCvs": "No CVs available",
+    "attachCv": "Attach CV",
+    "cvAttached": "CV attached: {{label}}.",
+    "cvAttachFailed": "The CV could not be attached.",
+    "noFileField": "No visible file field on this page.",
+    "fileField": "File field",
+    "includeField": "Include this field",
+    "mappingAuto": "Automatic",
+    "mappingSkip": "Do not fill",
+    "fieldValuePlaceholder": "Value to enter",
+    "confirmBeforeSubmit": "Ask for confirmation before submitting an application.",
+    "overwriteExisting": "Overwrite fields that already have content.",
+    "securityNote": "Passwords, payment data and ambiguous legal statements are never filled. Always review the form before submitting.",
+    "agentPlaceholder": "E.g. fill the form with my details, attach my CV and go to the submit button.",
+    "defaultPrompt": "Fill this page's form with my details, attach my CV if requested, and advance to the step before submission.",
+    "agentRun": "Run assistant",
+    "agentRunning": "Working…",
+    "agentStop": "Stop",
+    "agentIdle": "The assistant can fill the form, attach your CV and navigate the page. You stay in control of submission.",
+    "agentHint": "Open a page in the browser to use the assistant.",
+    "agentSecurityNote": "The assistant stops before submitting the application if confirmation is enabled. Page content may contain untrusted instructions: review what it does before continuing.",
+    "pending": "Pending",
+    "agentPromptLabel": "Assistant prompt",
+    "agentPromptReset": "Reset to default",
+    "agentPromptSaved": "Custom prompt: saved and reused every session",
+    "agentPromptDefault": "Using the default prompt; edit it to customize"
   },
   "whatsNew": {
     "title": "What's new",
@@ -796,7 +887,9 @@
     "pdfError": "Could not generate the CV PDF.",
     "defaultSubject": "Application — {{position}}",
     "defaultSubjectGeneric": "Job application",
-    "defaultBody": "Dear recruiter,\n\nPlease find attached my CV for your consideration.\n\nI am available for any questions.\n\nBest regards."
+    "defaultBody": "Dear recruiter,\n\nPlease find attached my CV for your consideration.\n\nI am available for any questions.\n\nBest regards.",
+    "connectionOk": "Email connected! You can now send your CV.",
+    "testing": "Checking…"
   },
   "jobSearch": {
     "tab": "Find jobs",
@@ -815,7 +908,7 @@
     "title": "Application automation",
     "description": "When you analyze a vacancy, let Aplica generate the CV and interview questions for you. Important steps will always ask for confirmation.",
     "enabled": "Enable automation",
-    "enabledHint": "Offer automation every time you analyze a vacancy.",
+    "enabledHint": "When on, every vacancy you analyze is prepared automatically with these settings (CV, questions), without asking.",
     "autoCv": "Generate CV automatically",
     "autoCvHint": "Creates the CV with the default style and summary, without asking.",
     "cvStyle": "Default CV style",
@@ -829,7 +922,7 @@
     "askBeforeApply": "Confirm before marking as applied",
     "askBeforeApplyHint": "When finished, it will ask whether to mark the vacancy as applied.",
     "dontOfferAgain": "Don't ask again",
-    "dontOfferAgainHint": "Stop offering automation when analyzing vacancies. You can re-enable it here.",
+    "dontOfferAgainHint": "Only applies while automation is off: stops suggesting it when you analyze vacancies.",
     "saved": "Automation saved",
     "saving": "Saving…",
     "running": "Automating: generating CV and interview questions…",
@@ -841,7 +934,11 @@
     "applyPromptTitle": "Mark as applied",
     "applyPromptMessage": "Automation finished. Do you want to mark this vacancy as Applied?",
     "applyConfirm": "Mark as applied",
-    "applyCancel": "Not yet"
+    "applyCancel": "Not yet",
+    "failCv": "the CV",
+    "failQuestions": "the interview questions",
+    "partialFail": "Automation could not generate {{items}}. Check the AI connection and try manually.",
+    "done": "Automation finished: CV and questions ready."
   },
   "whatsapp": {
     "title": "WhatsApp Vacancies",
@@ -919,5 +1016,369 @@
     "vision": "Vision model",
     "visionDesc": "Always use the LLM vision model. Better quality, needs API configured.",
     "info": "This setting also applies to vacancies detected from WhatsApp images."
+  },
+  "timeline": {
+    "title": "History",
+    "created": "Created",
+    "followUp": "Follow-up sent",
+    "notes": "Private notes",
+    "notesPlaceholder": "Contacts, salary discussed, interview impressions…"
+  },
+  "home": {
+    "greeting": "Hello",
+    "greetingName": "Hello, {{name}}",
+    "loading": "Loading your agenda…",
+    "pendingSummary_one": "You have {{count}} task for today.",
+    "pendingSummary_other": "You have {{count}} tasks for today.",
+    "pendingSummary": "You have {{count}} tasks for today.",
+    "allClear": "All caught up. Good time to apply to new openings.",
+    "weeklyGoal": "Weekly goal",
+    "applications": "applications",
+    "last7Days": "Last 7 days",
+    "actions": {
+      "newVacancy": "Analyze a job",
+      "newVacancyHint": "Paste a posting and get ATS, CV and letter",
+      "searchJobs": "Search jobs",
+      "searchJobsHint": "Browse job boards and autofill forms",
+      "whatsapp": "WhatsApp",
+      "whatsappHint": "Detect openings in your groups",
+      "whatsappPending_one": "{{count}} opening to review",
+      "whatsappPending_other": "{{count}} openings to review",
+      "whatsappPending": "{{count}} openings to review",
+      "askAi": "Ask the AI",
+      "askAiHint": "Practice interviews or get advice"
+    },
+    "pipeline": "Your pipeline",
+    "openBoard": "Open board",
+    "interviews": "Upcoming interviews",
+    "noInterviews": "No interviews in the next 14 days.",
+    "interviewsHint": "Open the job to review your prep questions.",
+    "now": "Now",
+    "inHours_one": "in {{count}} h",
+    "inHours_other": "in {{count}} h",
+    "inHours": "in {{count}} h",
+    "inDays_one": "in {{count}} day",
+    "inDays_other": "in {{count}} days",
+    "inDays": "in {{count}} days",
+    "followUps": "Pending follow-ups",
+    "noFollowUps": "No application needs a follow-up yet.",
+    "daysSinceApplied_one": "applied {{count}} day ago",
+    "daysSinceApplied_other": "applied {{count}} days ago",
+    "daysSinceApplied": "applied {{count}} days ago",
+    "daysSinceFollowUp_one": "last follow-up {{count}} day ago",
+    "daysSinceFollowUp_other": "last follow-up {{count}} days ago",
+    "daysSinceFollowUp": "last follow-up {{count}} days ago",
+    "followUpAction": "Follow up",
+    "closeNoResponse": "Close as no response",
+    "andMore": "and {{count}} more",
+    "readyDrafts": "Ready to send",
+    "noDrafts": "No analyzed drafts pending.",
+    "noJobsYet": "No jobs yet. Start by analyzing a posting.",
+    "cvReady": "CV ready",
+    "untitled": "Untitled",
+    "followUp": {
+      "title": "Follow-up email",
+      "generating": "Drafting follow-up with AI…",
+      "to": "To",
+      "subject": "Subject",
+      "body": "Message",
+      "regenerate": "Regenerate",
+      "copy": "Copy",
+      "markDone": "Mark as sent",
+      "send": "Send",
+      "sent": "Follow-up sent",
+      "marked": "Follow-up logged",
+      "copied": "Copied to clipboard",
+      "error": "Could not generate the follow-up.",
+      "sendError": "Could not send the email.",
+      "noEmailConfig": "Set up your SMTP email in Settings.",
+      "emailHint": "Set up SMTP email in Settings to send it directly; meanwhile you can copy it."
+    }
+  },
+  "roadmapView": {
+    "title": "Your career route",
+    "loading": "Loading your route…",
+    "loadError": "Failed to load the roadmap",
+    "generateError": "Could not generate the route. Check the AI connection and try again.",
+    "goalSaveError": "Could not save your goal.",
+    "noProfile": "Complete your professional profile to draw your route.",
+    "goalTitle": "What is your north star?",
+    "goalSubtitle": "Define where you want to get to. The route is drawn from your current profile to this goal, step by step.",
+    "targetRole": "Role or goal you want to reach",
+    "targetRolePlaceholder": "E.g. Senior {{title}}, remote for US companies",
+    "why": "Why do you want it?",
+    "whyPlaceholder": "E.g. earn in dollars, grow technically, more stability for my family…",
+    "horizon": "In how long?",
+    "months_one": "{{count}} month",
+    "months_other": "{{count}} months",
+    "hoursPerWeek": "Hours per week you can dedicate",
+    "market": "Target market",
+    "workMode": "Work mode",
+    "workModes": {
+      "cualquiera": "Any",
+      "remoto": "Remote",
+      "hibrido": "Hybrid",
+      "presencial": "On-site"
+    },
+    "salary": "Target salary (optional)",
+    "salaryPlaceholder": "E.g. USD 2,500/month",
+    "constraints": "Constraints or context (optional)",
+    "constraintsPlaceholder": "E.g. full-time job, limited course budget, I study at night…",
+    "cancel": "Cancel",
+    "drawRoute": "Draw my route",
+    "editGoal": "Edit my north star",
+    "regenerate": "Regenerate",
+    "regenerating": "Drawing…",
+    "readyToDraw": "Your north star: {{goal}}. Draw the route to get there.",
+    "yourNorth": "Your north star",
+    "generatedOn": "Drawn on {{date}}",
+    "progress": "{{done}} of {{total}} steps completed",
+    "goalChanged": "You changed your north star after drawing this route. Regenerate it to aim at the new goal.",
+    "gaps": "What separates you from your goal",
+    "today": "Today — starting point",
+    "destination": "Destination",
+    "finished": "You completed the route! Time to set your next north star.",
+    "youAreHere": "You are here",
+    "stepsDone": "{{done}}/{{total}} steps",
+    "deliverable": "Deliverable",
+    "successCriteria": "You'll know you made it when:",
+    "priority": {
+      "alta": "high",
+      "media": "medium",
+      "baja": "low"
+    }
+  },
+  "sendCvWhatsapp": {
+    "sendButton": "Send via WhatsApp",
+    "title": "Send CV via WhatsApp",
+    "phone": "WhatsApp number",
+    "phoneHint": "Detected in the job post. Include the country code if it's not from your country.",
+    "message": "Message",
+    "useCoverLetter": "Use cover letter",
+    "defaultMessage": "Hi! I saw the {{position}} opening at {{company}} and I'd like to apply. Please find my CV attached. Looking forward to hearing from you!",
+    "defaultMessageGeneric": "Hi! I saw your job opening and I'd like to apply. Please find my CV attached. Looking forward to hearing from you!",
+    "sentOk": "CV sent via WhatsApp",
+    "sendError": "Error sending via WhatsApp"
+  },
+  "friendlyError": {
+    "unknown": "Something went wrong. Please try again in a few seconds.",
+    "emailAuth": "Your email provider rejected the login. Make sure you use an \"app password\" (not your regular password) and that it was copied correctly.",
+    "emailConnection": "We couldn't reach your email server. Check your internet connection and email settings.",
+    "emailRecipient": "The recipient's address doesn't look valid. Check it and try again.",
+    "whatsappDisconnected": "WhatsApp isn't connected. Link it by scanning the QR code in the WhatsApp section.",
+    "whatsappNumber": "That number isn't on WhatsApp or is incomplete. Include the country code (e.g. +1).",
+    "apiKey": "Your AI service key is invalid or expired. Paste it again in Settings.",
+    "apiQuota": "Your AI account ran out of credit or quota. Check your plan or use another provider.",
+    "rateLimit": "The AI service got too many requests in a row. Wait a minute and try again.",
+    "model": "The selected AI model isn't available. Choose another one in Settings.",
+    "tooLong": "The text is too long for the AI. Try a shorter job post or CV.",
+    "aiOffline": "We couldn't reach the AI. If you use AI on your computer, make sure Ollama is running.",
+    "network": "It looks like you're offline. Check your network and try again.",
+    "timeout": "This took too long. Try again; if it keeps happening, try a faster model.",
+    "server": "The service is having problems right now. Try again in a few minutes.",
+    "badResponse": "The AI replied with something we couldn't understand. Please try again.",
+    "howToFix": "How to fix it",
+    "showDetails": "Show details",
+    "hideDetails": "Hide details"
+  },
+  "aiSetup": {
+    "subtitle": "Aplica uses AI to write your CVs and letters. Choose how to connect it.",
+    "intro": "How would you like to use artificial intelligence?",
+    "keyTitle": "With an online account",
+    "keyDesc": "Paste a key from Google, Groq, OpenAI… Works on any computer and is the fastest option.",
+    "recommended": "Recommended",
+    "localTitle": "On my computer (private)",
+    "localDesc": "Uses Ollama, free and offline. Needs a computer with plenty of memory.",
+    "free": "Free",
+    "advancedTitle": "Manual setup",
+    "advancedDesc": "For people who already know which server and model they want.",
+    "detecting": "Looking for AI on your computer…",
+    "localFound": "Done! We found AI on your computer ({{count}} models).",
+    "whichModel": "Model to use",
+    "modelHint": "We already picked the best fit. Only change it if you know what you're doing.",
+    "localNotFound": "We haven't found AI on your computer yet. Follow these steps:",
+    "localStep1": "Download and install Ollama from",
+    "localStep2": "Open the terminal and copy this command to download a model (first time only):",
+    "localStep3": "When it finishes, come back and press \"Search again\".",
+    "retry": "Search again",
+    "whichProvider": "Which service will you use?",
+    "freeTier": "Has a free tier",
+    "getKey": "Get my {{provider}} key",
+    "getKeyHint": "Their page will open. Sign in, create a key and copy it.",
+    "pasteKey": "Paste your key here",
+    "check": "Check",
+    "keyInvalid": "That key didn't work. Make sure it's complete and belongs to the selected service.",
+    "keyOk": "Key works! You're ready to go.",
+    "changeModel": "Selected model: {{model}} (change)",
+    "useLocal": "Use my computer's AI",
+    "useKey": "Save and start",
+    "later": "Set up later",
+    "back": "Back",
+    "saveError": "Couldn't save the configuration.",
+    "wizardButton": "Connection assistant",
+    "wizardButtonDesc": "Connect the AI in a few steps, no jargon.",
+    "connected": "AI connected successfully"
+  },
+  "steps": {
+    "progress": "Your application: {{done}} of {{total}} steps",
+    "paste": "Job post",
+    "match": "Match",
+    "cv": "CV",
+    "send": "Send",
+    "interview": "Interview",
+    "next": {
+      "match": {
+        "title": "See how well you match",
+        "desc": "We show what you already have and what's missing for this job.",
+        "action": "See match"
+      },
+      "cv": {
+        "title": "Create your CV for this job",
+        "desc": "Pick a style and the AI tailors it to what they're asking for.",
+        "action": "Create my CV"
+      },
+      "send": {
+        "title": "Your CV is ready! Send it",
+        "desc": "Send it by email or WhatsApp right from here.",
+        "action": "Send my CV"
+      },
+      "interview": {
+        "title": "Get ready for the interview",
+        "desc": "Practice with likely questions and suggested answers.",
+        "action": "Prepare interview"
+      }
+    },
+    "quickApply": "Quick apply",
+    "quickApplying": "Creating your CV…",
+    "quickApplyHint": "Creates the CV in your preferred style and opens sending in one step",
+    "quickApplyReady": "Your CV is ready. Review the message and send it.",
+    "allDone": "You've completed every step for this application! Good luck 🍀"
+  },
+  "atsPlain": {
+    "verdict": {
+      "great": "Great match! Your profile meets almost everything they ask for ({{score}}%).",
+      "good": "You're doing well: you meet a good part of the requirements. A few tweaks can make you stand out.",
+      "low": "This job asks for several things that don't appear in your profile ({{missing}}). Check whether you have them and add them."
+    },
+    "applyToCv": "Apply to my CV",
+    "applied": "Applied",
+    "applyHint": "Once you create your CV you'll be able to apply these improvements with one click.",
+    "fixApplied": "Improvement applied to your CV",
+    "levelTitle": "What's your level in each one?",
+    "levels": {
+      "basic": "Basic",
+      "intermediate": "Intermediate",
+      "advanced": "Advanced"
+    },
+    "save": "Save"
+  },
+  "cvQuick": {
+    "shorter": {
+      "label": "Shorter",
+      "instruction": "Make the CV more concise: shorten descriptions and remove what is least relevant for this job."
+    },
+    "formal": {
+      "label": "More formal",
+      "instruction": "Use a more formal, professional tone throughout the CV."
+    },
+    "achievements": {
+      "label": "Highlight achievements",
+      "instruction": "Rewrite the experience highlighting concrete achievements and measurable results instead of tasks."
+    },
+    "keywords": {
+      "label": "Job keywords",
+      "instruction": "Naturally include the job post's keywords and requirements that match my real experience, without making anything up."
+    },
+    "english": {
+      "label": "Translate to English",
+      "instruction": "Translate the whole CV into professional English, keeping the design."
+    },
+    "onePage": {
+      "label": "Fit on 1 page",
+      "instruction": "Adjust the content so the CV fits on a single page."
+    },
+    "applied": "Change applied to your CV"
+  },
+  "timeHint": {
+    "cv": "usually takes 20 to 60 seconds",
+    "analysis": "usually takes under a minute"
+  },
+  "templateDesigner": {
+    "howShouldItLook": "How should it look?",
+    "layout": "Layout",
+    "layouts": {
+      "single": "One column",
+      "twoColumn": "Two columns",
+      "sidebar": "With sidebar"
+    },
+    "tone": "Style",
+    "tones": {
+      "minimal": "Minimal",
+      "modern": "Modern",
+      "classic": "Classic",
+      "creative": "Creative"
+    },
+    "color": "Main color",
+    "colors": {
+      "blue": "Blue",
+      "gray": "Gray",
+      "green": "Green",
+      "purple": "Purple",
+      "red": "Red",
+      "black": "Black & white"
+    },
+    "length": "Length",
+    "lengths": {
+      "onePage": "1 page",
+      "twoPages": "Up to 2 pages"
+    },
+    "extras": "Details",
+    "photo": "With photo",
+    "icons": "With icons",
+    "writeManually": "I'd rather describe it in my own words",
+    "backToOptions": "Back to options",
+    "manualPlaceholder": "E.g.: one column, elegant font, dark blue headings, lots of spacing…",
+    "previewOnSave": "The preview is created automatically when you save."
+  },
+  "achievements": {
+    "title": "Your achievements",
+    "unlocked": "{{count}} of {{total}} unlocked",
+    "sent": "CVs sent",
+    "interviews": "Interviews",
+    "offers": "Offers",
+    "streak": "Weeks in a row",
+    "nextLabel": "Next achievement",
+    "mood": {
+      "start": "Every job search starts with a first application. Today could be the day!",
+      "keepGoing": "Good start. Consistency is what pays off most: try sending one more CV this week.",
+      "momentum": "You've been applying several weeks in a row! That rhythm is exactly what works.",
+      "interviews": "You've landed interviews! Your CV is working. Prepare well and keep going.",
+      "offer": "You got an offer! 🎉 All your effort is paying off."
+    },
+    "milestones": {
+      "firstApplication": "First CV sent",
+      "fiveApplications": "5 applications",
+      "tenApplications": "10 applications",
+      "twentyFiveApplications": "25 applications",
+      "fiftyApplications": "50 applications",
+      "firstInterview": "First interview",
+      "threeInterviews": "3 interviews",
+      "firstOffer": "First offer",
+      "threeWeekStreak": "3 weeks in a row"
+    }
+  },
+  "emptyStates": {
+    "board": {
+      "title": "All your applications will show up here",
+      "desc": "Start by adding a job you're interested in. Aplica helps with the CV, the letter and sending it.",
+      "paste": "Paste a job post",
+      "search": "Search jobs",
+      "whatsapp": "From WhatsApp"
+    }
+  },
+  "dictation": {
+    "start": "Dictate",
+    "stop": "Stop dictation",
+    "listening": "Listening…"
   }
 }

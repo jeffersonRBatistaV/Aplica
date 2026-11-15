@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Plus,
   Search,
@@ -13,8 +13,11 @@ import {
   BarChart3,
   GraduationCap,
   Map,
+  Globe,
   ChevronDown,
   Check,
+  Home,
+  Sparkles,
 } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
@@ -23,6 +26,8 @@ import { useSettings } from '../../contexts/SettingsContext'
 import { useTutorial } from './TutorialGuide'
 import { groupConversations, formatTime } from '../../lib/time'
 import { useTranslation } from 'react-i18next'
+import type { AppView } from '../../../shared/types'
+import { useAgenda } from '../../lib/agenda'
 
 function AplicaIcon({ className }: { className?: string }) {
   return (
@@ -80,17 +85,39 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
     window.api.getAppVersion().then((v) => setAppVersion(v)).catch(() => {})
   }, [])
 
-  // Keyboard shortcut: Cmd+N / Ctrl+N
+  const { agenda } = useAgenda(currentView)
+
+  const navItems: { view: AppView; id: string; label: string; icon: typeof Home; iconCls: string; badge: number; badgeCls: string }[] = [
+    { view: 'home', id: 'nav-home', label: t('sidebar.home'), icon: Home, iconCls: 'text-gray-400', badge: agenda.interviews.length + agenda.followUps.length, badgeCls: 'bg-blue-500' },
+    { view: 'jobs', id: 'nav-jobs', label: t('sidebar.jobs'), icon: Briefcase, iconCls: 'text-gray-400', badge: 0, badgeCls: '' },
+    { view: 'browser', id: 'nav-browser', label: t('sidebar.browser'), icon: Globe, iconCls: 'text-gray-400', badge: 0, badgeCls: '' },
+    { view: 'whatsapp', id: 'nav-whatsapp', label: t('sidebar.whatsapp'), icon: MessageCircle, iconCls: 'text-green-500', badge: agenda.waPending, badgeCls: 'bg-green-500' },
+    { view: 'roadmap', id: 'nav-roadmap', label: t('sidebar.roadmap'), icon: Map, iconCls: 'text-gray-400', badge: 0, badgeCls: '' },
+    { view: 'analytics', id: 'nav-stats', label: t('sidebar.stats'), icon: BarChart3, iconCls: 'text-gray-400', badge: 0, badgeCls: '' },
+    { view: 'chat', id: 'nav-chat', label: t('sidebar.chat'), icon: Sparkles, iconCls: 'text-indigo-400', badge: 0, badgeCls: '' },
+  ]
+  const navViewsRef = useRef<AppView[]>([])
+  navViewsRef.current = navItems.map((n) => n.view)
+
+  // Atajos: Ctrl/Cmd+N nuevo chat · Ctrl/Cmd+1…7 cambiar de sección
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return
+      if (e.key === 'n') {
         e.preventDefault()
+        setCurrentView('chat')
         newConversation()
+        return
+      }
+      const idx = Number(e.key) - 1
+      if (Number.isInteger(idx) && idx >= 0 && idx < navViewsRef.current.length) {
+        e.preventDefault()
+        setCurrentView(navViewsRef.current[idx])
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [newConversation])
+  }, [newConversation, setCurrentView])
 
   useEffect(() => {
     const handler = () => reloadProfiles()
@@ -151,70 +178,34 @@ export function Sidebar({ onOpenSettings, onOpenProfile }: SidebarProps) {
           </div>
         </div>
 
-        {/* Navigation */}
-        <div className="grid grid-cols-3 gap-1 mb-3">
-          <button
-            id="nav-jobs"
-            onClick={() => setCurrentView('jobs')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors justify-center ${
-              currentView === 'jobs'
-                ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
-                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-            }`}
-          >
-            <Briefcase className="w-3.5 h-3.5" />
-            {t('sidebar.jobs')}
-          </button>
-          <button
-            id="nav-whatsapp"
-            onClick={() => setCurrentView('whatsapp')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors justify-center ${
-              currentView === 'whatsapp'
-                ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300'
-                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-            }`}
-            title={t('sidebar.whatsapp')}
-          >
-            <MessageCircle className="w-3.5 h-3.5" />
-            <span className="truncate">{t('sidebar.whatsapp')}</span>
-          </button>
-          <button
-            id="nav-stats"
-            onClick={() => setCurrentView('analytics')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors justify-center ${
-              currentView === 'analytics'
-                ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
-                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-            }`}
-          >
-            <BarChart3 className="w-3.5 h-3.5" />
-            {t('sidebar.stats')}
-          </button>
-          <button
-            id="nav-roadmap"
-            onClick={() => setCurrentView('roadmap')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors justify-center ${
-              currentView === 'roadmap'
-                ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
-                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-            }`}
-          >
-            <Map className="w-3.5 h-3.5" />
-            {t('sidebar.roadmap')}
-          </button>
-          <button
-            id="nav-chat"
-            onClick={() => setCurrentView('chat')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors justify-center ${
-              currentView === 'chat'
-                ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
-                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-            }`}
-          >
-            <MessageCircle className="w-3.5 h-3.5" />
-            {t('sidebar.chat')}
-          </button>
-        </div>
+        {/* Navigation — ordenada según el flujo de búsqueda de empleo */}
+        <nav aria-label={t('sidebar.navigation')} className="space-y-0.5 mb-3">
+          {navItems.map((item, i) => {
+            const active = currentView === item.view
+            return (
+              <button
+                key={item.view}
+                id={item.id}
+                onClick={() => setCurrentView(item.view)}
+                title={`${item.label} (Ctrl+${i + 1})`}
+                aria-current={active ? 'page' : undefined}
+                className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 text-sm rounded-lg transition-colors ${
+                  active
+                    ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-medium'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                }`}
+              >
+                <item.icon className={`w-4 h-4 flex-shrink-0 ${active ? '' : item.iconCls}`} />
+                <span className="flex-1 truncate text-left">{item.label}</span>
+                {item.badge > 0 && (
+                  <span className={`min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-semibold flex items-center justify-center text-white ${item.badgeCls}`}>
+                    {item.badge > 99 ? '99+' : item.badge}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </nav>
 
         {/* Chat search (only in chat view) */}
         {currentView === 'chat' && (

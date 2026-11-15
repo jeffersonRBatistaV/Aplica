@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, useCallback, type ReactNode } from 'react'
 import type { AppSettings, ThemeMode, Profile, EmailConfig } from '../../shared/types'
 import i18n from '../i18n'
 
@@ -135,40 +135,54 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }
   }, [reloadProfiles])
 
-  const persist = useCallback(async (next: AppSettings) => {
+  // Fuente de verdad síncrona: varias llamadas seguidas a updateSettings (p. ej. dos
+  // cambios rápidos en Ajustes) se encadenan sobre el último estado y no se pisan
+  // entre sí con una copia vieja del closure.
+  const settingsRef = useRef<AppSettings>(DEFAULT_SETTINGS)
+  settingsRef.current = settings
+  const writeQueue = useRef<Promise<void>>(Promise.resolve())
+
+  const persist = useCallback((next: AppSettings, writeEmail: boolean): Promise<void> => {
+    settingsRef.current = next
     setSettings(next)
-    if (window.api) {
-      if (next.emailConfig) {
+    if (!window.api) return Promise.resolve()
+    const run = async () => {
+      // El correo vive por perfil: solo se escribe cuando el cambio lo incluye, para no
+      // copiar la config de un perfil en otro tras cambiar de perfil.
+      if (writeEmail && next.emailConfig) {
         await window.api.setEmailConfig(next.emailConfig)
       }
-      const { emailConfig: _emailConfig, ...rest } = next
+      const { emailConfig: _emailConfig, ...rest } = settingsRef.current
       await window.api.setSettings(rest as AppSettings)
     }
+    const p = writeQueue.current.then(run, run)
+    writeQueue.current = p.catch((err) => { console.error('[settings] no se pudo guardar', err) })
+    return p
   }, [])
 
   const setLastSeenVersion = useCallback(
     async (version: string) => {
-      await persist({ ...settings, lastSeenVersion: version })
+      await persist({ ...settingsRef.current, lastSeenVersion: version }, false)
     },
-    [settings, persist],
+    [persist],
   )
 
   const updateSettings = useCallback(
     async (partial: Partial<AppSettings>) => {
-      const next = { ...settings, ...partial }
+      const next = { ...settingsRef.current, ...partial }
       if (partial.locale) {
         i18n.changeLanguage(partial.locale)
       }
-      await persist(next)
+      await persist(next, 'emailConfig' in partial)
     },
-    [settings, persist],
+    [persist],
   )
 
   const setThemeMode = useCallback(
     async (mode: ThemeMode) => {
-      await updateSettings({ appearance: { ...settings.appearance, mode } })
+      await updateSettings({ appearance: { ...settingsRef.current.appearance, mode } })
     },
-    [updateSettings, settings.appearance],
+    [updateSettings],
   )
 
   const setActiveProfile = useCallback(

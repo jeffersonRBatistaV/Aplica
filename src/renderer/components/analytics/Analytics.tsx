@@ -19,6 +19,7 @@ import remarkGfm from 'remark-gfm'
 import type { Conversation, JobApplication, JobStatus } from '../../../shared/types'
 import { useTranslation } from 'react-i18next'
 import { useNavigation } from '../../contexts/AppContext'
+import { friendlyMessage } from '../../lib/friendly-error'
 
 const COUNTRY_NAMES: Record<string, string> = {
   DO: 'Republica Dominicana',
@@ -301,7 +302,7 @@ export function Analytics() {
       setSalarySources(res.sources || [])
     } catch (e) {
       console.error('Failed to check salary', e)
-      setSalaryError(e instanceof Error ? e.message : t('analytics.salaryError'))
+      setSalaryError(e instanceof Error ? friendlyMessage(e) : t('analytics.salaryError'))
     } finally {
       unsub()
       setSalaryLoading(false)

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Search, TestTube, CheckCircle, XCircle, Globe, Key, Timer, Hash } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { InvestigateConfig } from '../../../shared/types'
+import { friendlyMessage } from '../../lib/friendly-error'
 
 interface ResearchConfigProps {
   config: InvestigateConfig
@@ -29,7 +30,7 @@ export function ResearchConfig({ config, onChange }: ResearchConfigProps) {
         msg: t('researchConfig.testSuccess', { count: result.sources?.length || 0 }),
       })
     } catch (e) {
-      setTestResult({ ok: false, msg: t('researchConfig.testError', { msg: e instanceof Error ? e.message : String(e) }) })
+      setTestResult({ ok: false, msg: t('researchConfig.testError', { msg: e instanceof Error ? friendlyMessage(e) : String(e) }) })
     } finally {
       setTesting(false)
     }

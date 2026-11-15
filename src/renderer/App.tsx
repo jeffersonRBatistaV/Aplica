@@ -7,6 +7,8 @@ import { Vacantes } from './components/vacantes/Vacantes'
 import { Analytics } from './components/analytics/Analytics'
 import { RoadmapView } from './components/roadmap/RoadmapView'
 import { WhatsAppView } from './components/whatsapp/WhatsAppView'
+import { BrowserView } from './components/browser/BrowserView'
+import { HomeView } from './components/home/HomeView'
 import { NotificationContainer } from './components/ui/NotificationContainer'
 import UpdateBanner from './components/updater/UpdateBanner'
 import { ProfileWizard } from './components/profile/ProfileWizard'
@@ -120,6 +122,9 @@ function AppContent() {
         {/* Mantener todos los views montados (ocultos via CSS) para no perder estado en vuelo
             como analisis de vacantes o generacion de CV al cambiar de pestana.
             Los wrappers mantienen la cadena flex-1 para que el scroll interno funcione. */}
+        <div className={`flex-1 flex flex-col min-h-0 ${currentView === 'home' ? '' : 'hidden'}`}>
+          <HomeView />
+        </div>
         <div className={`flex-1 flex flex-col min-h-0 ${currentView === 'chat' ? '' : 'hidden'}`}>
           <ChatView />
         </div>
@@ -134,6 +139,9 @@ function AppContent() {
         </div>
         <div className={`flex-1 flex flex-col min-h-0 ${currentView === 'whatsapp' ? '' : 'hidden'}`}>
           <WhatsAppView />
+        </div>
+        <div className={`flex-1 flex flex-col min-h-0 ${currentView === 'browser' ? '' : 'hidden'}`}>
+          <BrowserView />
         </div>
 
       {showWizard && (

@@ -7,6 +7,7 @@ import { useNotification } from '../../contexts/NotificationContext'
 import { Button } from '../ui/Button'
 import { WhatsAppLogin } from './WhatsAppLogin'
 import { WhatsAppQueue } from './WhatsAppQueue'
+import { friendlyMessage } from '../../lib/friendly-error'
 
 export function WhatsAppView() {
   const { t } = useTranslation()
@@ -58,7 +59,7 @@ export function WhatsAppView() {
       const ev = await window.api.whatsappConnect()
       setStatusEvent(ev)
     } catch (err) {
-      notify(err instanceof Error ? err.message : t('whatsapp.connectFailed'), 'error')
+      notify(err instanceof Error ? friendlyMessage(err) : t('whatsapp.connectFailed'), 'error')
     } finally {
       setConnecting(false)
     }
@@ -137,7 +138,7 @@ export function WhatsAppView() {
       const ev = await window.api.whatsappConnect()
       setStatusEvent(ev)
     } catch (err) {
-      notify(err instanceof Error ? err.message : t('whatsapp.connectFailed'), 'error')
+      notify(err instanceof Error ? friendlyMessage(err) : t('whatsapp.connectFailed'), 'error')
     } finally {
       setConnecting(false)
     }
@@ -165,7 +166,7 @@ export function WhatsAppView() {
         notify(t('whatsapp.scanEmpty'), 'info')
       }
     } catch (err) {
-      notify(err instanceof Error ? err.message : t('whatsapp.scanFailed'), 'error')
+      notify(err instanceof Error ? friendlyMessage(err) : t('whatsapp.scanFailed'), 'error')
     } finally {
       setScanning(false)
       void refreshQueue()

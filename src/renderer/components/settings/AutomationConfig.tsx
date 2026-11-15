@@ -150,7 +150,10 @@ function ToggleRow({ label, hint, checked, onChange }: { label: string; hint: st
 function StyleTemplates() {
   const [templates, setTemplates] = useState<CvTemplate[]>([])
   useEffect(() => {
-    window.api?.getCvTemplates().then((list) => setTemplates(list.filter((t) => !t.id.startsWith('seed-')))).catch(() => {})
+    // ats/moderno/tradicional ya están arriba como opciones fijas; el resto (incluidas las
+    // predeterminadas con foto y las propias) se listan aquí.
+    const builtIn = new Set(['seed-ats', 'seed-moderno', 'seed-tradicional'])
+    window.api?.getCvTemplates().then((list) => setTemplates(list.filter((t) => !builtIn.has(t.id)))).catch(() => {})
   }, [])
   if (templates.length === 0) return null
   return (

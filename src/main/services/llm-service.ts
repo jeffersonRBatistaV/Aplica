@@ -166,11 +166,16 @@ async function runAppDataTool(data: string): Promise<string> {
       payload.roadmap = roadmap
         ? {
             targetMarket: roadmap.targetMarket,
+            norte: roadmap.goal?.targetRole || roadmap.northStar || '',
+            plazo_meses: roadmap.goal?.horizonMonths,
+            motivacion: roadmap.goal?.why || '',
+            punto_de_partida: roadmap.startingPoint || '',
             generado: roadmap.generatedAt ? new Date(roadmap.generatedAt).toLocaleString() : '',
-            fases: (roadmap.phases ?? []).map((p) => ({
+            hitos: (roadmap.phases ?? []).map((p) => ({
               nombre: p.name,
               plazo: p.timeframe,
-              acciones: (p.actions ?? []).map((a) => ({ titulo: a.title, prioridad: a.priority })),
+              objetivo: p.objective || '',
+              pasos: (p.actions ?? []).map((a) => ({ titulo: a.title, prioridad: a.priority, hecho: !!a.done })),
             })),
           }
         : {}

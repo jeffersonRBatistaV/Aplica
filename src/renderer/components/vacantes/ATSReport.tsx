@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { RefreshCw, CheckCircle2, XCircle, AlertTriangle, Lightbulb, TrendingUp, CheckSquare, Square, Loader2, X, Banknote } from 'lucide-react'
+import { RefreshCw, CheckCircle2, XCircle, AlertTriangle, Lightbulb, TrendingUp, CheckSquare, Square, Loader2, X, Banknote, Wand2, Check } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Button } from '../ui/Button'
@@ -10,6 +10,8 @@ interface ATSReportViewProps {
   report: ATSReport
   onRefresh: () => void
   onAddKeywords?: (keywords: { keyword: string; level: string }[]) => Promise<void>
+  /** Si hay CV generado: aplica una sugerencia directamente al CV. */
+  onApplyToCv?: (instruction: string) => Promise<void>
 }
 
 function formatAmount(n: number, currency?: string): string {
@@ -37,6 +39,11 @@ function ScoreBadge({ score }: { score: number }) {
       <span className="text-sm font-medium">{t('atsReport.match')}</span>
     </div>
   )
+}
+
+/** Frase en lenguaje sencillo que explica qué significa el porcentaje. */
+function scoreVerdict(score: number): 'great' | 'good' | 'low' {
+  return score >= 80 ? 'great' : score >= 60 ? 'good' : 'low'
 }
 
 function MissingKeywordList({
@@ -77,12 +84,25 @@ function MissingKeywordList({
   )
 }
 
-export function ATSReportView({ report, onRefresh, onAddKeywords }: ATSReportViewProps) {
+export function ATSReportView({ report, onRefresh, onAddKeywords, onApplyToCv }: ATSReportViewProps) {
   const { t } = useTranslation()
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
   const [showProficiencyModal, setShowProficiencyModal] = useState(false)
   const [proficiencyLevels, setProficiencyLevels] = useState<Record<string, string>>({})
+  const [applyingFix, setApplyingFix] = useState<number | null>(null)
+  const [appliedFixes, setAppliedFixes] = useState<Set<number>>(new Set())
+
+  const applyFix = async (index: number, fix: string) => {
+    if (!onApplyToCv || applyingFix !== null) return
+    setApplyingFix(index)
+    try {
+      await onApplyToCv(fix)
+      setAppliedFixes((prev) => new Set(prev).add(index))
+    } finally {
+      setApplyingFix(null)
+    }
+  }
 
   const toggleKeyword = (keyword: string) => {
     setSelected((prev) => {
@@ -146,8 +166,11 @@ export function ATSReportView({ report, onRefresh, onAddKeywords }: ATSReportVie
       </div>
 
       {/* Match Score */}
-      <div className="flex justify-center py-4">
+      <div className="flex flex-col items-center gap-2 py-4">
         <ScoreBadge score={report.matchScore} />
+        <p className="text-sm text-center text-gray-600 dark:text-gray-300 max-w-md">
+          {t(`atsPlain.verdict.${scoreVerdict(report.matchScore)}`, { score: report.matchScore, missing: report.keywordsMissing.length })}
+        </p>
       </div>
 
       {/* Reference Salary Range */}
@@ -256,24 +279,44 @@ export function ATSReportView({ report, onRefresh, onAddKeywords }: ATSReportVie
           {report.quickFixes.map((q, i) => (
             <li key={i} className="text-sm text-gray-700 dark:text-gray-300 flex items-start gap-2">
               <span className="text-purple-500 mt-0.5">•</span>
-              {q}
+              <span className="flex-1">{q}</span>
+              {onApplyToCv && (
+                appliedFixes.has(i) ? (
+                  <span className="shrink-0 inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                    <Check className="w-3.5 h-3.5" />
+                    {t('atsPlain.applied')}
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => applyFix(i, q)}
+                    disabled={applyingFix !== null}
+                    className="shrink-0 inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/40 hover:bg-purple-200 dark:hover:bg-purple-800/50 disabled:opacity-50"
+                  >
+                    {applyingFix === i ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+                    {t('atsPlain.applyToCv')}
+                  </button>
+                )
+              )}
             </li>
           ))}
         </ul>
+        {!onApplyToCv && report.quickFixes.length > 0 && (
+          <p className="text-[11px] text-purple-600/70 dark:text-purple-400/70 mt-2">{t('atsPlain.applyHint')}</p>
+        )}
       </div>
 
       {/* Full Analysis */}
       {report.analysis && (
-        <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-700">
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-3 uppercase tracking-wider">
+        <details className="p-4 rounded-xl border border-gray-200 dark:border-gray-700">
+          <summary className="cursor-pointer select-none text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
             {t('atsReport.detailedAnalysis')}
-          </p>
-          <div className="prose prose-sm dark:prose-invert max-w-none">
+          </summary>
+          <div className="prose prose-sm dark:prose-invert max-w-none mt-3">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {report.analysis}
             </ReactMarkdown>
           </div>
-        </div>
+        </details>
       )}
 
       {/* Proficiency Modal */}
@@ -281,7 +324,7 @@ export function ATSReportView({ report, onRefresh, onAddKeywords }: ATSReportVie
         <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center">
           <div className="bg-white dark:bg-gray-950 rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col mx-4">
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-800">
-              <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">¿Cuál es tu nivel con estas skills?</h3>
+              <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('atsPlain.levelTitle')}</h3>
               <button onClick={() => setShowProficiencyModal(false)} className="p-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
                 <X className="w-4 h-4" />
               </button>
@@ -303,7 +346,7 @@ export function ATSReportView({ report, onRefresh, onAddKeywords }: ATSReportVie
                             : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
                         }`}
                       >
-                        {level}
+                        {t(`atsPlain.levels.${level === 'Básico' ? 'basic' : level === 'Intermedio' ? 'intermediate' : 'advanced'}`)}
                       </button>
                     ))}
                   </div>
@@ -312,11 +355,11 @@ export function ATSReportView({ report, onRefresh, onAddKeywords }: ATSReportVie
             </div>
             <div className="flex gap-2 px-5 py-3 border-t border-gray-200 dark:border-gray-800">
               <button onClick={() => setShowProficiencyModal(false)} className="flex-1 px-4 py-2 text-sm font-medium rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
-                Cancelar
+                {t('sendCv.cancel')}
               </button>
               <button onClick={handleConfirmProficiency} disabled={saving} className="flex-1 px-4 py-2 text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-1.5">
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                {saving ? 'Guardando...' : 'Guardar'}
+                {saving ? t('apiSetupModal.saving') : t('atsPlain.save')}
               </button>
             </div>
           </div>

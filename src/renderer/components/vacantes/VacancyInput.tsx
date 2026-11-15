@@ -3,6 +3,7 @@ import { Upload, FileText, Loader2, Scan, X, ArrowLeft, Image as ImageIcon } fro
 import { Button } from '../ui/Button'
 import { isImageType } from '../../types/attachments'
 import { useTranslation } from 'react-i18next'
+import { friendlyMessage } from '../../lib/friendly-error'
 
 interface VacancyInputProps {
   onAnalyze: (text: string) => void
@@ -114,7 +115,7 @@ export function VacancyInput({ onAnalyze, analyzing, initialText }: VacancyInput
           setOcrError(t('vacantes.extractingText'))
         }
       } catch (err) {
-        setOcrError(err instanceof Error ? err.message : t('vacantes.errorUnknown'))
+        setOcrError(err instanceof Error ? friendlyMessage(err) : t('vacantes.errorUnknown'))
       } finally {
         setOcrProcessing(false)
       }
@@ -158,7 +159,7 @@ export function VacancyInput({ onAnalyze, analyzing, initialText }: VacancyInput
         setOcrError('No se pudo extraer texto de la imagen')
       }
     } catch (err) {
-      setOcrError(err instanceof Error ? err.message : 'Error al procesar la imagen')
+      setOcrError(err instanceof Error ? friendlyMessage(err) : 'Error al procesar la imagen')
     } finally {
       setOcrProcessing(false)
     }

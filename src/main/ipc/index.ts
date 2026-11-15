@@ -5,24 +5,36 @@ import { readProfile } from '../services/profile-reader'
 import { SETTINGS_FILE, PROFILE_PATH, USER_PROFILE_PATH, PROFILES_FILE, DATA_DIR, CV_TEMPLATES_FILE } from '../utils/paths'
 import { getActiveProfileFiles, ensureParentDir } from '../services/profile-data'
 import { getActiveProfile } from '../services/profile-scope'
-import type { Conversation, AppSettings, StreamParams, JobApplication, Profile, ATSReport, CvTemplate, InterviewQuestion, ImportResult, ImportStats, JobCategory, CvVersion, LinkedInJob, LinkedInJobDetail, AutomationConfig } from '../../shared/types'
+import type { Conversation, AppSettings, StreamParams, JobApplication, Profile, ATSReport, CvTemplate, InterviewQuestion, ImportResult, ImportStats, JobCategory, CvVersion, LinkedInJob, LinkedInJobDetail, AutomationConfig, FollowUpDraft } from '../../shared/types'
 import { streamChatCompletion, abortCurrentStream, listModels } from '../services/llm-service'
 import { ThrottledStream } from '../utils/throttled-stream'
-import { analyzeVacancy, generateCoverLetters, correctVacancyText, generateInterviewQuestions } from '../services/job-service'
+import { analyzeVacancy, generateCoverLetters, correctVacancyText, generateInterviewQuestions, generateFollowUpEmail } from '../services/job-service'
 import { generateCV, regenerateCV, generateSummaryOptions, generateSampleCv } from '../services/cv-generator'
 import { startUpdateDownload, quitAndInstall } from '../services/updater'
 import { listCategories, saveCategory, deleteCategory, generateCategories, listFolders, saveFolder, deleteFolder } from '../services/category-service'
 import { loadCareerAdvice, refreshCareerAdvice } from '../services/career-advice'
-import { loadRoadmap, refreshRoadmap } from '../services/roadmap-service'
+import { loadRoadmap, refreshRoadmap, loadRoadmapGoal, saveRoadmapGoal, toggleRoadmapStep } from '../services/roadmap-service'
 import { listProfiles, setActiveProfile, saveProfile, migrateLegacyProfile, loadProfilesFile } from '../services/profile-service'
 import { getUsage, resetUsage } from '../services/usage-service'
 import { testEmailConnection, sendEmail, SMTP_PRESETS } from '../services/email-service'
-import type { EmailConfig, EmailPayload } from '../../shared/types'
-import { getSeedTemplates, wrapHtml } from '../services/cv-templates-seed'
+import type { BrowserAgentEvent, BrowserFillEntry, EmailConfig, EmailPayload } from '../../shared/types'
+import { getSeedTemplates, upgradeSeedTemplates, wrapHtml } from '../services/cv-templates-seed'
+import { renderCvPdf } from '../services/cv-pdf'
 import { searchLinkedInJobs, fetchLinkedInJob } from '../services/linkedin-service'
 import { getAutomationConfig, saveAutomationConfig } from '../services/automation-service'
 import { extractTextFromImage } from '../services/ocr-service'
 import { getExchangeRate } from '../services/currency-service'
+import {
+  attachCv as attachBrowserCv,
+  clickElement as clickBrowserElement,
+  fillFields as fillBrowserFields,
+  getBrowserState,
+  inspectPage as inspectBrowserPage,
+  listCvs as listBrowserCvs,
+  saveBrowserState,
+  undoFill as undoBrowserFill,
+} from '../services/browser-service'
+import { runBrowserAgent } from '../services/browser-agent'
 import { investigate, investigateHealth, discoverBackend } from '../services/investigate-service'
 import {
   connectWhatsApp,
@@ -37,8 +49,9 @@ import {
   setWhatsAppConfig,
   getStatusEvent,
   onWhatsAppServiceEvent,
+  sendWhatsAppMessage,
 } from '../services/whatsapp-service'
-import type { WhatsAppServiceEvent } from '../services/whatsapp-service'
+import type { WhatsAppServiceEvent, WhatsAppSendPayload } from '../services/whatsapp-service'
 import type { WhatsAppConfig } from '../../shared/types'
 
 const isTrustedSender = (event: Electron.IpcMainInvokeEvent): boolean => {
@@ -58,6 +71,8 @@ function safeHandle(channel: string, handler: (event: Electron.IpcMainInvokeEven
     return handler(event, ...args)
   })
 }
+
+let browserAgentAbort: AbortController | null = null
 
 export function registerAllHandlers(mainWindow: BrowserWindow): void {
   async function fileExists(filePath: string): Promise<boolean> {
@@ -186,6 +201,25 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
     } catch (e) {
       console.error('[job:save] failed to snapshot cv version', e)
     }
+    // Historial de estados + fecha de postulación: se calcula aquí para cubrir
+    // todos los caminos de guardado (kanban, automatización, vista de vacante…).
+    const prevJob = idx >= 0 ? jobs[idx] : null
+    const now = Date.now()
+    // El proceso principal es la fuente de verdad: el renderer puede traer copias viejas.
+    const history = prevJob?.statusHistory ?? job.statusHistory ?? []
+    if (!prevJob || prevJob.status !== job.status) {
+      job.statusHistory = [...history, { status: job.status, at: now }].slice(-50)
+    } else {
+      job.statusHistory = history
+    }
+    if (!job.appliedAt) job.appliedAt = prevJob?.appliedAt
+    if (job.lastFollowUpAt === undefined) job.lastFollowUpAt = prevJob?.lastFollowUpAt
+    if (job.notes === undefined) job.notes = prevJob?.notes
+    if (!job.appliedAt && job.status !== 'draft') {
+      // Vacantes antiguas ya postuladas sin fecha: aproximar con su última edición
+      // en vez de "ahora", para no reiniciar el contador de seguimiento.
+      job.appliedAt = prevJob && prevJob.status !== 'draft' ? (prevJob.updatedAt || now) : now
+    }
     if (idx >= 0) jobs[idx] = job
     else jobs.push(job)
     await writeJSON(jobsFile, jobs)
@@ -219,7 +253,9 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
       await writeJSON(CV_TEMPLATES_FILE, seeds)
       return seeds
     }
-    return templates
+    const upgraded = upgradeSeedTemplates(templates)
+    if (upgraded.changed) await writeJSON(CV_TEMPLATES_FILE, upgraded.templates)
+    return upgraded.templates
   })
   safeHandle('cv:saveTemplate', async (_event, template: CvTemplate): Promise<void> => {
     await ensureDir(DATA_DIR)
@@ -234,8 +270,10 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
     await writeJSON(CV_TEMPLATES_FILE, templates.filter((t) => t.id !== id))
   })
   safeHandle('cv:resetTemplates', async (): Promise<void> => {
-    const seeds = getSeedTemplates()
-    await writeJSON(CV_TEMPLATES_FILE, seeds)
+    // Restaura solo las predeterminadas; las plantillas propias del usuario se conservan.
+    const stored = (await readJSON<CvTemplate[]>(CV_TEMPLATES_FILE)) ?? []
+    const own = stored.filter((t) => !t.id.startsWith('seed-'))
+    await writeJSON(CV_TEMPLATES_FILE, [...getSeedTemplates(), ...own])
   })
   safeHandle('cv:generateSample', async (_event, prompt: string): Promise<string> => {
     const html = await generateSampleCv(prompt)
@@ -304,6 +342,14 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
   safeHandle('job:generateLetters', async (_event, vacancyText: string, atsReport: unknown): Promise<unknown> => {
     const profile = await loadProfile()
     return generateCoverLetters(vacancyText, profile, atsReport as any)
+  })
+  safeHandle('job:generateFollowUp', async (_event, jobId: string): Promise<FollowUpDraft> => {
+    const { jobsFile } = await getActiveProfileFiles()
+    const jobs = (await readJSON<JobApplication[]>(jobsFile)) ?? []
+    const job = jobs.find((j) => j.id === jobId)
+    if (!job) throw new Error('Vacante no encontrada')
+    const profile = await loadProfile()
+    return generateFollowUpEmail(job, profile)
   })
   safeHandle('job:generateQuestions', async (_event, vacancyText: string, atsReport: unknown): Promise<unknown> => {
     const profile = await loadProfile()
@@ -386,6 +432,7 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
   safeHandle('whatsapp:removeFromQueueMany', async (_event, vacancyIds: string[]) => removeWhatsAppVacancies(vacancyIds))
   safeHandle('whatsapp:getConfig', async () => getWhatsAppConfig())
   safeHandle('whatsapp:setConfig', async (_event, config: WhatsAppConfig) => setWhatsAppConfig(config))
+  safeHandle('whatsapp:send', async (_event, payload: WhatsAppSendPayload) => sendWhatsAppMessage(payload))
 
   // ── Profile (Digital Twin) ──
   safeHandle('profile:get', async (): Promise<Profile | null> => {
@@ -895,6 +942,19 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
     return loadRoadmap()
   })
 
+  safeHandle('roadmap:getGoal', async (): Promise<unknown> => {
+    return loadRoadmapGoal()
+  })
+
+  safeHandle('roadmap:setGoal', async (_event, goal: unknown): Promise<unknown> => {
+    if (!goal || typeof goal !== 'object') throw new Error('Meta inválida')
+    return saveRoadmapGoal(goal as Parameters<typeof saveRoadmapGoal>[0])
+  })
+
+  safeHandle('roadmap:toggleStep', async (_event, stepId: string, done: boolean): Promise<unknown> => {
+    return toggleRoadmapStep(String(stepId), !!done)
+  })
+
   safeHandle('refreshRoadmap', async (event): Promise<unknown> => {
     const profile = await loadProfile()
     return refreshRoadmap(profile, (msg) => {
@@ -933,61 +993,46 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
       return null
     }
   })
+
+  // ── Navegador integrado ──
+  safeHandle('browser:getState', async () => getBrowserState())
+  safeHandle('browser:saveState', async (_event, state: unknown, profileId?: string | null) =>
+    saveBrowserState(state, profileId),
+  )
+  safeHandle('browser:inspect', async (_event, webContentsId: number) => inspectBrowserPage(webContentsId))
+  safeHandle('browser:fill', async (_event, webContentsId: number, entries: BrowserFillEntry[], options?: { highlight?: boolean }) =>
+    fillBrowserFields(webContentsId, entries, options),
+  )
+  safeHandle('browser:undo', async (_event, webContentsId: number) => undoBrowserFill(webContentsId))
+  safeHandle('browser:click', async (_event, webContentsId: number, target: { id?: string; text?: string }) =>
+    clickBrowserElement(webContentsId, target),
+  )
+  safeHandle('browser:attachCv', async (_event, webContentsId: number, fieldId: string, cvId?: string | null) =>
+    attachBrowserCv(webContentsId, fieldId, cvId),
+  )
+  safeHandle('browser:listCvs', async () => listBrowserCvs())
+  safeHandle('browser:agentRun', async (_event, params: { webContentsId: number; prompt: string }) => {
+    if (!params || typeof params.webContentsId !== 'number') throw new Error('Petición no válida.')
+    browserAgentAbort?.abort()
+    const controller = new AbortController()
+    browserAgentAbort = controller
+    const emit = (event: BrowserAgentEvent) => {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('browser:agentEvent', event)
+    }
+    void runBrowserAgent(params, emit, controller.signal)
+      .catch((error) => {
+        if (controller.signal.aborted) return
+        emit({ type: 'error', message: error instanceof Error ? error.message : String(error) })
+      })
+      .finally(() => {
+        if (browserAgentAbort === controller) browserAgentAbort = null
+      })
+    return { started: true }
+  })
+  safeHandle('browser:agentAbort', async () => {
+    browserAgentAbort?.abort()
+    browserAgentAbort = null
+    return { stopped: true }
+  })
 }
 
-/** Renderiza un CV (HTML) a un buffer PDF de una página A4 usando una ventana oculta. */
-async function renderCvPdf(bodyHtml: string, styleName: string): Promise<Buffer> {
-  const html = buildCvHtml(bodyHtml, styleName)
-  const pdfWindow = new BrowserWindow({ show: false, width: 800, height: 1056, webPreferences: { sandbox: false } })
-  try {
-    await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
-    return await pdfWindow.webContents.printToPDF({
-      printBackground: true,
-      margins: { top: 0, bottom: 0, left: 0, right: 0 },
-      pageSize: 'A4',
-    })
-  } finally {
-    pdfWindow.close()
-  }
-}
-
-function buildCvHtml(bodyHtml: string, styleName: string): string {
-  const labels: Record<string, string> = { ats: 'ATS-Friendly', moderno: 'Moderno', tradicional: 'Tradicional', entrevista: 'Preguntas de Entrevista' }
-  return `<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CV - ${labels[styleName] || styleName}</title>
-<style>
-  @page { margin: 0; size: A4; }
-  * { box-sizing: border-box; margin: 0; padding: 0; max-width: 100%; }
-  html, body {
-    width: 210mm;
-    min-height: 297mm;
-    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-    font-size: 11pt;
-    line-height: 1.5;
-    color: #1a1a1a;
-    background: #fff;
-  }
-  @media print {
-    html, body { background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    p, h1, h2, h3, h4, h5, h6 { orphans: 3; widows: 3; }
-    h1, h2, h3, h4 { page-break-after: avoid; }
-    table { page-break-inside: avoid; }
-  }
-  img { max-width: 100%; height: auto; }
-  a { color: inherit; text-decoration: none; }
-  ul, ol { padding-left: 1.5em; }
-  .cv-content { padding: 9.5mm 10mm; }
-  p, li { orphans: 3; widows: 3; overflow-wrap: break-word; word-wrap: break-word; }
-  .cv-ats, .cv-moderno, .cv-tradicional, [class^="cv-"] { min-height: auto !important; max-width: 100% !important; }
-  img, table, pre { max-width: 100% !important; height: auto; }
-  table { width: 100% !important; table-layout: fixed; }
-  p, li, div, span, h1, h2, h3, h4, td, th { overflow-wrap: anywhere; }
-</style>
-</head>
-<body><div class="cv-content" style="padding: 9.5mm 10mm;">${bodyHtml}</div></body>
-</html>`
-}

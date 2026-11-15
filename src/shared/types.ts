@@ -226,6 +226,10 @@ export interface CvTemplate {
   createdAt: number
   updatedAt: number
   extraPrompt?: string
+  /** Version del diseno predeterminado (solo plantillas `seed-*`). */
+  seedVersion?: number
+  /** El usuario edito el prompt/nombre de una predeterminada: no se sobrescribe al actualizar disenos. */
+  customized?: boolean
 }
 
 export type JobStatus = 'draft' | 'applied' | 'interview' | 'offer' | 'rejected'
@@ -251,11 +255,31 @@ export interface JobApplication {
   cvStyle: string | null
   cvContent: string
   recipientEmail: string
+  /** Teléfono de contacto de la vacante (para enviar el CV por WhatsApp). */
+  recipientPhone?: string
   emailSubject: string
   interviewQuestions: InterviewQuestion[]
   interviewDate?: number
   /** URL de origen si la vacante fue importada desde el buscador web. */
   sourceUrl?: string
+  /** Momento en que la vacante pasó a 'applied' por primera vez (lo fija job:save). */
+  appliedAt?: number
+  /** Historial de cambios de estado (lo mantiene job:save en el proceso principal). */
+  statusHistory?: JobStatusChange[]
+  /** Último seguimiento (follow-up) enviado/realizado al reclutador. */
+  lastFollowUpAt?: number
+  /** Notas libres del usuario sobre la postulación. */
+  notes?: string
+}
+
+export interface JobStatusChange {
+  status: JobStatus
+  at: number
+}
+
+export interface FollowUpDraft {
+  subject: string
+  body: string
 }
 
 export interface InterviewQuestion {
@@ -302,12 +326,40 @@ export interface JobCategory {
   folder?: string
 }
 
-export type AppView = 'chat' | 'jobs' | 'analytics' | 'roadmap' | 'whatsapp'
+export type AppView = 'home' | 'chat' | 'jobs' | 'analytics' | 'roadmap' | 'whatsapp' | 'browser'
 
 export interface RoadmapAction {
+  id?: string
   title: string
   description: string
   priority: 'alta' | 'media' | 'baja'
+  /** Entregable/evidencia concreta que demuestra que el paso está hecho. */
+  deliverable?: string
+  done?: boolean
+  doneAt?: number
+}
+
+/** El "norte" del usuario: a dónde quiere llegar. Guía todo el roadmap. */
+export interface RoadmapGoal {
+  /** Puesto/rol objetivo (p. ej. "Desarrollador Backend Senior en remoto para EE. UU."). */
+  targetRole: string
+  /** Plazo deseado en meses. */
+  horizonMonths: number
+  /** Por qué: motivación o lo que significa lograrlo. */
+  why: string
+  targetMarket?: string
+  workMode?: 'remoto' | 'hibrido' | 'presencial' | 'cualquiera'
+  targetSalary?: string
+  hoursPerWeek?: number
+  /** Restricciones o contexto (estudia, trabaja, cuidados, presupuesto…). */
+  constraints?: string
+  updatedAt: number
+}
+
+export interface RoadmapGap {
+  skill: string
+  current: string
+  needed: string
 }
 
 export type OcrMethod = 'auto' | 'tesseract' | 'vision'
@@ -349,6 +401,8 @@ export interface WhatsAppVacancy {
   email?: string
   phone?: string
   sourceUrl?: string
+  /** true si la IA confirmó/clasificó la vacante (su categoría no se re-clasifica con heurística). */
+  aiVerified?: boolean
 }
 
 export interface WhatsAppScanResult {
@@ -366,13 +420,20 @@ export interface WhatsAppConfig {
   realtime: boolean
   /** Si está activo, las vacantes clasificadas como 'General / Otra' también se descartan de la cola. */
   strictAreaFilter?: boolean
+  /** Usa la IA para confirmar mensajes dudosos y extraer puesto/empresa/categoría (por defecto activo). */
+  aiAssist?: boolean
   vacancyQueue: WhatsAppVacancy[]
   processedMessageIds: string[]
 }
 
+/** Un hito del camino (antes "fase"). */
 export interface RoadmapPhase {
   name: string
   timeframe: string
+  /** Qué podrás hacer/demostrar al completar este hito. */
+  objective?: string
+  /** "Sabrás que llegaste cuando…" */
+  successCriteria?: string
   actions: RoadmapAction[]
 }
 
@@ -380,6 +441,14 @@ export interface Roadmap {
   phases: RoadmapPhase[]
   generatedAt: number
   targetMarket: string
+  /** Meta con la que se generó. */
+  goal?: RoadmapGoal
+  /** Punto de partida (resumen de dónde está hoy el usuario). */
+  startingPoint?: string
+  /** Frase del destino final. */
+  northStar?: string
+  /** Brechas entre el perfil actual y el rol objetivo. */
+  gaps?: RoadmapGap[]
 }
 
 export interface ImportStats {
@@ -394,3 +463,139 @@ export type ImportResult =
   | { ok: true; filePath: string; stats: ImportStats }
   | { ok: false; error: string }
   | null
+
+// ── Navegador integrado + autofill ──
+
+export type BrowserAutofillKey =
+  | 'fullName'
+  | 'firstName'
+  | 'lastName'
+  | 'email'
+  | 'phone'
+  | 'location'
+  | 'city'
+  | 'country'
+  | 'linkedin'
+  | 'github'
+  | 'portfolio'
+  | 'title'
+  | 'company'
+  | 'yearsExperience'
+  | 'summary'
+  | 'skills'
+  | 'languages'
+  | 'educationInstitution'
+  | 'educationDegree'
+  | 'educationField'
+
+export interface BrowserFieldOption {
+  value: string
+  label: string
+}
+
+/** Campo de formulario detectado dentro de la pagina web. */
+export interface BrowserFormField {
+  id: string
+  frameIndex: number
+  kind: 'input' | 'textarea' | 'select' | 'contenteditable' | 'other'
+  type: string
+  name: string
+  idAttr?: string
+  label: string
+  placeholder: string
+  autocomplete: string
+  required: boolean
+  disabled: boolean
+  readonly: boolean
+  value: string
+  checked?: boolean
+  visible: boolean
+  options: BrowserFieldOption[]
+  accept?: string
+  multiple?: boolean
+  signature: string
+  suggestedKey: BrowserAutofillKey | null
+  suggestedValue: string
+  confidence: number
+}
+
+export interface BrowserButton {
+  id: string
+  text: string
+  type: string
+  disabled: boolean
+  visible: boolean
+}
+
+export interface BrowserPageSnapshot {
+  url: string
+  title: string
+  text: string
+  fields: BrowserFormField[]
+  buttons: BrowserButton[]
+  frames: number
+  capturedAt: number
+}
+
+export interface BrowserFillEntry {
+  id: string
+  value: string
+}
+
+export interface BrowserFillDetail {
+  id: string
+  status: 'filled' | 'skipped' | 'error'
+  message?: string
+}
+
+export interface BrowserFillResult {
+  filled: number
+  skipped: number
+  details: BrowserFillDetail[]
+}
+
+export type BrowserMapping =
+  | { key: BrowserAutofillKey }
+  | { key: 'skip' }
+  | { key: 'custom'; custom: string }
+
+export interface BrowserHistoryEntry {
+  url: string
+  title: string
+  visitedAt: number
+}
+
+export interface BrowserState {
+  lastUrl: string
+  history: BrowserHistoryEntry[]
+  /** Mapeos manuales por dominio y firma de campo. */
+  fieldOverrides: Record<string, Record<string, BrowserMapping>>
+  zoom: number
+  selectedCvId: string | null
+  confirmBeforeSubmit: boolean
+  overwriteExisting: boolean
+  /** Prompt que sigue el agente del navegador. Vacío = prompt predeterminado. Persiste entre sesiones. */
+  agentPrompt: string
+}
+
+export interface BrowserCvOption {
+  id: string
+  label: string
+  style: string | null
+  createdAt: number
+  jobId?: string
+}
+
+export interface BrowserAttachResult {
+  ok: boolean
+  filePath: string
+  label: string
+  message?: string
+}
+
+export type BrowserAgentEvent =
+  | { type: 'status'; status: 'running' | 'idle' | 'error'; message?: string }
+  | { type: 'step'; step: number; message: string }
+  | { type: 'tool'; step: number; name: string; result?: string; ok?: boolean }
+  | { type: 'done'; summary: string; pending: string[] }
+  | { type: 'error'; message: string }

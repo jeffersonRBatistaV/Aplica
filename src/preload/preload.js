@@ -38,6 +38,7 @@ const api = {
   whatsappRemoveFromQueueMany: (vacancyIds) => ipcRenderer.invoke('whatsapp:removeFromQueueMany', vacancyIds),
   whatsappGetConfig: () => ipcRenderer.invoke('whatsapp:getConfig'),
   whatsappSetConfig: (config) => ipcRenderer.invoke('whatsapp:setConfig', config),
+  whatsappSend: (payload) => ipcRenderer.invoke('whatsapp:send', payload),
   onWhatsAppEvent: (callback) => {
     const handler = (_event, event) => callback(event)
     ipcRenderer.on('whatsapp:event', handler)
@@ -81,6 +82,7 @@ const api = {
   correctVacancyText: (rawText) => ipcRenderer.invoke('job:correctVacancy', rawText),
   generateCoverLetters: (vacancyText, atsReport) => ipcRenderer.invoke('job:generateLetters', vacancyText, atsReport),
   generateInterviewQuestions: (vacancyText, atsReport) => ipcRenderer.invoke('job:generateQuestions', vacancyText, atsReport),
+  generateFollowUp: (jobId) => ipcRenderer.invoke('job:generateFollowUp', jobId),
 
   // ── Theme ──
   getSystemTheme: () => ipcRenderer.invoke('system:getTheme'),
@@ -133,6 +135,9 @@ const api = {
   // ── Roadmap ──
   getRoadmap: () => ipcRenderer.invoke('getRoadmap'),
   refreshRoadmap: () => ipcRenderer.invoke('refreshRoadmap'),
+  getRoadmapGoal: () => ipcRenderer.invoke('roadmap:getGoal'),
+  saveRoadmapGoal: (goal) => ipcRenderer.invoke('roadmap:setGoal', goal),
+  toggleRoadmapStep: (stepId, done) => ipcRenderer.invoke('roadmap:toggleStep', stepId, done),
 
   // ── Data Export / Import ──
   exportAll: () => ipcRenderer.invoke('data:exportAll'),
@@ -175,6 +180,23 @@ const api = {
     const handler = (_event, payload) => callback(payload)
     ipcRenderer.on('investigate:phase', handler)
     return () => { ipcRenderer.removeListener('investigate:phase', handler) }
+  },
+
+  // ── Navegador integrado ──
+  getBrowserState: () => ipcRenderer.invoke('browser:getState'),
+  saveBrowserState: (state, profileId) => ipcRenderer.invoke('browser:saveState', state, profileId),
+  inspectBrowserPage: (webContentsId) => ipcRenderer.invoke('browser:inspect', webContentsId),
+  fillBrowserFields: (webContentsId, entries, options) => ipcRenderer.invoke('browser:fill', webContentsId, entries, options),
+  undoBrowserFill: (webContentsId) => ipcRenderer.invoke('browser:undo', webContentsId),
+  clickBrowserElement: (webContentsId, target) => ipcRenderer.invoke('browser:click', webContentsId, target),
+  attachBrowserCv: (webContentsId, fieldId, cvId) => ipcRenderer.invoke('browser:attachCv', webContentsId, fieldId, cvId),
+  listBrowserCvs: () => ipcRenderer.invoke('browser:listCvs'),
+  runBrowserAgent: (webContentsId, prompt) => ipcRenderer.invoke('browser:agentRun', { webContentsId, prompt }),
+  abortBrowserAgent: () => ipcRenderer.invoke('browser:agentAbort'),
+  onBrowserAgentEvent: (callback) => {
+    const handler = (_event, payload) => callback(payload)
+    ipcRenderer.on('browser:agentEvent', handler)
+    return () => { ipcRenderer.removeListener('browser:agentEvent', handler) }
   },
   onUpdateDownloaded: (callback) => {
     const handler = () => callback()

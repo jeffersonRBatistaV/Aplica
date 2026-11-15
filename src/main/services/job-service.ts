@@ -486,3 +486,56 @@ export async function generateInterviewQuestions(
     return []
   }
 }
+
+const FOLLOW_UP_PROMPT = `Eres un coach de búsqueda de empleo. Redacta un correo BREVE de seguimiento (follow-up) que el candidato enviará al reclutador sobre una postulación ya enviada.
+
+Reglas:
+- Máximo 120 palabras en el cuerpo. Tono profesional, cordial y seguro, sin sonar desesperado.
+- Menciona el puesto y la empresa, reitera en UNA frase el valor principal del candidato para esa vacante (basado en su perfil real) y pregunta por el estado del proceso o los próximos pasos.
+- Si ya hubo seguimientos previos, sé aún más breve y ofrece información adicional o disponibilidad.
+- NO inventes datos, logros ni nombres del reclutador. Si no conoces el nombre, usa un saludo genérico.
+- NO uses placeholders entre corchetes. Firma con el nombre real del candidato si está disponible.
+
+Responde ÚNICAMENTE con JSON válido: {"subject": "asunto", "body": "cuerpo en texto plano"}${LANGUAGE_INSTRUCTION}`
+
+export async function generateFollowUpEmail(
+  job: { company: string; position: string; vacancyText: string; appliedAt?: number; createdAt: number; lastFollowUpAt?: number; atsReport: ATSReport | null },
+  profile: Profile | null,
+): Promise<{ subject: string; body: string }> {
+  const config = await getConfig()
+  const appliedAt = job.appliedAt ?? job.createdAt
+  const days = Math.max(1, Math.round((Date.now() - appliedAt) / 86_400_000))
+  const profileBrief = profile
+    ? JSON.stringify({ name: profile.name, title: profile.title, email: profile.email, phone: profile.phone, linkedin: profile.linkedin, summary: profile.summary, skills: profile.skills?.slice(0, 15) }, null, 2)
+    : 'No disponible'
+  const userMessage = [
+    `## PUESTO\n${job.position || '(sin título)'} en ${job.company || '(empresa no indicada)'}`,
+    `## CONTEXTO\nPostulación enviada hace ${days} días.${job.lastFollowUpAt ? ` Ya se envió un seguimiento hace ${Math.round((Date.now() - job.lastFollowUpAt) / 86_400_000)} días.` : ' Es el primer seguimiento.'}`,
+    job.atsReport?.strengths?.length ? `## FORTALEZAS DEL CANDIDATO PARA ESTA VACANTE\n${job.atsReport.strengths.slice(0, 4).join('; ')}` : '',
+    `## PERFIL (resumen)\n${profileBrief}`,
+    `## VACANTE (extracto)\n${job.vacancyText.slice(0, 2500)}`,
+  ].filter(Boolean).join('\n\n')
+
+  const response = await completeChatCompletion(config, [
+    { role: 'system', content: FOLLOW_UP_PROMPT },
+    { role: 'user', content: userMessage },
+  ], undefined, 'follow_up', config.excludeFromTraining)
+
+  const clean = response.replace(/```(?:json)?\n?/gi, '').trim()
+  const match = clean.match(/\{[\s\S]*\}/)
+  if (match) {
+    try {
+      const parsed = JSON.parse(match[0]) as { subject?: unknown; body?: unknown }
+      if (typeof parsed.body === 'string' && parsed.body.trim()) {
+        return {
+          subject: typeof parsed.subject === 'string' && parsed.subject.trim()
+            ? parsed.subject.replace(/[\r\n]+/g, ' ').trim()
+            : `Seguimiento: ${job.position}`,
+          body: parsed.body.trim(),
+        }
+      }
+    } catch { /* cae al texto plano */ }
+  }
+  if (!clean) throw new Error('El modelo no devolvió un correo de seguimiento.')
+  return { subject: `Seguimiento: ${job.position}`, body: clean }
+}

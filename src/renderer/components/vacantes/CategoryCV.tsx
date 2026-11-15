@@ -7,6 +7,7 @@ import { CVGenerator } from './CVGenerator'
 import { areas } from '../../data/questions'
 import { buildCategoryText } from '../../../shared/categories'
 import type { JobCategory, JobApplication, Profile, JobStatus } from '../../../shared/types'
+import { friendlyMessage } from '../../lib/friendly-error'
 
 type Step = 'list' | 'position' | 'cv'
 
@@ -76,7 +77,7 @@ export function CategoryCV() {
       const list = await window.api.getCategories(area)
       setCategories(list)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('categoryCV.error', { msg: String(err) }))
+      setError(err instanceof Error ? friendlyMessage(err) : t('categoryCV.error', { msg: String(err) }))
     } finally {
       setLoading(false)
     }
@@ -120,7 +121,7 @@ export function CategoryCV() {
       setAiProposals(proposals)
       setSelectedProposals(new Set())
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('categoryCV.error', { msg: String(err) }))
+      setError(err instanceof Error ? friendlyMessage(err) : t('categoryCV.error', { msg: String(err) }))
     } finally {
       setAiGenerating(false)
     }
@@ -147,7 +148,7 @@ export function CategoryCV() {
       await reloadCategories(areaId)
       setAiProposals(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('categoryCV.error', { msg: String(err) }))
+      setError(err instanceof Error ? friendlyMessage(err) : t('categoryCV.error', { msg: String(err) }))
     } finally {
       setSavingCategory(false)
     }
@@ -174,7 +175,7 @@ export function CategoryCV() {
       setShowAddForm(false)
       await reloadCategories(areaId)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('categoryCV.error', { msg: String(err) }))
+      setError(err instanceof Error ? friendlyMessage(err) : t('categoryCV.error', { msg: String(err) }))
     } finally {
       setSavingCategory(false)
     }
@@ -195,7 +196,7 @@ export function CategoryCV() {
       await window.api.deleteCategory(pendingDeleteCategory.id)
       await reloadCategories(areaId)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('categoryCV.error', { msg: String(err) }))
+      setError(err instanceof Error ? friendlyMessage(err) : t('categoryCV.error', { msg: String(err) }))
     } finally {
       setPendingDeleteCategory(null)
     }
@@ -209,7 +210,7 @@ export function CategoryCV() {
       setNewFolderName('')
       setShowAddFolder(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('categoryCV.error', { msg: String(err) }))
+      setError(err instanceof Error ? friendlyMessage(err) : t('categoryCV.error', { msg: String(err) }))
     }
   }
 
@@ -220,7 +221,7 @@ export function CategoryCV() {
       setFolders(next)
       if (selectedFolder === pendingDeleteFolder) setSelectedFolder(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('categoryCV.error', { msg: String(err) }))
+      setError(err instanceof Error ? friendlyMessage(err) : t('categoryCV.error', { msg: String(err) }))
     } finally {
       setPendingDeleteFolder(null)
     }
@@ -232,7 +233,7 @@ export function CategoryCV() {
       await window.api.deleteJob(pendingDeleteJob.id)
       await reloadSaved()
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('categoryCV.error', { msg: String(err) }))
+      setError(err instanceof Error ? friendlyMessage(err) : t('categoryCV.error', { msg: String(err) }))
     } finally {
       setPendingDeleteJob(null)
     }
@@ -247,7 +248,7 @@ export function CategoryCV() {
       await window.api.saveJob(updated)
       await reloadSaved()
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('categoryCV.error', { msg: String(err) }))
+      setError(err instanceof Error ? friendlyMessage(err) : t('categoryCV.error', { msg: String(err) }))
     }
   }
 
@@ -257,7 +258,7 @@ export function CategoryCV() {
       await window.api.saveCategory({ ...cat, folder })
       await reloadCategories(areaId)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('categoryCV.error', { msg: String(err) }))
+      setError(err instanceof Error ? friendlyMessage(err) : t('categoryCV.error', { msg: String(err) }))
     }
   }
 
@@ -299,7 +300,7 @@ export function CategoryCV() {
       setJobApp(app)
       setStep('cv')
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('categoryCV.error', { msg: String(err) }))
+      setError(err instanceof Error ? friendlyMessage(err) : t('categoryCV.error', { msg: String(err) }))
     } finally {
       setCreatingCv(false)
     }
@@ -417,6 +418,7 @@ export function CategoryCV() {
           jobId={jobApp.id}
           onSent={handleSentEmail}
           recipientEmail={jobApp.recipientEmail}
+          recipientPhone={jobApp.recipientPhone}
           emailSubject={jobApp.emailSubject}
           coverLetterBody={jobApp.coverLetterA}
           companyName={jobApp.company}

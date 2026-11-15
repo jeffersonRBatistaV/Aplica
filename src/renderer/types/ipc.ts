@@ -1,4 +1,4 @@
-import type { Conversation, AppSettings, StreamParams, Profile, JobApplication, ATSReport, CvTemplate, InterviewQuestion, UsageStats, ImportResult, Roadmap, JobCategory, InvestigateResult, CvVersion, EmailConfig, EmailPayload, EmailPreset, EmailResult, WhatsAppConfig, WhatsAppGroup, WhatsAppScanResult, WhatsAppStatus, WhatsAppVacancy, LinkedInJob, LinkedInJobDetail, AutomationConfig } from '../../shared/types'
+import type { Conversation, AppSettings, StreamParams, Profile, JobApplication, ATSReport, CvTemplate, InterviewQuestion, UsageStats, ImportResult, Roadmap, RoadmapGoal, JobCategory, InvestigateResult, CvVersion, EmailConfig, EmailPayload, EmailPreset, EmailResult, WhatsAppConfig, WhatsAppGroup, WhatsAppScanResult, WhatsAppStatus, WhatsAppVacancy, LinkedInJob, LinkedInJobDetail, AutomationConfig, BrowserAgentEvent, BrowserAttachResult, BrowserCvOption, BrowserFillEntry, BrowserFillResult, BrowserPageSnapshot, BrowserState, FollowUpDraft } from '../../shared/types'
 
 export interface UpdateInfo {
   version: string
@@ -68,6 +68,11 @@ export interface ElectronAPI {
   whatsappRemoveFromQueueMany: (vacancyIds: string[]) => Promise<void>
   whatsappGetConfig: () => Promise<WhatsAppConfig>
   whatsappSetConfig: (config: WhatsAppConfig) => Promise<void>
+  whatsappSend: (payload: {
+    phone: string
+    message?: string
+    attachment?: { filename: string; contentBase64: string; mimetype?: string }
+  }) => Promise<{ ok: boolean; error?: string }>
   onWhatsAppEvent: (callback: (event: WhatsAppServiceEvent) => void) => () => void
 
   // Profile
@@ -95,6 +100,7 @@ export interface ElectronAPI {
   correctVacancyText: (rawText: string) => Promise<string>
   generateCoverLetters: (vacancyText: string, atsReport: ATSReport) => Promise<{ coverLetterA: string; coverLetterB: string; recruiterEmail: string; subject: string }>
   generateInterviewQuestions: (vacancyText: string, atsReport: ATSReport | null) => Promise<InterviewQuestion[]>
+  generateFollowUp: (jobId: string) => Promise<FollowUpDraft>
 
   // Theme
   getSystemTheme: () => Promise<boolean>
@@ -163,6 +169,9 @@ export interface ElectronAPI {
   // Roadmap
   getRoadmap: () => Promise<Roadmap | null>
   refreshRoadmap: () => Promise<Roadmap | null>
+  getRoadmapGoal: () => Promise<RoadmapGoal | null>
+  saveRoadmapGoal: (goal: Partial<RoadmapGoal>) => Promise<RoadmapGoal>
+  toggleRoadmapStep: (stepId: string, done: boolean) => Promise<Roadmap | null>
 
   // Currency Exchange
   getExchangeRate: (from: string, to: string) => Promise<number>
@@ -181,6 +190,19 @@ export interface ElectronAPI {
   sendEmail: (config: EmailConfig, payload: EmailPayload) => Promise<EmailResult>
   getEmailConfig: () => Promise<EmailConfig | null>
   setEmailConfig: (config: EmailConfig) => Promise<void>
+
+  // Navegador integrado
+  getBrowserState: () => Promise<BrowserState>
+  saveBrowserState: (state: BrowserState, profileId?: string | null) => Promise<BrowserState>
+  inspectBrowserPage: (webContentsId: number) => Promise<BrowserPageSnapshot>
+  fillBrowserFields: (webContentsId: number, entries: BrowserFillEntry[], options?: { highlight?: boolean }) => Promise<BrowserFillResult>
+  undoBrowserFill: (webContentsId: number) => Promise<number>
+  clickBrowserElement: (webContentsId: number, target: { id?: string; text?: string }) => Promise<{ ok: boolean; message?: string }>
+  attachBrowserCv: (webContentsId: number, fieldId: string, cvId?: string | null) => Promise<BrowserAttachResult>
+  listBrowserCvs: () => Promise<BrowserCvOption[]>
+  runBrowserAgent: (webContentsId: number, prompt: string) => Promise<{ started: boolean }>
+  abortBrowserAgent: () => Promise<{ stopped: boolean }>
+  onBrowserAgentEvent: (callback: (event: BrowserAgentEvent) => void) => () => void
 }
 
 declare global {

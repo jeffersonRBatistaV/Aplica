@@ -1,6 +1,9 @@
-import { CheckCircle, XCircle, Info, X } from 'lucide-react'
+import { useState } from 'react'
+import { CheckCircle, XCircle, Info, X, Wrench } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useNotification } from '../../contexts/NotificationContext'
 import type { NotificationType } from '../../contexts/NotificationContext'
+import { openSettings } from '../../lib/friendly-error'
 
 const icons: Record<NotificationType, typeof CheckCircle> = {
   success: CheckCircle,
@@ -15,12 +18,14 @@ const styles: Record<NotificationType, string> = {
 }
 
 export function NotificationContainer() {
+  const { t } = useTranslation()
   const { notifications, dismiss } = useNotification()
+  const [expanded, setExpanded] = useState<string | null>(null)
 
   if (notifications.length === 0) return null
 
   return (
-    <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 max-w-sm">
+    <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 max-w-sm" role="status" aria-live="polite">
       {notifications.map((n) => {
         const Icon = icons[n.type]
         return (
@@ -29,10 +34,37 @@ export function NotificationContainer() {
             className={`flex items-start gap-2.5 px-4 py-3 rounded-lg border shadow-lg text-sm animate-in slide-in-from-right fade-in duration-200 ${styles[n.type]}`}
           >
             <Icon className="w-4 h-4 shrink-0 mt-0.5" />
-            <p className="flex-1">{n.message}</p>
+            <div className="flex-1 min-w-0">
+              <p>{n.message}</p>
+              {(n.fix || n.technical) && (
+                <div className="flex items-center gap-3 mt-1.5">
+                  {n.fix && (
+                    <button
+                      onClick={() => { openSettings(n.fix!); dismiss(n.id) }}
+                      className="inline-flex items-center gap-1 text-xs font-medium underline underline-offset-2 hover:opacity-80"
+                    >
+                      <Wrench className="w-3 h-3" />
+                      {t('friendlyError.howToFix')}
+                    </button>
+                  )}
+                  {n.technical && (
+                    <button
+                      onClick={() => setExpanded(expanded === n.id ? null : n.id)}
+                      className="text-xs opacity-70 hover:opacity-100"
+                    >
+                      {expanded === n.id ? t('friendlyError.hideDetails') : t('friendlyError.showDetails')}
+                    </button>
+                  )}
+                </div>
+              )}
+              {expanded === n.id && n.technical && (
+                <p className="mt-1.5 text-[11px] font-mono opacity-70 break-all">{n.technical}</p>
+              )}
+            </div>
             <button
               onClick={() => dismiss(n.id)}
               className="shrink-0 opacity-60 hover:opacity-100"
+              aria-label={t('common.close', { defaultValue: 'Cerrar' })}
             >
               <X className="w-3.5 h-3.5" />
             </button>

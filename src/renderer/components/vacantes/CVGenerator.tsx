@@ -1,12 +1,15 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import type { FormEvent } from 'react'
-import { FileText, Copy, Check, Download, Sparkles, BarChart3, ScrollText, Loader2, Eye, EyeOff, Wand2, AlertCircle, Plus, Trash2, ChevronDown, ChevronRight, ArrowLeft, History, X, Pencil, Send, HelpCircle } from 'lucide-react'
+import { FileText, Copy, Check, Download, Sparkles, BarChart3, ScrollText, Loader2, Eye, EyeOff, Wand2, AlertCircle, Plus, Trash2, ChevronDown, ChevronRight, ArrowLeft, History, X, Pencil, Send, HelpCircle, MessageCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useNotification } from '../../contexts/NotificationContext'
 import { useSettings } from '../../contexts/SettingsContext'
 import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import type { ATSReport, CvTemplate, CvVersion, EmailConfig } from '../../../shared/types'
+import { friendlyMessage } from '../../lib/friendly-error'
+import { getShowAdvanced } from '../../lib/ui-prefs'
+import { TemplateDesigner } from './TemplateDesigner'
 
 interface SummaryOption {
   id: string
@@ -22,11 +25,16 @@ interface CVGeneratorProps {
   onSave: (style: string, content: string) => void
   jobId?: string
   recipientEmail?: string
+  /** Teléfono de contacto de la vacante: habilita el envío por WhatsApp si está vinculado. */
+  recipientPhone?: string
+  onPhoneChange?: (phone: string) => void
   emailSubject?: string
   coverLetterBody?: string
   companyName?: string
   positionName?: string
   onSent?: () => void | Promise<void>
+  /** Al cambiar, abre el envío por el canal disponible (WhatsApp si no hay correo). */
+  sendRequest?: number
 }
 
 type CvTab = 'preview' | 'edit'
@@ -45,7 +53,7 @@ const colorClasses: Record<string, { bg: string; border: string; text: string; h
   slate: { bg: 'bg-slate-50 dark:bg-slate-900/20', border: 'border-slate-500', text: 'text-slate-700 dark:text-slate-300', hover: 'hover:border-slate-400' },
 }
 
-export function CVGenerator({ vacancyText, atsReport, currentStyle, currentContent, onSave, jobId, recipientEmail, emailSubject, coverLetterBody, companyName, positionName, onSent }: CVGeneratorProps) {
+export function CVGenerator({ vacancyText, atsReport, currentStyle, currentContent, onSave, jobId, recipientEmail, recipientPhone, onPhoneChange, emailSubject, coverLetterBody, companyName, positionName, onSent, sendRequest }: CVGeneratorProps) {
   const { t } = useTranslation()
   const { notify } = useNotification()
   const { settings, updateSettings } = useSettings()
@@ -91,6 +99,11 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
   const [editMode, setEditMode] = useState(false)
 
   const [customTemplates, setCustomTemplates] = useState<CvTemplate[]>([])
+  // Las plantillas seed-ats/moderno/tradicional ya se muestran como estilos integrados.
+  const listedTemplates = useMemo(
+    () => customTemplates.filter(t => !BUILTIN_STYLES.some(s => `seed-${s.id}` === t.id)),
+    [customTemplates, BUILTIN_STYLES],
+  )
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [newName, setNewName] = useState('')
   const [newPrompt, setNewPrompt] = useState('')
@@ -100,6 +113,8 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
   const [loadingSummaries, setLoadingSummaries] = useState(false)
   const autoSelectedRef = useRef<string | null>(null)
   const [pendingRegenerate, setPendingRegenerate] = useState<string | null>(null)
+  const [showSaveToTemplateDialog, setShowSaveToTemplateDialog] = useState(false)
+  const [pendingInstruction, setPendingInstruction] = useState<string | null>(null)
 
   const [showHistory, setShowHistory] = useState(false)
   const [versions, setVersions] = useState<CvVersion[]>([])
@@ -121,6 +136,73 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
   const [cfgName, setCfgName] = useState(emailConfig?.fromName || '')
   const [showCfgPass, setShowCfgPass] = useState(false)
   const [showAppPasswordHelp, setShowAppPasswordHelp] = useState(false)
+  const [testingCfg, setTestingCfg] = useState(false)
+
+  // ── Envío de CV por WhatsApp ──
+  const [waConnected, setWaConnected] = useState(false)
+  const [showWaModal, setShowWaModal] = useState(false)
+  const [waPhone, setWaPhone] = useState('')
+  const [waMessage, setWaMessage] = useState('')
+  const [waSending, setWaSending] = useState(false)
+  const [waResult, setWaResult] = useState<{ ok: boolean; message?: string } | null>(null)
+
+  useEffect(() => {
+    if (!window.api?.whatsappStatus) return
+    let alive = true
+    window.api.whatsappStatus().then((s) => { if (alive) setWaConnected(s.status === 'connected') }).catch(() => {})
+    const off = window.api.onWhatsAppEvent?.((ev) => {
+      if (ev.type === 'status') setWaConnected(ev.payload.status === 'connected')
+    })
+    return () => { alive = false; off?.() }
+  }, [])
+
+  const canSendWhatsApp = waConnected && !!recipientPhone?.trim()
+
+  const openWaModal = useCallback(() => {
+    setWaPhone(recipientPhone || '')
+    setWaMessage(
+      positionName && companyName
+        ? t('sendCvWhatsapp.defaultMessage', { position: positionName, company: companyName })
+        : t('sendCvWhatsapp.defaultMessageGeneric'),
+    )
+    setWaResult(null)
+    setShowWaModal(true)
+  }, [recipientPhone, positionName, companyName, t])
+
+  const handleSendWhatsApp = async () => {
+    if (!window.api || waSending || !waPhone.trim()) return
+    setWaSending(true)
+    setWaResult(null)
+    try {
+      if (waPhone.trim() !== (recipientPhone || '').trim()) onPhoneChange?.(waPhone.trim())
+      const pdfBase64 = await window.api.renderCvPdfBase64(withPhoto(content), selectedStyle || 'ats')
+      if (!pdfBase64) {
+        setWaResult({ ok: false, message: t('sendCv.pdfError') })
+        return
+      }
+      const result = await window.api.whatsappSend({
+        phone: waPhone.trim(),
+        message: waMessage,
+        attachment: { filename: 'CV.pdf', contentBase64: pdfBase64, mimetype: 'application/pdf' },
+      })
+      setWaResult(result.ok ? { ok: true, message: t('sendCvWhatsapp.sentOk') } : { ok: false, message: friendlyMessage(result.error) })
+      if (result.ok) {
+        notify(t('sendCvWhatsapp.sentOk'), 'success')
+        try { await onSent?.() } catch { /* no bloquea el cierre */ }
+        closeTimerRef.current = window.setTimeout(() => setShowWaModal(false), 2000)
+      }
+    } catch (e) {
+      setWaResult({ ok: false, message: e instanceof Error ? friendlyMessage(e) : t('sendCvWhatsapp.sendError') })
+    } finally {
+      setWaSending(false)
+    }
+  }
+
+  /** Instrucciones frecuentes en un clic (no hace falta saber "pedirle" cosas a la IA). */
+  const QUICK_INSTRUCTIONS = useMemo(() => [
+    'shorter', 'formal', 'achievements', 'keywords', 'english', 'onePage',
+  ].map((id) => ({ id, label: t(`cvQuick.${id}.label`), instruction: t(`cvQuick.${id}.instruction`) })), [t])
+  const showHtmlEditor = useMemo(() => getShowAdvanced(), [])
 
   const openSendModal = useCallback(() => {
     setTo(recipientEmail || '')
@@ -131,6 +213,16 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
     setShowSendModal(true)
   }, [recipientEmail, emailSubject, positionName, coverLetterBody, t])
 
+  // Petición externa de envío ("Siguiente paso" / "Postular rápido").
+  const lastSendRequestRef = useRef(sendRequest ?? 0)
+  useEffect(() => {
+    if (!sendRequest || sendRequest === lastSendRequestRef.current) return
+    lastSendRequestRef.current = sendRequest
+    if (!content) return
+    if (!recipientEmail?.trim() && canSendWhatsApp) openWaModal()
+    else openSendModal()
+  }, [sendRequest, content, recipientEmail, canSendWhatsApp, openWaModal, openSendModal])
+
   useEffect(() => {
     if (showSendModal) {
       const configured = !!(emailConfig?.user && emailConfig?.pass)
@@ -139,7 +231,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
       setCfgPass(emailConfig?.pass || '')
       setCfgName(emailConfig?.fromName || '')
       setShowCfgPass(false)
-      setShowAppPasswordHelp(false)
+      setShowAppPasswordHelp(!configured)
       window.api.getProfile().then((profile) => {
         if (profile?.name) setCfgName(profile.name)
       }).catch(() => {})
@@ -180,14 +272,14 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
         body: body,
         attachments: [{ filename: 'CV.pdf', contentBase64: pdfBase64 }],
       })
-      setSendResult(result.ok ? { ok: true, message: t('sendCv.sentOk') } : { ok: false, message: result.error })
+      setSendResult(result.ok ? { ok: true, message: t('sendCv.sentOk') } : { ok: false, message: friendlyMessage(result.error) })
       if (result.ok) {
         notify(t('sendCv.sentOk'), 'success')
         try { await onSent?.() } catch { /* no bloquea el cierre */ }
         closeTimerRef.current = window.setTimeout(() => setShowSendModal(false), 2000)
       }
     } catch (e) {
-      setSendResult({ ok: false, message: e instanceof Error ? e.message : t('sendCv.sendError') })
+      setSendResult({ ok: false, message: e instanceof Error ? friendlyMessage(e) : t('sendCv.sendError') })
     } finally {
       setSending(false)
     }
@@ -239,13 +331,21 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
   }, [tab])
 
   useEffect(() => {
-    if (!currentStyle) return
-    if (autoSelectedRef.current === currentStyle) return
+    // Si la vacante ya tiene un CV guardado, mostrarlo siempre (aunque el
+    // estilo coincida con el de la vacante abierta antes): nunca obligar a
+    // regenerarlo.
     if (currentContent) {
       if (step !== 'generated') setStep('generated')
       autoSelectedRef.current = currentStyle
       return
     }
+    if (!currentStyle) {
+      // Vacante nueva / sin CV: volver al selector de estilo.
+      autoSelectedRef.current = null
+      if (step === 'generated') setStep('style')
+      return
+    }
+    if (autoSelectedRef.current === currentStyle) return
     if (generating || loadingSummaries) return
     autoSelectedRef.current = currentStyle
     if (step !== 'style') setStep('style')
@@ -262,6 +362,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
     const templateId = templateIdFromStyle(styleId)
     const existing = customTemplates.find(t => t.id === templateId)
     const template: CvTemplate = {
+      ...existing,
       id: templateId,
       name: existing?.name ?? (BUILTIN_STYLES.find(s => s.id === styleId)?.name ?? styleId),
       prompt: existing?.prompt ?? '',
@@ -289,7 +390,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
       setSummaryOptions(options)
       setStep('summary')
     } catch (err) {
-      const msg = err instanceof Error ? err.message : t('cvGenerator.errorGeneratingSummary')
+      const msg = err instanceof Error ? friendlyMessage(err) : t('cvGenerator.errorGeneratingSummary')
       setError(msg)
     } finally {
       setLoadingSummaries(false)
@@ -310,7 +411,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
       if (summaryTmpl?.extraPrompt) notify(t('cvGenerator.templateHasInstructions'), 'info')
       setStep('generated')
     } catch (err) {
-      const msg = err instanceof Error ? err.message : t('cvGenerator.errorGeneratingCv')
+      const msg = err instanceof Error ? friendlyMessage(err) : t('cvGenerator.errorGeneratingCv')
       setError(msg)
     } finally {
       setGenerating(false)
@@ -331,15 +432,15 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
       const regenTmpl = customTemplates.find(t => t.id === regenTmplId)
       if (regenTmpl?.extraPrompt) notify(t('cvGenerator.templateHasInstructions'), 'info')
     } catch (err) {
-      const msg = err instanceof Error ? err.message : t('cvGenerator.errorGeneratingCv')
+      const msg = err instanceof Error ? friendlyMessage(err) : t('cvGenerator.errorGeneratingCv')
       setError(msg)
     } finally {
       setGenerating(false)
     }
   }
 
-  const handleApplyInstructions = async () => {
-    const instruction = instructions.trim()
+  const handleApplyInstructions = async (preset?: string) => {
+    const instruction = (preset ?? instructions).trim()
     if (!instruction || !selectedStyle || !window.api) return
     setApplying(true)
     setError(null)
@@ -356,13 +457,33 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
       setContent(result)
       onSave(selectedStyle, result)
       setInstructions('')
-      await persistInstructionToTemplate(selectedStyle, instruction)
-      notify(`${t('cvGenerator.instructionSaved')} ${getStyleName(selectedStyle, customTemplates)}`, 'success')
+      // Las instrucciones rápidas son puntuales: no se ofrece guardarlas en la plantilla.
+      if (!preset) {
+        setPendingInstruction(instruction)
+        setShowSaveToTemplateDialog(true)
+      } else {
+        notify(t('cvQuick.applied'), 'success')
+      }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : t('cvGenerator.errorApplying')
+      const msg = err instanceof Error ? friendlyMessage(err) : t('cvGenerator.errorApplying')
       setError(msg)
     } finally {
       setApplying(false)
+    }
+  }
+
+  const handleConfirmSaveToTemplate = async (shouldSave: boolean) => {
+    setShowSaveToTemplateDialog(false)
+    const instruction = pendingInstruction
+    const styleId = selectedStyle
+    setPendingInstruction(null)
+    if (!shouldSave || !instruction || !styleId) return
+    try {
+      await persistInstructionToTemplate(styleId, instruction)
+      notify(`${t('cvGenerator.instructionSaved')} ${getStyleName(styleId, customTemplates)}`, 'success')
+    } catch (err) {
+      const msg = err instanceof Error ? friendlyMessage(err) : t('cvGenerator.errorSavingTemplate')
+      setError(msg)
     }
   }
 
@@ -402,7 +523,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
       const path = await window.api.downloadCvPdf(withPhoto(content), selectedStyle!)
       if (path) setSavedPath(path)
     } catch (err) {
-      const msg = err instanceof Error ? err.message : t('cvGenerator.errorDownloading')
+      const msg = err instanceof Error ? friendlyMessage(err) : t('cvGenerator.errorDownloading')
       setError(msg)
     } finally {
       setDownloading(false)
@@ -432,7 +553,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
       setNewPrompt('')
       setShowCreateForm(false)
     } catch (err) {
-      const msg = err instanceof Error ? err.message : t('cvGenerator.errorSavingTemplate')
+      const msg = err instanceof Error ? friendlyMessage(err) : t('cvGenerator.errorSavingTemplate')
       setError(msg)
     } finally {
       setSavingTemplate(false)
@@ -449,7 +570,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
         setContent('')
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : t('cvGenerator.errorDeletingTemplate')
+      const msg = err instanceof Error ? friendlyMessage(err) : t('cvGenerator.errorDeletingTemplate')
       setError(msg)
     }
   }
@@ -497,11 +618,11 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
         </div>
 
         {/* Custom templates */}
-        {customTemplates.length > 0 && (
+        {listedTemplates.length > 0 && (
           <div>
             <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">{t('cvGenerator.yourTemplates')}</p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {customTemplates.map((t) => {
+              {listedTemplates.map((t) => {
                 const styleId = `custom:${t.id}`
                 const isSelected = selectedStyle === styleId
                 const cc = colorClasses.slate
@@ -558,16 +679,10 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                  {t('cvGenerator.templatePrompt')}
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                  {t('templateDesigner.howShouldItLook')}
                 </label>
-                <textarea
-                  value={newPrompt}
-                  onChange={(e) => setNewPrompt(e.target.value)}
-                  rows={5}
-                  placeholder={t('cvGenerator.templatePromptPlaceholder')}
-                  className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 resize-y font-mono"
-                />
+                <TemplateDesigner value={newPrompt} onChange={setNewPrompt} />
               </div>
               <div className="flex justify-end">
                 <Button
@@ -656,7 +771,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
         {generating && (
           <div className="flex items-center gap-2 text-sm text-gray-400 py-4">
             <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-            {t('cvGenerator.generatingWithSummary')}
+            {t('cvGenerator.generatingWithSummary')} <span className="opacity-70">· {t('timeHint.cv')}</span>
           </div>
         )}
       </div>
@@ -701,7 +816,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
                 </button>
               )
             })}
-            {customTemplates.map((t) => {
+            {listedTemplates.map((t) => {
               const styleId = `custom:${t.id}`
               const isSelected = selectedStyle === styleId
               return (
@@ -732,7 +847,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
       {generating && (
         <div className="flex items-center gap-2 text-sm text-gray-400 py-4">
           <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          {t('cvGenerator.regenerating')}
+          {t('cvGenerator.regenerating')} <span className="opacity-70">· {t('timeHint.cv')}</span>
         </div>
       )}
 
@@ -759,7 +874,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
                 <Eye className="w-3.5 h-3.5" />
                 {t('cvGenerator.preview')}
               </button>
-              <button
+              {showHtmlEditor && <button
                 onClick={() => setTab('edit')}
                 className={`pb-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1 ${
                   tab === 'edit'
@@ -769,7 +884,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
               >
                 <EyeOff className="w-3.5 h-3.5" />
                 {t('cvGenerator.editor')}
-              </button>
+              </button>}
             </div>
             <div className="flex items-center gap-1 pb-2">
               {tab === 'preview' && (
@@ -790,6 +905,12 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
                 <Send className="w-4 h-4" />
                 {t('sendCv.sendButton')}
               </Button>
+              {canSendWhatsApp && (
+                <Button variant="secondary" size="sm" onClick={openWaModal} title={recipientPhone}>
+                  <MessageCircle className="w-4 h-4 text-green-600" />
+                  {t('sendCvWhatsapp.sendButton')}
+                </Button>
+              )}
               <Button variant="primary" size="sm" onClick={handleDownloadPdf} disabled={downloading}>
                 {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                 {downloading ? t('cvGenerator.generatingPdf') : t('cvGenerator.download')}
@@ -831,6 +952,20 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
             />
           )}
 
+          {/* Instrucciones rápidas */}
+          <div className="flex flex-wrap gap-1.5">
+            {QUICK_INSTRUCTIONS.map((q) => (
+              <button
+                key={q.id}
+                onClick={() => handleApplyInstructions(q.instruction)}
+                disabled={applying}
+                className="px-2.5 py-1 text-xs rounded-full border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-400 disabled:opacity-50"
+              >
+                {q.label}
+              </button>
+            ))}
+          </div>
+
           {/* AI Instructions */}
           <div className="flex gap-2">
             <input
@@ -849,7 +984,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
             <Button
               variant="primary"
               size="sm"
-              onClick={handleApplyInstructions}
+              onClick={() => handleApplyInstructions()}
               disabled={!instructions.trim() || applying}
             >
               {applying ? (
@@ -956,6 +1091,103 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
         }}
         onCancel={() => setPendingRegenerate(null)}
       />
+
+      <ConfirmDialog
+        open={showSaveToTemplateDialog}
+        title={t('cvGenerator.saveToTemplateQuestion')}
+        message={t('cvGenerator.saveToTemplateDesc')}
+        confirmLabel={t('cvGenerator.saveToTemplateConfirm')}
+        cancelLabel={t('cvGenerator.saveThisTimeOnly')}
+        variant="default"
+        onConfirm={() => handleConfirmSaveToTemplate(true)}
+        onCancel={() => handleConfirmSaveToTemplate(false)}
+      />
+
+      {/* ── Modal de envío de CV por WhatsApp ── */}
+      {showWaModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="w-full max-w-lg max-h-[90vh] flex flex-col bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 flex items-center gap-2">
+                <MessageCircle className="w-4 h-4 text-green-600" />
+                {t('sendCvWhatsapp.title')}
+              </h3>
+              <button
+                onClick={() => setShowWaModal(false)}
+                className="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  {t('sendCvWhatsapp.phone')}
+                </label>
+                <input
+                  type="tel"
+                  value={waPhone}
+                  onChange={(e) => setWaPhone(e.target.value)}
+                  placeholder="+505 8888 7777"
+                  className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500/40"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t('sendCvWhatsapp.phoneHint')}</p>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t('sendCvWhatsapp.message')}
+                  </label>
+                  {coverLetterBody && (
+                    <button
+                      type="button"
+                      onClick={() => setWaMessage(coverLetterBody)}
+                      className="text-xs text-green-600 hover:text-green-700 dark:text-green-400"
+                    >
+                      {t('sendCvWhatsapp.useCoverLetter')}
+                    </button>
+                  )}
+                </div>
+                <textarea
+                  value={waMessage}
+                  onChange={(e) => setWaMessage(e.target.value)}
+                  rows={6}
+                  className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500/40 resize-y"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                <FileText className="w-4 h-4 text-gray-400 shrink-0" />
+                <span className="text-sm text-gray-700 dark:text-gray-300 flex-1">CV.pdf</span>
+                <span className="text-xs text-gray-400">{t('sendCv.attachment')}</span>
+              </div>
+
+              {waResult && (
+                <div className={`flex items-start gap-2 p-3 rounded-lg text-sm ${
+                  waResult.ok
+                    ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300'
+                    : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
+                }`}>
+                  {waResult.ok ? <Check className="w-4 h-4 mt-0.5 shrink-0" /> : <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />}
+                  <span>{waResult.message}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 p-4 border-t border-gray-200 dark:border-gray-700">
+              <Button variant="ghost" size="sm" onClick={() => setShowWaModal(false)}>
+                {t('sendCv.cancel')}
+              </Button>
+              <Button variant="primary" size="sm" onClick={handleSendWhatsApp} disabled={waSending || !waPhone.trim() || !waConnected || waResult?.ok === true}>
+                {waSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-4 h-4" />}
+                {waSending ? t('sendCv.sending') : t('sendCv.send')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Modal de envío de CV por correo ── */}
       {showSendModal && (
@@ -1108,7 +1340,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
                     ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300'
                     : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
                 }`}>
-                  <Check className="w-4 h-4 mt-0.5 shrink-0" />
+                  {sendResult.ok ? <Check className="w-4 h-4 mt-0.5 shrink-0" /> : <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />}
                   <span>{sendResult.message}</span>
                 </div>
               )}
@@ -1122,16 +1354,34 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
                 <Button
                   variant="primary"
                   size="sm"
-                  onClick={() => {
+                  disabled={testingCfg}
+                  onClick={async () => {
                     if (!cfgUser.trim() || !cfgPass.trim()) {
                       setSendResult({ ok: false, message: t('sendCv.fillConfig') })
                       return
                     }
-                    updateSettings({ emailConfig: buildCfgConfig() })
-                    setSetupMode(false)
+                    // Se comprueba la conexión antes de guardar: así el usuario sabe al instante si la clave sirve.
+                    const config = buildCfgConfig()
+                    setTestingCfg(true)
+                    setSendResult(null)
+                    try {
+                      const test = await window.api.testEmailConnection(config)
+                      if (!test.ok) {
+                        setSendResult({ ok: false, message: friendlyMessage(test.error || t('sendCv.sendError')) })
+                        return
+                      }
+                      await updateSettings({ emailConfig: config })
+                      notify(t('sendCv.connectionOk'), 'success')
+                      setSetupMode(false)
+                    } catch (e) {
+                      setSendResult({ ok: false, message: friendlyMessage(e) })
+                    } finally {
+                      setTestingCfg(false)
+                    }
                   }}
                 >
-                  {t('sendCv.continue')}
+                  {testingCfg ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                  {testingCfg ? t('sendCv.testing') : t('sendCv.continue')}
                 </Button>
               ) : (
                 <Button variant="primary" size="sm" onClick={handleSend} disabled={sending || !to.trim() || sendResult?.ok === true}>

@@ -66,6 +66,7 @@ src/
       input/      ChatInput (markdown, attachments, voice, image OCR)
       vacantes/   Vacantes, KanbanBoard, ATSReport, CVGenerator, CategoryCV, CoverLetterGenerator, InterviewPrep, VacancyInput, TemplatesManager, DocumentLibrary
       whatsapp/   WhatsAppView, WhatsAppLogin (QR), WhatsAppQueue (review queue → import to CV flow)
+      home/       HomeView (daily agenda: interviews, follow-ups, ready drafts, weekly goal), FollowUpModal
       analytics/  Analytics
       roadmap/    RoadmapView
       layout/     MainLayout, Sidebar, ApiConnectionIndicator, TutorialGuide
@@ -76,6 +77,7 @@ src/
     hooks/        useApiConnection, useFileAttachments, useSpeechRecognition, useStreaming
     i18n/         index.ts (i18next init) + es.json + en.json
     data/questions.ts  All profile wizard question definitions (9 areas)
+    lib/          agenda.ts (buildAgenda/useAgenda + `aplica:jobsChanged` / `aplica:openJob` / `aplica:vacantesTab` events), time.ts
     types/        ipc.ts (window.api typing), attachments.ts
   shared/         Types shared across processes
     index.ts      re-exports types
@@ -84,7 +86,7 @@ src/
     vacancy-detection.ts  heuristic vacancy detector (keywords, company/position extraction, category scoring)
 ```
 
-`AppView = 'chat' | 'jobs' | 'analytics' | 'roadmap' | 'whatsapp'`. All views stay **mounted** (hidden via CSS, see `App.tsx`) so in-flight state (vacancy analysis, CV generation, WhatsApp scan) survives tab switches — do not unmount them.
+`AppView = 'home' | 'chat' | 'jobs' | 'analytics' | 'roadmap' | 'whatsapp' | 'browser'` (default `home`). All views stay **mounted** (hidden via CSS, see `App.tsx`) so in-flight state (vacancy analysis, CV generation, WhatsApp scan) survives tab switches — do not unmount them.
 
 ### Key flow
 
@@ -110,7 +112,7 @@ All storage is file-based JSON (no database), in `{userData}/data/`:
 - `profiles.json` (all profiles + `activeId`), `settings.json`, `cv-templates.json`, `device-id.txt`
 
 **Per-profile** in `{userData}/data/profiles-data/{profileId}/`:
-- `chats.json`, `jobs.json`, `usage.json`, `career-advice.json`, `roadmap.json`, `categories.json`, `folders.json`, `cv-versions.json`, `email-config.json`, `whatsapp.json`
+- `chats.json`, `jobs.json`, `usage.json`, `career-advice.json`, `roadmap.json`, `roadmap-goal.json` (the user's "norte", survives regeneration), `categories.json`, `folders.json`, `cv-versions.json`, `email-config.json`, `whatsapp.json`
 
 WhatsApp session (`{userData}/whatsapp-session`, LocalAuth) is **global** (one phone = one device), not per-profile.
 
@@ -124,14 +126,14 @@ Channels grouped in `src/main/ipc/index.ts`, exposed in `src/preload/preload.js`
 
 - **fs**: readFile/writeFile/deleteFile/readDirectory/fileExists
 - **chat**: getAll/get/save/delete/rename/archive/search
-- **jobs**: getAll/get/save/delete + analyzeVacancy (`job:analyze`), correctVacancy (`job:correctVacancy`), generateCoverLetters, generateInterviewQuestions, generateCV, regenerateCV, getUpcomingInterviews, getCvVersions (history, max 10/job)
+- **jobs**: getAll/get/save/delete + generateFollowUp (`job:generateFollowUp`), analyzeVacancy (`job:analyze`), correctVacancy (`job:correctVacancy`), generateCoverLetters, generateInterviewQuestions, generateCV, regenerateCV, getUpcomingInterviews, getCvVersions (history, max 10/job)
 - **cv**: getTemplates/saveTemplate/deleteTemplate/resetTemplates/generateSample, generateSummaryOptions, downloadPdf + renderPdfBase64 (hidden BrowserWindow + `printToPDF`)
 - **categories**: list/save/delete/generate (+ folder list/save/delete)
 - **profile**: get/save/list/setActive/migrate
 - **settings**: get/set — **except email config**, which is per-profile via `emailConfig:get/set`
 - **llm**: chat, abort, listModels
 - **investigate**: query, health, discover
-- **whatsapp**: status/connect/disconnect/getGroups/scan/getQueue/markImported/getConfig/setConfig — events `whatsapp:event` (`status` | `vacancy` | `phase`)
+- **whatsapp**: status/connect/disconnect/getGroups/scan/getQueue/markImported/getConfig/setConfig/send (`whatsapp:send`: text + PDF document to a phone; used by CVGenerator when the job has `recipientPhone`) — events `whatsapp:event` (`status` | `vacancy` | `phase`)
 - **email**: presets, test, send — via `email:presets`/`email:test`/`email:send`
 - **data**: exportAll, saveExportFile (JSON | XLSX), importFromFile, processImportData
 - **other**: usage, currency, clipboard (incl. image), OCR (`ocr:imageToText`), update download/install, `system:getTheme` + change events, `app:getVersion`
@@ -141,6 +143,8 @@ Channels grouped in `src/main/ipc/index.ts`, exposed in `src/preload/preload.js`
 OpenAI-compatible chat completions API, default endpoint `http://localhost:11434/v1` (Ollama). Configurable via settings (`baseUrl`/`apiKey`/`model`/`visionModel`). Streams SSE tokens to renderer (throttled at 30 ms); supports abort and model listing. Chat always sends the `investigate_web` and `get_app_data` tools (see above).
 
 ## Critical gotchas
+
+- **`job:save` owns `statusHistory` / `appliedAt`**: the main process appends a history entry on status change and sets `appliedAt` the first time a job leaves `draft`; it also preserves `lastFollowUpAt`/`notes` when the renderer sends a stale copy. After saving from the renderer, call `notifyJobsChanged()` (`lib/agenda.ts`) so the sidebar badges and Home refresh.
 
 - **All IPC handlers must stay behind `safeHandle()`**: `src/main/ipc/index.ts` wraps every channel with sender validation (`event.senderFrame.url` must be `file://` or localhost). Bypassing it is an anti-RCE regression — never register a bare `ipcMain.handle`.
 - **Main-process deps are externalized, not bundled**: `vite.config.ts` applies `notBundle()` to the main entry so Node/CJS deps (jsdom, turndown, readability, tesseract, nodemailer, xlsx, …) load from `node_modules` via `require`, never bundled as ESM. Adding a new main dependency: prefer CJS-compatible packages and keep them external.
@@ -161,4 +165,7 @@ OpenAI-compatible chat completions API, default endpoint `http://localhost:11434
 - Job statuses: `draft` → `applied` → `interview` → `offer` → `rejected`
 - CV styles: `ats` | `moderno` | `tradicional`
 - Profile wizard questions use suffixes: `_years`, `_summary`, `_role`, `_langs`, `_frameworks`, `_tools`, `_software`, `_subjects`, `_education`, `_english`, `_certs`, `_bar`
+- **User-facing errors**: show errors through `notify(msg, 'error')` or `friendlyMessage(err)` (`lib/friendly-error.ts`), which map technical messages (SMTP, 401/429, ECONNREFUSED, timeouts…) to plain bilingual text and an optional "How to fix it" link. Add new patterns to `RULES` there (+ `friendlyError.*` in both i18n files). `openSettings(tab)` dispatches `aplica:openSettings` (handled by `MainLayout`).
+- **Settings tabs** marked `advanced: true` in `SettingsPanel.tsx` (research, OCR, prompts, privacy) stay hidden until the user enables "Advanced options"; put new technical settings there or inside a collapsed `<details>`. UI prefs (text size, advanced toggle) live in `lib/ui-prefs.ts` (localStorage).
+- **Vacancy flow**: `ApplicationSteps` (Vacantes) drives the guided paste → match → CV → send → interview flow; sections are located by the `vac-step-*` ids. `CVGenerator` opens the send modal when its `sendRequest` prop changes.
 - Phase/progress callbacks are sent over events (`investigate:phase`, `whatsapp:event`) from the main process while long jobs run; register listeners in preload + types

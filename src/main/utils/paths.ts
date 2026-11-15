@@ -18,6 +18,7 @@ export const USAGE_FILE = path.join(DATA_DIR, 'usage.json')
 export const CAREER_ADVICE_FILE = path.join(DATA_DIR, 'career-advice.json')
 export const ROADMAP_FILE = path.join(DATA_DIR, 'roadmap.json')
 export const CV_VERSIONS_FILE = path.join(DATA_DIR, 'cv-versions.json')
+export const BROWSER_FILE = path.join(DATA_DIR, 'browser.json')
 
 /**
  * Datos aislados por perfil. Cada perfil tiene su propia carpeta
@@ -68,6 +69,10 @@ export function profileEmailConfigFile(profileId: string): string {
 
 export function profileAutomationFile(profileId: string): string {
   return path.join(profileScopeDir(profileId), 'automation.json')
+}
+
+export function profileBrowserFile(profileId: string): string {
+  return path.join(profileScopeDir(profileId), 'browser.json')
 }
 
 export const WHATSAPP_SESSION_DIR = path.join(DATA_DIR, 'whatsapp-session')

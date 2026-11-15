@@ -130,29 +130,61 @@ export function WhatsAppSettings() {
         </label>
       </div>
 
-      {/* Filtro estricto por área */}
-      <div className="flex items-start gap-3">
-        <div className="flex-1">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            {t('settingsPanel.whatsappStrictFilter')}
+      {/* Opciones avanzadas de detección (cerradas por defecto) */}
+      <details className="group rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2">
+        <summary className="cursor-pointer select-none text-sm font-medium text-gray-600 dark:text-gray-300">
+          {t('settingsPanel.advancedOptions')}
+        </summary>
+        <div className="space-y-6 pt-4">
+        {/* Asistencia IA en la detección */}
+        <div className="flex items-start gap-3">
+          <div className="flex-1">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('settingsPanel.whatsappAiAssist')}
+            </label>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              {t('settingsPanel.whatsappAiAssistDesc')}
+            </p>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={config?.aiAssist ?? true}
+              disabled={saving || !config}
+              onChange={(e) => {
+                if (config) void save({ ...config, aiAssist: e.target.checked })
+              }}
+              className="sr-only peer"
+            />
+            <div className="w-9 h-5 rounded-full peer bg-gray-300 dark:bg-gray-700 peer-checked:bg-blue-600 peer-focus:ring-2 peer-focus:ring-blue-500/40 after:content-[''] after:absolute after:top-0.5 after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full" />
           </label>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            {t('settingsPanel.whatsappStrictFilterDesc')}
-          </p>
         </div>
-        <label className="relative inline-flex items-center cursor-pointer">
-          <input
-            type="checkbox"
-            checked={config?.strictAreaFilter ?? true}
-            disabled={saving || !config}
-            onChange={(e) => {
-              if (config) void save({ ...config, strictAreaFilter: e.target.checked })
-            }}
-            className="sr-only peer"
-          />
-          <div className="w-9 h-5 rounded-full peer bg-gray-300 dark:bg-gray-700 peer-checked:bg-blue-600 peer-focus:ring-2 peer-focus:ring-blue-500/40 after:content-[''] after:absolute after:top-0.5 after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full" />
-        </label>
-      </div>
+
+        {/* Filtro estricto por área */}
+        <div className="flex items-start gap-3">
+          <div className="flex-1">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('settingsPanel.whatsappStrictFilter')}
+            </label>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              {t('settingsPanel.whatsappStrictFilterDesc')}
+            </p>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={config?.strictAreaFilter ?? false}
+              disabled={saving || !config}
+              onChange={(e) => {
+                if (config) void save({ ...config, strictAreaFilter: e.target.checked })
+              }}
+              className="sr-only peer"
+            />
+            <div className="w-9 h-5 rounded-full peer bg-gray-300 dark:bg-gray-700 peer-checked:bg-blue-600 peer-focus:ring-2 peer-focus:ring-blue-500/40 after:content-[''] after:absolute after:top-0.5 after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full" />
+          </label>
+        </div>
+        </div>
+      </details>
 
       {/* Grupos y canales monitoreados */}
       <div className="space-y-2">

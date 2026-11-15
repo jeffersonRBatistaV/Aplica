@@ -10,6 +10,7 @@ import {
 import type { Conversation, Message } from '../../shared/types'
 import { useSettings } from './SettingsContext'
 import { useStreaming } from '../hooks/useStreaming'
+import { friendlyMessage } from '../lib/friendly-error'
 import { useTranslation } from 'react-i18next'
 
 const MAX_TITLE_WORDS = 4
@@ -146,7 +147,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const formatChatError = useCallback(
     (err: string): string => {
       if (NETWORK_ERROR_RE.test(err)) return t('chat.offlineError')
-      return err
+      return friendlyMessage(err)
     },
     [t],
   )

@@ -2,6 +2,8 @@ import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { X, ChevronRight, ChevronLeft, Check, Loader2, AlertCircle, Plus } from 'lucide-react'
 import { areas, questions as commonQuestions } from '../../data/questions'
 import type { Profile, Project, Reference } from '../../../shared/types'
+import { friendlyMessage } from '../../lib/friendly-error'
+import { DictationButton } from '../ui/DictationButton'
 
 interface ProfileWizardProps {
   onClose: () => void
@@ -340,7 +342,7 @@ export function ProfileWizard({ onClose, onComplete, profileId }: ProfileWizardP
       onComplete(profile)
     } catch (err) {
       console.error('[ProfileWizard] Error al guardar el perfil:', err)
-      const msg = err instanceof Error ? err.message : 'Error al guardar el perfil'
+      const msg = err instanceof Error ? friendlyMessage(err) : 'Error al guardar el perfil'
       setSaveError(msg)
     } finally {
       setSaving(false)
@@ -747,12 +749,22 @@ export function ProfileWizard({ onClose, onComplete, profileId }: ProfileWizardP
           </div>
         )}
         {q.type === 'text' && (
-          <textarea
-            value={(val as string) ?? ''}
-            onChange={(e) => setAnswer(q.id, e.target.value)}
-            rows={3}
-            className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 resize-y"
-          />
+          <div className="space-y-1">
+            <textarea
+              value={(val as string) ?? ''}
+              onChange={(e) => setAnswer(q.id, e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2 text-sm rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 resize-y"
+            />
+            <div className="flex justify-end">
+              <DictationButton
+                onText={(text) => setAnswers((all) => {
+                  const prev = typeof all[q.id] === 'string' ? (all[q.id] as string) : ''
+                  return { ...all, [q.id]: prev ? `${prev.trimEnd()} ${text}` : text }
+                })}
+              />
+            </div>
+          </div>
         )}
       </div>
     )
