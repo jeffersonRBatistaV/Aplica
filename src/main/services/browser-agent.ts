@@ -1,6 +1,7 @@
 import { readJSON } from './storage'
 import { SETTINGS_FILE } from '../utils/paths'
 import { addUsage, calculateCost } from './usage-service'
+import { postCompletion } from './reasoning'
 import type {
   AppSettings,
   BrowserAgentEvent,
@@ -269,19 +270,14 @@ async function callLlm(
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (apiKey) headers.Authorization = `Bearer ${apiKey}`
 
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers,
-    signal,
-    body: JSON.stringify({
-      model,
-      messages,
-      tools: TOOLS,
-      tool_choice: 'auto',
-      stream: false,
-      temperature: 0.2,
-    }),
-  })
+  const response = await postCompletion(`${baseUrl}/chat/completions`, headers, {
+    model,
+    messages,
+    tools: TOOLS,
+    tool_choice: 'auto',
+    stream: false,
+    temperature: 0.2,
+  }, signal)
   if (!response.ok) {
     const errorText = await response.text().catch(() => 'Unknown error')
     throw new Error(`API ${response.status}: ${errorText}`)

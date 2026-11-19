@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { Eye, EyeOff, RefreshCw, Check, AlertCircle, Trash2, DollarSign, Coins, BarChart3, History, Clock, Filter } from 'lucide-react'
 import type { ModelInfo } from '../../types/ipc'
 import type { UsageStats } from '../../../shared/types'
+import { REASONING_EFFORTS, modelSupportsReasoning, type ReasoningEffort } from '../../../shared/reasoning'
 import { useTranslation } from 'react-i18next'
 import { useSettings } from '../../contexts/SettingsContext'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
@@ -328,8 +329,63 @@ export function ApiConfig({ baseUrl, apiKey, model, visionModel, maxContextToken
         </p>
       </div>
 
+      {/* Esfuerzo de razonamiento */}
+      <ReasoningEffortSection model={model} />
+
       {/* API Consumption */}
       <ConsumptionSection />
+    </div>
+  )
+}
+
+function ReasoningEffortSection({ model }: { model: string }) {
+  const { t } = useTranslation()
+  const { settings, updateSettings } = useSettings()
+  const current: ReasoningEffort = settings.api.reasoningEffort ?? 'default'
+  const index = Math.max(0, REASONING_EFFORTS.indexOf(current))
+  const supported = modelSupportsReasoning(model)
+
+  const setEffort = (effort: ReasoningEffort): void => {
+    if (effort === current) return
+    void updateSettings({ api: { ...settings.api, reasoningEffort: effort } })
+  }
+
+  return (
+    <div>
+      <label htmlFor="reasoning-effort" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        {t('apiConfig.reasoningEffort')}: <span className="font-semibold text-blue-600 dark:text-blue-400">{t(`apiConfig.reasoningEffortLevels.${current}`)}</span>
+      </label>
+      <input
+        id="reasoning-effort"
+        type="range"
+        min={0}
+        max={REASONING_EFFORTS.length - 1}
+        step={1}
+        value={index}
+        onChange={(e) => setEffort(REASONING_EFFORTS[Number(e.target.value)] ?? 'default')}
+        className="w-full accent-blue-600"
+      />
+      <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+        {REASONING_EFFORTS.map((effort) => (
+          <button
+            key={effort}
+            type="button"
+            onClick={() => setEffort(effort)}
+            className={effort === current ? 'font-semibold text-blue-600 dark:text-blue-400' : 'hover:text-gray-700 dark:hover:text-gray-200'}
+          >
+            {t(`apiConfig.reasoningEffortLevels.${effort}`)}
+          </button>
+        ))}
+      </div>
+      <p className="text-xs text-gray-400 mt-1">
+        {t('apiConfig.reasoningEffortHelp')}
+      </p>
+      {!supported && model && (
+        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+          {t('apiConfig.reasoningEffortUnsupported', { model })}
+        </p>
+      )}
     </div>
   )
 }

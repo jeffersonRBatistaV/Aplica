@@ -84,6 +84,7 @@ src/
     types.ts      Profile, Conversation, ATSReport, JobApplication, Roadmap, AppView, WhatsAppVacancy, …
     categories.ts category data
     vacancy-detection.ts  heuristic vacancy detector (keywords, company/position extraction, category scoring)
+    profile-match.ts      does a vacancy fit the profile? (area + role/technical-skill affinity for 'General / Otra')
 ```
 
 `AppView = 'home' | 'chat' | 'jobs' | 'analytics' | 'roadmap' | 'whatsapp' | 'browser'` (default `home`). All views stay **mounted** (hidden via CSS, see `App.tsx`) so in-flight state (vacancy analysis, CV generation, WhatsApp scan) survives tab switches — do not unmount them.
@@ -101,7 +102,7 @@ src/
 - **Local investigate pipeline** (`investigate-service.ts`) replaced the old remote VPS backend: search (`search-providers.ts`) → extract pages to Markdown (`content-extractor.ts`, Readability + Turndown, SSRF-blocked) → LLM synthesis with sources. Progress status streams via `investigate:phase`. Used by career-advice, roadmap, salary comparison, and the chat tool `investigate_web`.
 - **Chat uses OpenAI function-calling tools** in `llm-service.ts`: `investigate_web` (live web search) and `get_app_data` (reads the user's real jobs/roadmap/usage/CV-template files and returns summaries). Tool schemas follow the OpenAI `tools: [{ type: 'function', … }]` contract.
 - **SMTP email** (`email-service.ts`, nodemailer): presets for gmail/outlook/yahoo/icloud/zoho, `email:test`, `email:send` with attachments (CVs rendered in memory via `cv:renderPdfBase64`).
-- **WhatsApp vacancy detection** (`whatsapp-service.ts`, whatsapp-web.js + LocalAuth, session in `{userData}/whatsapp-session`): QR login → user selects groups → manual scan (`whatsapp:scan`) and/or real-time monitoring (`whatsapp:setConfig`, message events auto-trigger OCR on images). Detected vacancies flow to `vacancy-detection.ts` (heuristics) → review queue in `whatsapp.json` → import dispatches `aplica:vacancyImport`. Browser = puppeteer bundled Chrome, or fallback to system Chrome/Edge via `resolveBrowserExecutable()`. OCR method honors `settings.ocr.method` (`auto`/`tesseract`/`vision`).
+- **WhatsApp vacancy detection** (`whatsapp-service.ts`, whatsapp-web.js + LocalAuth, session in `{userData}/whatsapp-session`): QR login → user selects groups → manual scan (`whatsapp:scan`) and/or real-time monitoring (`whatsapp:setConfig`, message events auto-trigger OCR on images). Detected vacancies flow to `vacancy-detection.ts` (heuristics) → area filter `isVacancyForProfile()` (`profile-match.ts`: other areas are dropped; 'General / Otra' only enters if it mentions the profile's role or technical skills, or the strict filter is off and the area ties) → review queue in `whatsapp.json` (skips vacancies already saved as jobs) → import dispatches `aplica:vacancyImport`. Failed media downloads are NOT marked as processed (retried next scan); bump `DETECTOR_VERSION` to re-review already processed messages once. Browser = puppeteer bundled Chrome, or fallback to system Chrome/Edge via `resolveBrowserExecutable()`. OCR method honors `settings.ocr.method` (`auto`/`tesseract`/`vision`).
 
 ### Data persistence
 
@@ -143,6 +144,8 @@ Channels grouped in `src/main/ipc/index.ts`, exposed in `src/preload/preload.js`
 OpenAI-compatible chat completions API, default endpoint `http://localhost:11434/v1` (Ollama). Configurable via settings (`baseUrl`/`apiKey`/`model`/`visionModel`). Streams SSE tokens to renderer (throttled at 30 ms); supports abort and model listing. Chat always sends the `investigate_web` and `get_app_data` tools (see above).
 
 ## Critical gotchas
+
+- **whatsapp-web.js must be ≥ 1.34.8**: WhatsApp Web renamed message `id._serialized` → `id.$1` (2026-07+). With 1.34.7 every `downloadMedia()` failed with an opaque minified error (`t: t`), real-time messages were dropped (undefined serial) and group authors were lost. Never rebuild a message id by hand without the participant; prefer `id.$1`.
 
 - **`job:save` owns `statusHistory` / `appliedAt`**: the main process appends a history entry on status change and sets `appliedAt` the first time a job leaves `draft`; it also preserves `lastFollowUpAt`/`notes` when the renderer sends a stale copy. After saving from the renderer, call `notifyJobsChanged()` (`lib/agenda.ts`) so the sidebar badges and Home refresh.
 

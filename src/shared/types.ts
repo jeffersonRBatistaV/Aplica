@@ -1,3 +1,5 @@
+import type { ReasoningEffort } from './reasoning'
+
 export interface Message {
   id: string
   role: 'user' | 'assistant' | 'system'
@@ -69,6 +71,8 @@ export interface ApiConfig {
   visionModel?: string
   configured?: boolean
   maxContextTokens?: number
+  /** Esfuerzo de razonamiento (reasoning_effort). 'default' o ausente = no se envía. */
+  reasoningEffort?: ReasoningEffort
 }
 
 export interface ProviderDiagnostic {
@@ -296,6 +300,39 @@ export interface LinkedInJob {
   url: string
   postedAt?: string
   source: 'linkedin' | 'web'
+}
+
+/** Vacante encontrada en internet por el buscador según el perfil activo. */
+export interface FoundJob extends LinkedInJob {
+  /** Dominio de origen (linkedin.com, computrabajo.com…). */
+  site: string
+  snippet?: string
+  /** Texto completo de la vacante extraído de la página. */
+  description?: string
+  /** Contacto del publicador detectado en la vacante. */
+  email?: string
+  phone?: string
+  /** Afinidad con el perfil, 0–100. */
+  score: number
+  matchedSkills: string[]
+  category?: string
+}
+
+export interface JobFinderOptions {
+  /** Puesto a buscar; si se omite se usan los del perfil. */
+  query?: string
+  /** Ubicación; si se omite se usa la del perfil. */
+  location?: string
+  remote?: boolean
+  /** Máximo de vacantes a devolver (con detalle). */
+  limit?: number
+}
+
+export interface JobFinderProgress {
+  phase: 'search' | 'details' | 'done'
+  message: string
+  done?: number
+  total?: number
 }
 
 export interface LinkedInJobDetail {

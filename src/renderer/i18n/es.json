@@ -514,7 +514,16 @@
     "timeHoursAgo": "hace {{count}}h",
     "timeDaysAgo": "hace {{count}}d",
     "records": "registros",
-    "investigateDiscover": "Detectar backend"
+    "investigateDiscover": "Detectar backend",
+    "reasoningEffort": "Esfuerzo de razonamiento",
+    "reasoningEffortLevels": {
+      "default": "Predeterminado",
+      "low": "Bajo",
+      "medium": "Medio",
+      "high": "Alto"
+    },
+    "reasoningEffortHelp": "Cuánto \"piensa\" el modelo antes de responder (parámetro reasoning_effort). Más esfuerzo = respuestas más cuidadas, pero más lentas y con más tokens de salida. \"Predeterminado\" no envía el parámetro. Si el modelo no lo admite, se ignora automáticamente.",
+    "reasoningEffortUnsupported": "Parece que {{model}} no tiene modo de razonamiento; el ajuste probablemente no tendrá efecto."
   },
   "researchConfig": {
     "title": "Investigación Web",
@@ -902,7 +911,19 @@
     "error": "No se pudieron cargar las vacantes. Inténtalo de nuevo.",
     "results": "{{count}} vacante encontrada",
     "results_plural": "{{count}} vacantes encontradas",
-    "useVacancy": "Usar vacante"
+    "useVacancy": "Usar vacante",
+    "modeProfile": "Para mi perfil",
+    "modeManual": "Búsqueda en LinkedIn",
+    "profileKeywordsPlaceholder": "Puesto (opcional, se usa el de tu perfil)",
+    "profileLocationPlaceholder": "Ubicación (opcional, se usa la de tu perfil)",
+    "profileHint": "Busca en LinkedIn y portales de empleo, abre cada vacante y extrae el correo/teléfono del publicador.",
+    "findForMe": "Buscar vacantes para mí",
+    "remoteOnly": "Solo remoto",
+    "withContact": "{{count}} con contacto",
+    "scoreHint": "Afinidad con tu perfil (puesto, habilidades y área)",
+    "copy": "Copiar",
+    "showMore": "Ver vacante completa",
+    "showLess": "Ocultar"
   },
   "automation": {
     "title": "Automatización de postulaciones",
@@ -971,6 +992,12 @@
     "filterAll": "Todos",
     "filterGroups": "Grupos",
     "filterChannels": "Canales",
+    "contactFilterLabel": "Contacto",
+    "contactAll": "Todas",
+    "contactLink": "Con enlace",
+    "contactPhone": "Con teléfono",
+    "contactEmail": "Con correo",
+    "contactPhoneOrEmail": "Teléfono o correo",
     "filterSelected": "Seleccionados",
     "filterUnselected": "No seleccionados",
     "refresh": "Actualizar",

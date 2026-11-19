@@ -141,16 +141,20 @@ export async function searchLinkedInJobs(keywords: string, location = '', limit 
   const jobs: LinkedInJob[] = []
 
   try {
+    // El endpoint guest devuelve ~10 tarjetas por página: se avanza por las recibidas.
+    let start = 0
     for (let page = 0; page < MAX_PAGES && jobs.length < maxItems; page++) {
-      const params = new URLSearchParams({ keywords: kw, start: String(page * 25) })
+      const params = new URLSearchParams({ keywords: kw, start: String(start) })
       if (location.trim()) params.set('location', location.trim())
       const html = await fetchHtml(`${LINKEDIN_SEARCH_ENDPOINT}?${params.toString()}`)
       const pageJobs = parseJobCards(html)
       if (pageJobs.length === 0) break
+      const before = jobs.length
       for (const job of pageJobs) {
         if (!jobs.some((j) => j.id === job.id)) jobs.push(job)
       }
-      if (pageJobs.length < 25) break
+      if (jobs.length === before) break
+      start += pageJobs.length
     }
   } catch {
     // Sin resultados del endpoint guest: se intenta el fallback de búsqueda web.

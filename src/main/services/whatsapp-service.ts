@@ -11,19 +11,21 @@ import { extractTextFromImage } from './ocr-service'
 import {
   classifyCategory,
   detectVacancy,
-  isVacancyInArea,
   looksLikeVacancy,
   isVacancyCandidate,
   phoneFromAuthor,
   buildVacancyId,
   contentFingerprint,
   DETECTOR_VERSION,
+  GENERAL_CATEGORY,
   VACANCY_CATEGORIES,
 } from '../../shared/vacancy-detection'
+import { isVacancyForProfile } from '../../shared/profile-match'
 import { completeChatCompletion } from './llm-service'
 import { getActiveProfile } from './profile-scope'
 import type {
   AppSettings,
+  JobApplication,
   WhatsAppConfig,
   WhatsAppGroup,
   WhatsAppScanResult,
@@ -81,6 +83,9 @@ const MAX_PROCESSED_IDS = 3000
 
 const REALTIME_INTERVAL_MS = 3000
 const REALTIME_BATCH = 5
+/** Sondeo de grupos/canales monitoreados (los canales no emiten 'message'). */
+const REALTIME_POLL_MS = 2 * 60 * 1000
+const REALTIME_POLL_LIMIT = 15
 
 const READY_TIMEOUT_MS = 60000
 
@@ -114,6 +119,11 @@ let realtimeHandler: ((msg: WaMessage) => void) | null = null
 let realtimeOn = false
 let realtimeTimer: NodeJS.Timeout | null = null
 const realtimePending: WaMessage[] = []
+let realtimePollTimer: NodeJS.Timeout | null = null
+let pollRunning = false
+let scanRunning = false
+/** Nombre de cada grupo/canal (para no depender de msg.getChat(), que falla en canales). */
+const groupNames = new Map<string, string>()
 let ocrChain: Promise<unknown> = Promise.resolve()
 const listeners = new Set<WhatsAppEventListener>()
 const monitoredGroups = new Set<string>()
@@ -304,11 +314,54 @@ interface ProcessMessageResult {
   /** Detectada pero descartada por no ser de tu área (filtro del perfil). */
   filteredByArea?: boolean
   /**
-   * true cuando el mensaje tenía media pero NO se pudo descargar
-   * (media expirada/evicted o error de red). Se usa para marcar el mensaje
-   * como procesado y no reintentar la descarga en cada escaneo.
+   * true cuando el mensaje tenía media pero ya no está disponible (expirada/evicted)
+   * o el OCR falló. Se marca como procesado: reintentar no ayuda.
    */
   mediaUnavailable: boolean
+  /**
+   * true cuando la DESCARGA falló con error (whatsapp-web.js incompatible con WhatsApp
+   * Web, red…). No se marca como procesado para reintentarlo en el siguiente escaneo:
+   * antes quedaba marcado para siempre y el flyer nunca pasaba por OCR.
+   */
+  mediaError?: boolean
+}
+
+/**
+ * ¿Se marca el mensaje como procesado? Sí cuando hay detección, cuando no hay media o
+ * cuando la media ya no existe (expirada/evicted). Las imágenes descargadas y sin
+ * detectar se re-OCRean luego. Si la descarga FALLÓ, solo se analizó el texto que
+ * acompaña a la imagen ("info en el flyer"): aunque el filtro de área lo descarte, se
+ * reintenta en el próximo escaneo con el texto de la imagen.
+ */
+function isMessageDone(msg: WaMessage, r: ProcessMessageResult): boolean {
+  if (r.vacancy || !msg.hasMedia || r.mediaUnavailable) return true
+  return !!r.filteredByArea && !r.mediaError
+}
+
+/** Tras N descargas fallidas seguidas se dejan de intentar un rato (evita escaneos eternos). */
+const MAX_CONSECUTIVE_MEDIA_ERRORS = 5
+const MEDIA_SUSPEND_MS = 10 * 60 * 1000
+let consecutiveMediaErrors = 0
+let mediaSuspendedUntil = 0
+
+function resetMediaErrorTracking(): void {
+  consecutiveMediaErrors = 0
+  mediaSuspendedUntil = 0
+}
+
+function noteMediaDownload(ok: boolean, logDebug?: (line: string) => void): void {
+  if (ok) {
+    consecutiveMediaErrors = 0
+    return
+  }
+  consecutiveMediaErrors++
+  if (consecutiveMediaErrors === MAX_CONSECUTIVE_MEDIA_ERRORS) {
+    mediaSuspendedUntil = Date.now() + MEDIA_SUSPEND_MS
+    const note = 'No se pudieron descargar las imágenes de WhatsApp (varios fallos seguidos): los flyers no se están leyendo. Se reintentarán en el próximo escaneo; si sigue pasando, actualiza Aplica.'
+    logDebug?.(`  ocr: ${note}`)
+    console.warn('[wa:ocr]', note)
+    emit({ type: 'phase', payload: note })
+  }
 }
 
 async function downloadMessageMedia(
@@ -460,14 +513,26 @@ async function processMessage(
   const body = msg.body || ''
   let ocrText = ''
   let mediaUnavailable = false
+  let mediaError = false
   const mime = String((msg as { _data?: { mimetype?: string } })._data?.mimetype || '')
   // Los documentos solo se pasan por OCR si son imágenes; un PDF o DOCX no es OCR-able
   // y antes rompía el OCR (el texto del pie del documento sí se analiza).
   const ocrable = msg.type === 'image' || (msg.type === 'document' && /^image\//i.test(mime))
-  if (msg.hasMedia && ocrable) {
+  if (msg.hasMedia && ocrable && Date.now() < mediaSuspendedUntil) {
+    mediaError = true
+    logDebug?.('  ocr: descargas en pausa por fallos seguidos (se reintenta en el próximo escaneo)')
+  } else if (msg.hasMedia && ocrable) {
+    let downloadFailed = false
     try {
       const downloaded = await withOcrLock(async () => {
-        const media = await downloadMessageMedia(msg, logDebug)
+        let media: { mimetype: string; data: string } | undefined
+        try {
+          media = await downloadMessageMedia(msg, logDebug)
+        } catch (err) {
+          downloadFailed = true
+          throw err
+        }
+        noteMediaDownload(true)
         if (!media) {
           logDebug?.('  ocr: downloadMedia sin data (media no disponible)')
           return false
@@ -483,9 +548,14 @@ async function processMessage(
       })
       mediaUnavailable = !downloaded
     } catch (err) {
-      mediaUnavailable = true
+      if (downloadFailed) {
+        mediaError = true
+        noteMediaDownload(false, logDebug)
+      } else {
+        mediaUnavailable = true
+      }
       const detail = err instanceof Error ? `${err.message} | ${err.stack ?? ''}` : String(err)
-      logDebug?.(`  ocr: ERROR ${detail}`)
+      logDebug?.(`  ocr: ERROR ${downloadFailed ? 'descarga' : 'ocr'}: ${detail}`)
       console.error('[wa:ocr]', err)
     }
   }
@@ -497,7 +567,7 @@ async function processMessage(
 
   if (vacant) {
     // Detectada por heurística: si el puesto o el área quedaron genéricos, la IA los afina.
-    if (vacant.title === 'Vacante detectada' || vacant.category === 'General / Otra') {
+    if (vacant.title === 'Vacante detectada' || vacant.category === GENERAL_CATEGORY) {
       const verdict = await classifyWithAi(combined, logDebug)
       if (verdict && !verdict.isVacancy) {
         logDebug?.('  ai: descartada (no es oferta)')
@@ -523,9 +593,9 @@ async function processMessage(
 
   if (vacant) {
     const outcome = await addToQueue(vacant)
-    return { vacancy: outcome === 'filtered' ? null : vacant, mediaUnavailable, filteredByArea: outcome === 'filtered' }
+    return { vacancy: outcome === 'filtered' ? null : vacant, mediaUnavailable, mediaError, filteredByArea: outcome === 'filtered' }
   }
-  return { vacancy: null, mediaUnavailable }
+  return { vacancy: null, mediaUnavailable, mediaError }
 }
 
 async function readStore(): Promise<WhatsAppStore> {
@@ -556,13 +626,59 @@ async function writeStore(store: WhatsAppStore): Promise<void> {
   await writeJSON(file, store)
 }
 
+/** Últimos 8 dígitos: "+1 (809) 555-1234" y "8095551234" son el mismo teléfono. */
+function phoneKey(value: string | undefined): string {
+  const digits = (value || '').replace(/\D/g, '')
+  return digits.length >= 8 ? digits.slice(-8) : ''
+}
+
+function wordSet(text: string): Set<string> {
+  const words = text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .match(/[a-z]{4,}/g)
+  return new Set(words || [])
+}
+
+/** Jaccard de palabras: la misma oferta corregida por la IA sigue siendo muy parecida. */
+function textSimilarity(a: string, b: string): number {
+  const A = wordSet(a.slice(0, 1500))
+  const B = wordSet(b.slice(0, 1500))
+  if (A.size === 0 || B.size === 0) return 0
+  let common = 0
+  for (const w of A) if (B.has(w)) common++
+  return common / (A.size + B.size - common)
+}
+
+/**
+ * La vacante ya está en tus postulaciones (mismo contacto y texto parecido). Así un
+ * re-escaneo, o la misma oferta reenviada a otro grupo, no vuelve a la cola de revisión.
+ */
+async function isAlreadySavedAsJob(vacancy: WhatsAppVacancy): Promise<boolean> {
+  const email = vacancy.email?.trim().toLowerCase()
+  const phone = phoneKey(vacancy.phone)
+  const url = vacancy.sourceUrl?.trim().toLowerCase()
+  if (!email && !phone && !url) return false
+  const jobs = (await readJSON<JobApplication[]>((await getActiveProfileFiles()).jobsFile)) ?? []
+  const text = vacancy.vacancyText || vacancy.snippet || ''
+  return jobs.some((job) => {
+    const jobText = (job.vacancyText || '').toLowerCase()
+    const sameContact =
+      (!!email && ((job.recipientEmail || '').toLowerCase() === email || jobText.includes(email))) ||
+      (!!phone && (phoneKey(job.recipientPhone) === phone || (jobText.match(/\+?\d[\d\s\-().]{6,}\d/g) || []).some((p) => phoneKey(p) === phone))) ||
+      (!!url && jobText.includes(url))
+    return sameContact && textSimilarity(text, job.vacancyText || '') >= 0.4
+  })
+}
+
 async function addToQueue(vacancy: WhatsAppVacancy): Promise<'added' | 'duplicate' | 'filtered'> {
   const store = await readStore()
   const strict = store.config.strictAreaFilter ?? false
   const profile = await getActiveProfile().catch(() => null)
-  if (profile && !isVacancyInArea(vacancy.category, profile.area, strict)) {
+  if (profile && !isVacancyForProfile(vacancy, profile, strict)) {
     console.log(
-      `[wa:queue] descartada por área: "${vacancy.title}" (${vacancy.category}) vs área del perfil (${profile.area}) strict=${strict}`,
+      `[wa:queue] descartada por área: "${vacancy.title}" (${vacancy.category}) vs perfil (${profile.area} · ${profile.title}) strict=${strict}`,
     )
     return 'filtered'
   }
@@ -573,6 +689,10 @@ async function addToQueue(vacancy: WhatsAppVacancy): Promise<'added' | 'duplicat
   // misma vacante) produce la misma huella → no se añade dos veces a la cola.
   if (vacancy.fingerprint && store.queue.some((v) => v.fingerprint === vacancy.fingerprint)) {
     console.log(`[wa:queue] dedupe por huella: "${vacancy.title}" en ${vacancy.groupName} ya en cola`)
+    return 'duplicate'
+  }
+  if (await isAlreadySavedAsJob(vacancy).catch(() => false)) {
+    console.log(`[wa:queue] ya está en tus postulaciones: "${vacancy.title}" (${vacancy.groupName})`)
     return 'duplicate'
   }
   store.queue.unshift(vacancy)
@@ -613,14 +733,53 @@ function attachRealtimeHandler(): void {
     if (!realtimeOn) return
     const gid = msg.from
     if (!monitoredGroups.has(gid)) return
-    const serial = msg.id._serialized
-    if (serial && !realtimePending.some((m) => m.id._serialized === serial)) {
+    const serial = messageSerial(msg)
+    if (serial && !realtimePending.some((m) => messageSerial(m) === serial)) {
       realtimePending.push(msg)
       if (realtimePending.length > 50) realtimePending.splice(0, realtimePending.length - 50)
     }
   }
   client.on('message', realtimeHandler)
   realtimeTimer = setInterval(() => void flushRealtimePending(), REALTIME_INTERVAL_MS)
+  // El evento 'message' de whatsapp-web.js no se emite para canales (@newsletter):
+  // se sondean los últimos mensajes de cada grupo/canal monitoreado periódicamente.
+  realtimePollTimer = setInterval(() => void pollMonitoredGroups(), REALTIME_POLL_MS)
+  setTimeout(() => void pollMonitoredGroups(), 10_000)
+}
+
+/** Sondeo del monitoreo en tiempo real: lee los mensajes recientes y procesa los nuevos. */
+async function pollMonitoredGroups(): Promise<void> {
+  if (!realtimeOn || pollRunning || scanRunning || !client || status !== 'connected') return
+  pollRunning = true
+  try {
+    if (!(await isPageHealthy())) return
+    aiBudget = Math.max(aiBudget, REALTIME_BATCH * 2)
+    for (const gid of [...monitoredGroups]) {
+      if (!realtimeOn || scanRunning) break
+      const raw = await fetchRawMessages(gid, REALTIME_POLL_LIMIT).catch(() => null)
+      if (!raw || raw.diag.startsWith('evaluate err')) continue
+      if (raw.name) groupNames.set(gid, raw.name)
+      for (const msg of raw.messages) {
+        const serial = messageSerial(msg)
+        if (!serial || msg.fromMe || (await isProcessed(serial))) continue
+        try {
+          const result = await processMessage(msg, raw.name || gid, gid)
+          if (result.vacancy) emit({ type: 'vacancy', payload: result.vacancy })
+          if (isMessageDone(msg, result)) await persistProcessed(serial)
+        } catch (err) {
+          console.error('[wa:realtime] poll', gid, err instanceof Error ? err.message : err)
+        }
+      }
+    }
+  } finally {
+    pollRunning = false
+  }
+}
+
+/** id del mensaje: WhatsApp Web renombró `_serialized` → `$1` (ver AGENTS.md). */
+function messageSerial(msg: WaMessage): string | undefined {
+  const id = msg.id as unknown as { _serialized?: string; $1?: string } | undefined
+  return id?._serialized || id?.$1 || undefined
 }
 
 function detachRealtimeHandler(): void {
@@ -631,6 +790,10 @@ function detachRealtimeHandler(): void {
   if (realtimeTimer) {
     clearInterval(realtimeTimer)
     realtimeTimer = null
+  }
+  if (realtimePollTimer) {
+    clearInterval(realtimePollTimer)
+    realtimePollTimer = null
   }
   realtimePending.length = 0
 }
@@ -645,14 +808,19 @@ async function flushRealtimePending(): Promise<void> {
   aiBudget = Math.max(aiBudget, REALTIME_BATCH)
   for (const msg of batch) {
     try {
-      const chat = await msg.getChat()
-      const serial = msg.id._serialized
-      if (!serial || (await isProcessed(serial))) continue
-      const { vacancy, mediaUnavailable, filteredByArea } = await processMessage(msg, chat.name || msg.from, msg.from)
-      if (vacancy) emit({ type: 'vacancy', payload: vacancy })
-      if (vacancy || filteredByArea || !msg.hasMedia || mediaUnavailable) await persistProcessed(serial)
-    } catch {
-      /* realtime message errors are non-fatal */
+      const serial = messageSerial(msg)
+      if (!serial || msg.fromMe || (await isProcessed(serial))) continue
+      // getChat() falla en canales: el nombre sale de la caché del sondeo o del id.
+      let name = groupNames.get(msg.from)
+      if (!name) {
+        name = (await msg.getChat().catch(() => null))?.name || msg.from
+        groupNames.set(msg.from, name)
+      }
+      const result = await processMessage(msg, name, msg.from)
+      if (result.vacancy) emit({ type: 'vacancy', payload: result.vacancy })
+      if (isMessageDone(msg, result)) await persistProcessed(serial)
+    } catch (err) {
+      console.error('[wa:realtime]', err instanceof Error ? err.message : err)
     }
   }
 }
@@ -1110,17 +1278,23 @@ async function fetchRawMessages(
             /* ignore */
           }
         }
+        // WhatsApp Web renombró id._serialized → id.$1 (whatsapp-web.js ≥ 1.34.8 ya lo
+        // normaliza). Reconstruir el id a mano sin el participante rompía la descarga de
+        // imágenes en grupos: WhatsApp no encontraba el mensaje ("t: t").
+        const serializeWid = (w: any) =>
+          typeof w === 'object' && w ? w._serialized ?? w.$1 ?? null : w ?? null
         out.messages = msgs.map((m: any) => {
           const model = (window as any).WWebJS.getMessageModel(m)
           if (model?.id && !model.id._serialized) {
-            const fromMe = model.id.fromMe
-            const remoteRaw = model.id.remote
-            const remote =
-              typeof remoteRaw === 'object' && remoteRaw
-                ? remoteRaw._serialized ?? remoteRaw
-                : remoteRaw
-            if (remote && model.id.id != null) {
-              model.id._serialized = `${fromMe ? 'true' : 'false'}_${remote}_${model.id.id}`
+            if (model.id.$1) {
+              model.id._serialized = model.id.$1
+            } else {
+              const remote = serializeWid(model.id.remote)
+              const participant = serializeWid(model.id.participant)
+              if (remote && model.id.id != null) {
+                model.id._serialized =
+                  `${model.id.fromMe ? 'true' : 'false'}_${remote}_${model.id.id}${participant ? `_${participant}` : ''}`
+              }
             }
           }
           return model
@@ -1149,6 +1323,17 @@ async function fetchRawMessages(
 }
 
 export async function scanWhatsAppGroups(groupIds: string[], limit = 100): Promise<WhatsAppScanResult> {
+  scanRunning = true
+  try {
+    // Si el sondeo en tiempo real está a medias, se espera a que suelte la página.
+    for (let i = 0; pollRunning && i < 120; i++) await new Promise((r) => setTimeout(r, 500))
+    return await runScan(groupIds, limit)
+  } finally {
+    scanRunning = false
+  }
+}
+
+async function runScan(groupIds: string[], limit: number): Promise<WhatsAppScanResult> {
   if (!client || status !== 'connected') {
     return { vacancies: [], scanned: 0, phases: [] }
   }
@@ -1158,7 +1343,11 @@ export async function scanWhatsAppGroups(groupIds: string[], limit = 100): Promi
   const phases: string[] = []
   let scanned = 0
   let filteredCount = 0
+  let mediaErrors = 0
+  const strictAreaFilter = (await readStore()).config.strictAreaFilter ?? false
   aiBudget = AI_BUDGET_PER_SCAN
+  // Escaneo pedido por el usuario: volver a intentar descargas aunque antes fallaran.
+  resetMediaErrorTracking()
   let pageError = false
   let recovered = false
   let recoveryDisabled = false
@@ -1229,18 +1418,25 @@ export async function scanWhatsAppGroups(groupIds: string[], limit = 100): Promi
       if (msg.hasMedia && (msg.type === 'image' || msg.type === 'document')) {
         emit({ type: 'phase', payload: `OCR ${scanned}/${messages.length} en ${name}` })
       }
-      const { vacancy, mediaUnavailable, filteredByArea } = await processMessage(msg, name || gid, gid, debugLog)
+      const processed = await processMessage(msg, name || gid, gid, debugLog)
+      const { vacancy, filteredByArea, mediaError } = processed
       debugLog(`[scan]   ${serial} -> ${vacancy ? 'VACANTE OK' : filteredByArea ? 'filtrada por área' : 'no detectada'}`)
       if (vacancy) result.push(vacancy)
       if (filteredByArea) filteredCount++
-      // Marcar como procesado cuando hay detección, cuando no hay media, o cuando
-      // la media ya no se puede descargar (expirada/evicted) para no reintentarla en
-      // cada escaneo. Las imágenes SÍ descargadas y sin detectar se re-OCRean luego.
-      if (vacancy || filteredByArea || !msg.hasMedia || mediaUnavailable) await persistProcessed(serial)
+      if (mediaError) mediaErrors++
+      if (isMessageDone(msg, processed)) await persistProcessed(serial)
     }
   }
   if (filteredCount > 0) {
-    const note = `${filteredCount} vacantes detectadas se descartaron por no ser de tu área (puedes desactivar el filtro estricto en Ajustes → WhatsApp)`
+    const hint = strictAreaFilter
+      ? ' (puedes desactivar el filtro estricto en Ajustes → WhatsApp)'
+      : ' (de otra área, o de área desconocida sin relación con tu puesto ni tus habilidades)'
+    const note = `${filteredCount} vacantes detectadas se descartaron por no ser de tu área${hint}`
+    phases.push(note)
+    emit({ type: 'phase', payload: note })
+  }
+  if (mediaErrors > 0) {
+    const note = `${mediaErrors} imágenes no se pudieron descargar de WhatsApp; se reintentarán en el próximo escaneo`
     phases.push(note)
     emit({ type: 'phase', payload: note })
   }
@@ -1266,7 +1462,7 @@ export async function getWhatsAppQueue(): Promise<WhatsAppVacancy[]> {
     .map((v) => (v.vacancyText && !v.aiVerified ? { ...v, category: classifyCategory(v.vacancyText, v.title) } : v))
   let queue = store.queue
   if (profile) {
-    const kept = queue.filter((v) => isVacancyInArea(v.category, profile.area, strict))
+    const kept = queue.filter((v) => isVacancyForProfile(v, profile, strict))
     if (kept.length !== store.queue.length) queue = kept
   }
   // WhatsApp: se conservan las vacantes que aporten algún medio de contacto

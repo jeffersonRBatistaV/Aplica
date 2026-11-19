@@ -2,6 +2,16 @@ import { Sparkles, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 const CHANGELOG: Record<string, { title: string; items: string[] }> = {
+  '1.3.0': {
+    title: 'Aplica 1.3.0',
+    items: [
+      'Buscar vacantes para mi: busca en LinkedIn y portales de empleo segun tu perfil y extrae el correo/telefono del publicador',
+      'Esfuerzo de razonamiento del modelo configurable en Configuracion > API',
+      'Mucho menos consumo de tokens: la foto de perfil ya no se envia al modelo',
+      'El consumo de la API ahora calcula bien el costo de DeepSeek y Gemini',
+      'WhatsApp: deteccion de vacantes mas precisa y filtrada por tu area; corregida la descarga de imagenes',
+    ],
+  },
   '1.1.0': {
     title: 'Aplica 1.1.0',
     items: [

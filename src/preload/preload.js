@@ -113,6 +113,12 @@ const api = {
   // ── LinkedIn Job Search ──
   searchLinkedInJobs: (keywords, location, limit) => ipcRenderer.invoke('linkedin:search', keywords, location, limit),
   getLinkedInJob: (input) => ipcRenderer.invoke('linkedin:job', input),
+  findJobsForProfile: (options) => ipcRenderer.invoke('jobFinder:find', options),
+  onJobFinderProgress: (callback) => {
+    const handler = (_event, payload) => callback(payload)
+    ipcRenderer.on('jobFinder:progress', handler)
+    return () => { ipcRenderer.removeListener('jobFinder:progress', handler) }
+  },
   openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
 
   // ── Automation ──

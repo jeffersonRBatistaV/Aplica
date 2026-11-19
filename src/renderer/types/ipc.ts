@@ -1,4 +1,4 @@
-import type { Conversation, AppSettings, StreamParams, Profile, JobApplication, ATSReport, CvTemplate, InterviewQuestion, UsageStats, ImportResult, Roadmap, RoadmapGoal, JobCategory, InvestigateResult, CvVersion, EmailConfig, EmailPayload, EmailPreset, EmailResult, WhatsAppConfig, WhatsAppGroup, WhatsAppScanResult, WhatsAppStatus, WhatsAppVacancy, LinkedInJob, LinkedInJobDetail, AutomationConfig, BrowserAgentEvent, BrowserAttachResult, BrowserCvOption, BrowserFillEntry, BrowserFillResult, BrowserPageSnapshot, BrowserState, FollowUpDraft } from '../../shared/types'
+import type { Conversation, AppSettings, StreamParams, Profile, JobApplication, ATSReport, CvTemplate, InterviewQuestion, UsageStats, ImportResult, Roadmap, RoadmapGoal, JobCategory, InvestigateResult, CvVersion, EmailConfig, EmailPayload, EmailPreset, EmailResult, WhatsAppConfig, WhatsAppGroup, WhatsAppScanResult, WhatsAppStatus, WhatsAppVacancy, LinkedInJob, LinkedInJobDetail, FoundJob, JobFinderOptions, JobFinderProgress, AutomationConfig, BrowserAgentEvent, BrowserAttachResult, BrowserCvOption, BrowserFillEntry, BrowserFillResult, BrowserPageSnapshot, BrowserState, FollowUpDraft } from '../../shared/types'
 
 export interface UpdateInfo {
   version: string
@@ -134,6 +134,8 @@ export interface ElectronAPI {
   // LinkedIn Job Search
   searchLinkedInJobs: (keywords: string, location?: string, limit?: number) => Promise<LinkedInJob[]>
   getLinkedInJob: (input: string) => Promise<LinkedInJobDetail | null>
+  findJobsForProfile: (options?: JobFinderOptions) => Promise<FoundJob[]>
+  onJobFinderProgress: (callback: (progress: JobFinderProgress) => void) => () => void
   openExternal: (url: string) => Promise<void>
 
   getAutomationConfig: () => Promise<AutomationConfig>

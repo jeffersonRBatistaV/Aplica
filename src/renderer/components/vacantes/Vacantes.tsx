@@ -9,7 +9,7 @@ import { CVGenerator } from './CVGenerator'
 import { CategoryCV } from './CategoryCV'
 import { DocumentLibrary } from './DocumentLibrary'
 import { InterviewPrep } from './InterviewPrep'
-import { JobSearch } from './JobSearch'
+import { JobSearch, type VacancyContact } from './JobSearch'
 import { AutomationOfferModal } from './AutomationOfferModal'
 import { KanbanBoard } from './KanbanBoard'
 import { TemplatesManager } from './TemplatesManager'
@@ -162,6 +162,8 @@ export function Vacantes() {
   const [activeTab, setActiveTab] = useState<Tab>('new')
   const [vacancyText, setVacancyText] = useState('')
   const whatsappImportRef = useRef<{ id: string; text: string; phone?: string } | null>(null)
+  /** Contacto detectado por el buscador de empleo para la vacante importada. */
+  const searchContactRef = useRef<VacancyContact | null>(null)
   const [analyzing, setAnalyzing] = useState(false)
   const [atsReport, setAtsReport] = useState<ATSReport | null>(null)
   const [generatingLetters, setGeneratingLetters] = useState(false)
@@ -295,9 +297,12 @@ export function Vacantes() {
     setActiveTab('new')
   }
 
-  const handleImportFromSearch = (text: string, job: LinkedInJob) => {
+  const handleImportFromSearch = (text: string, job: LinkedInJob, contact?: VacancyContact) => {
     handleNewApp()
+    searchContactRef.current = contact && (contact.email || contact.phone) ? contact : null
     setVacancyText(text)
+    if (contact?.email) setRecruiterEmail(contact.email)
+    if (contact?.phone) setRecruiterPhone(contact.phone)
     setActiveTab('new')
     void handleAnalyze(text, job.url)
   }
@@ -375,7 +380,9 @@ export function Vacantes() {
         ? report.position
         : heuristicPosition || pickPositionLine(cleanText) || t('vacantes.title')
       const category = extractCategory(cleanText)
-      const importedPhone = whatsappImportRef.current?.phone
+      const searchContact = searchContactRef.current
+      searchContactRef.current = null
+      const importedPhone = whatsappImportRef.current?.phone || searchContact?.phone
       const phone = importedPhone || extractVacancyPhone(cleanText) || extractVacancyPhone(text) || ''
       setRecruiterPhone(phone)
 
@@ -393,7 +400,7 @@ export function Vacantes() {
         coverLetterB: '',
         cvStyle: null,
         cvContent: '',
-        recipientEmail: '',
+        recipientEmail: searchContact?.email || '',
         ...(phone ? { recipientPhone: phone } : {}),
         emailSubject: '',
         interviewQuestions: [],
@@ -412,12 +419,13 @@ export function Vacantes() {
       const letters = await window.api.generateCoverLetters(cleanText, report)
       setCoverLetterA(letters.coverLetterA)
       setCoverLetterB(letters.coverLetterB)
-      setRecruiterEmail(letters.recruiterEmail || '')
+      const finalEmail = letters.recruiterEmail || searchContact?.email || ''
+      setRecruiterEmail(finalEmail)
       setEmailSubject(letters.subject || '')
 
       app.coverLetterA = letters.coverLetterA
       app.coverLetterB = letters.coverLetterB
-      app.recipientEmail = letters.recruiterEmail || ''
+      app.recipientEmail = finalEmail
       app.emailSubject = letters.subject || ''
       app.updatedAt = Date.now()
       await window.api.saveJob(app)

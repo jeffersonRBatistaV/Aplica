@@ -5,7 +5,7 @@ import { readProfile } from '../services/profile-reader'
 import { SETTINGS_FILE, PROFILE_PATH, USER_PROFILE_PATH, PROFILES_FILE, DATA_DIR, CV_TEMPLATES_FILE } from '../utils/paths'
 import { getActiveProfileFiles, ensureParentDir } from '../services/profile-data'
 import { getActiveProfile } from '../services/profile-scope'
-import type { Conversation, AppSettings, StreamParams, JobApplication, Profile, ATSReport, CvTemplate, InterviewQuestion, ImportResult, ImportStats, JobCategory, CvVersion, LinkedInJob, LinkedInJobDetail, AutomationConfig, FollowUpDraft } from '../../shared/types'
+import type { Conversation, AppSettings, StreamParams, JobApplication, Profile, ATSReport, CvTemplate, InterviewQuestion, ImportResult, ImportStats, JobCategory, CvVersion, LinkedInJob, LinkedInJobDetail, FoundJob, JobFinderOptions, AutomationConfig, FollowUpDraft } from '../../shared/types'
 import { streamChatCompletion, abortCurrentStream, listModels } from '../services/llm-service'
 import { ThrottledStream } from '../utils/throttled-stream'
 import { analyzeVacancy, generateCoverLetters, correctVacancyText, generateInterviewQuestions, generateFollowUpEmail } from '../services/job-service'
@@ -21,6 +21,7 @@ import type { BrowserAgentEvent, BrowserFillEntry, EmailConfig, EmailPayload } f
 import { getSeedTemplates, upgradeSeedTemplates, wrapHtml } from '../services/cv-templates-seed'
 import { renderCvPdf } from '../services/cv-pdf'
 import { searchLinkedInJobs, fetchLinkedInJob } from '../services/linkedin-service'
+import { findJobsForProfile } from '../services/job-finder'
 import { getAutomationConfig, saveAutomationConfig } from '../services/automation-service'
 import { extractTextFromImage } from '../services/ocr-service'
 import { getExchangeRate } from '../services/currency-service'
@@ -286,6 +287,12 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
   })
   safeHandle('linkedin:job', async (_event, input: string): Promise<LinkedInJobDetail | null> => {
     return fetchLinkedInJob(input)
+  })
+  // ── Buscador de vacantes en internet según el perfil ──
+  safeHandle('jobFinder:find', async (event, options?: JobFinderOptions): Promise<FoundJob[]> => {
+    return findJobsForProfile(options || {}, (p) => {
+      if (!event.sender.isDestroyed()) event.sender.send('jobFinder:progress', p)
+    })
   })
   safeHandle('shell:openExternal', async (_event, url: string): Promise<void> => {
     if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) return

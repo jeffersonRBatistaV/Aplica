@@ -12,19 +12,46 @@ interface WhatsAppQueueProps {
   onImported: () => void
 }
 
+type ContactFilter = 'all' | 'link' | 'phone' | 'email' | 'phoneOrEmail'
+
+const CONTACT_FILTERS: { id: ContactFilter; labelKey: string; icon?: typeof Phone }[] = [
+  { id: 'all', labelKey: 'whatsapp.contactAll' },
+  { id: 'link', labelKey: 'whatsapp.contactLink', icon: Link2 },
+  { id: 'phone', labelKey: 'whatsapp.contactPhone', icon: Phone },
+  { id: 'email', labelKey: 'whatsapp.contactEmail', icon: Mail },
+  { id: 'phoneOrEmail', labelKey: 'whatsapp.contactPhoneOrEmail' },
+]
+
 export function WhatsAppQueue({ vacancies, onImported }: WhatsAppQueueProps) {
   const { t } = useTranslation()
   const { setCurrentView } = useNavigation()
   const { notify } = useNotification()
   const [importingId, setImportingId] = useState<string | null>(null)
   const [sourceFilter, setSourceFilter] = useState<'all' | 'group' | 'channel'>('all')
+  const [contactFilter, setContactFilter] = useState<ContactFilter>('all')
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [confirmBulk, setConfirmBulk] = useState(false)
   const [expandedSnippet, setExpandedSnippet] = useState<Set<string>>(new Set())
 
   const targetType = (gid: string): 'group' | 'channel' => (gid.endsWith('@newsletter') ? 'channel' : 'group')
-  const filtered = sourceFilter === 'all' ? vacancies : vacancies.filter((v) => targetType(v.groupId) === sourceFilter)
+  const matchesContact = (v: WhatsAppVacancy): boolean => {
+    switch (contactFilter) {
+      case 'link':
+        return !!v.sourceUrl
+      case 'phone':
+        return !!v.phone
+      case 'email':
+        return !!v.email
+      case 'phoneOrEmail':
+        return !!v.phone || !!v.email
+      default:
+        return true
+    }
+  }
+  const filtered = vacancies.filter(
+    (v) => (sourceFilter === 'all' || targetType(v.groupId) === sourceFilter) && matchesContact(v),
+  )
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -156,6 +183,25 @@ export function WhatsAppQueue({ vacancies, onImported }: WhatsAppQueueProps) {
         >
           {t('whatsapp.selectAllFiltered')}
         </button>
+      </div>
+
+      <div className="flex items-center gap-1 mb-3 flex-wrap" role="group" aria-label={t('whatsapp.contactFilterLabel')}>
+        <span className="text-xs text-gray-400 dark:text-gray-500 mr-1">{t('whatsapp.contactFilterLabel')}:</span>
+        {CONTACT_FILTERS.map(({ id, labelKey, icon: Icon }) => (
+          <button
+            key={id}
+            onClick={() => setContactFilter(id)}
+            aria-pressed={contactFilter === id}
+            className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full border transition-colors ${
+              contactFilter === id
+                ? 'bg-blue-600 text-white border-blue-600'
+                : 'text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+            }`}
+          >
+            {Icon && <Icon className="w-3 h-3" />}
+            {t(labelKey)}
+          </button>
+        ))}
       </div>
 
       {selectedIds.size > 0 && (

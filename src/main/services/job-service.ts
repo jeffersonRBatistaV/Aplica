@@ -1,4 +1,5 @@
 import type { ATSReport, SalaryRange, Profile, AppSettings, InterviewQuestion } from '../../shared/types'
+import { profileForPrompt } from '../utils/profile-for-prompt'
 import { completeChatCompletion } from './llm-service'
 import { readJSON } from './storage'
 import { SETTINGS_FILE } from '../utils/paths'
@@ -170,7 +171,7 @@ export async function analyzeVacancy(
   }
 
   const profileSection = profile
-    ? `\n\n## PERFIL DEL CANDIDATO\n\`\`\`json\n${JSON.stringify(profile, null, 2)}\n\`\`\``
+    ? `\n\n## PERFIL DEL CANDIDATO\n\`\`\`json\n${JSON.stringify(profileForPrompt(profile), null, 2)}\n\`\`\``
     : '\n\n## PERFIL DEL CANDIDATO\nNo hay perfil disponible.'
 
   const userMessage = `## VACANTE\n\n${vacancyText}${researchSection}${profileSection}\n\nGenera el reporte ATS en formato JSON.${researchSection ? ' Usa la INVESTIGACIÓN DE EMPRESA (si está disponible) como fuente de datos actualizados sobre la empresa y el rango salarial del puesto.' : ''}`
@@ -366,7 +367,7 @@ export async function generateCoverLetters(
 ): Promise<{ coverLetterA: string; coverLetterB: string; recruiterEmail: string; subject: string }> {
   const config = await getConfig()
   const profileSection = profile
-    ? `\n\n## PERFIL DEL CANDIDATO\n\`\`\`json\n${JSON.stringify(profile, null, 2)}\n\`\`\``
+    ? `\n\n## PERFIL DEL CANDIDATO\n\`\`\`json\n${JSON.stringify(profileForPrompt(profile), null, 2)}\n\`\`\``
     : '\n\n## PERFIL DEL CANDIDATO\nNo hay perfil disponible.'
 
   const baseUserMessage = `## VACANTE\n\n${vacancyText}${profileSection}\n\n## REPORTE ATS\n\nMatch Score: ${atsReport.matchScore}%\nFortalezas: ${atsReport.strengths.join(', ')}\nBrechas: ${atsReport.gaps.join(', ')}\nKeywords faltantes: ${atsReport.keywordsMissing.join(', ')}\n\nGenera las dos variaciones de carta en formato JSON.`
@@ -460,7 +461,7 @@ export async function generateInterviewQuestions(
   const config = await getConfig()
 
   const profileSection = profile
-    ? `\n\n## PERFIL DEL CANDIDATO\n\`\`\`json\n${JSON.stringify(profile, null, 2)}\n\`\`\``
+    ? `\n\n## PERFIL DEL CANDIDATO\n\`\`\`json\n${JSON.stringify(profileForPrompt(profile), null, 2)}\n\`\`\``
     : '\n\n## PERFIL DEL CANDIDATO\nNo hay perfil disponible.'
 
   const atsSection = atsReport

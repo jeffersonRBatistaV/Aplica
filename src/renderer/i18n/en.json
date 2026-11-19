@@ -514,7 +514,16 @@
     "timeHoursAgo": "{{count}}h ago",
     "timeDaysAgo": "{{count}}d ago",
     "records": "records",
-    "investigateDiscover": "Detect backend"
+    "investigateDiscover": "Detect backend",
+    "reasoningEffort": "Reasoning effort",
+    "reasoningEffortLevels": {
+      "default": "Default",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High"
+    },
+    "reasoningEffortHelp": "How much the model \"thinks\" before answering (reasoning_effort parameter). More effort = more careful answers, but slower and with more output tokens. \"Default\" does not send the parameter. If the model does not support it, it is ignored automatically.",
+    "reasoningEffortUnsupported": "{{model}} does not seem to have a reasoning mode; this setting will probably have no effect."
   },
   "researchConfig": {
     "title": "Web Research",
@@ -902,7 +911,19 @@
     "error": "Could not load jobs. Please try again.",
     "results": "{{count}} job found",
     "results_plural": "{{count}} jobs found",
-    "useVacancy": "Use vacancy"
+    "useVacancy": "Use vacancy",
+    "modeProfile": "For my profile",
+    "modeManual": "LinkedIn search",
+    "profileKeywordsPlaceholder": "Job title (optional, uses your profile's)",
+    "profileLocationPlaceholder": "Location (optional, uses your profile's)",
+    "profileHint": "Searches LinkedIn and job boards, opens each posting and extracts the poster's email/phone.",
+    "findForMe": "Find jobs for me",
+    "remoteOnly": "Remote only",
+    "withContact": "{{count}} with contact",
+    "scoreHint": "Match with your profile (title, skills and area)",
+    "copy": "Copy",
+    "showMore": "Show full posting",
+    "showLess": "Hide"
   },
   "automation": {
     "title": "Application automation",
@@ -971,6 +992,12 @@
     "filterAll": "All",
     "filterGroups": "Groups",
     "filterChannels": "Channels",
+    "contactFilterLabel": "Contact",
+    "contactAll": "All",
+    "contactLink": "With link",
+    "contactPhone": "With phone",
+    "contactEmail": "With email",
+    "contactPhoneOrEmail": "Phone or email",
     "filterSelected": "Selected",
     "filterUnselected": "Not selected",
     "refresh": "Refresh",

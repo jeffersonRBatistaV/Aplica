@@ -361,7 +361,7 @@ export async function generateCV(
   const response = await completeChatCompletion(config, [
     { role: 'system', content: fullPrompt },
     { role: 'user', content: userMessage },
-  ], undefined, undefined, config.excludeFromTraining)
+  ], undefined, 'cv_generate', config.excludeFromTraining)
 
   return response.trim()
 }
@@ -396,7 +396,7 @@ export async function regenerateCV(
   const response = await completeChatCompletion(config, [
     { role: 'system', content: fullPrompt },
     { role: 'user', content: userMessage },
-  ], undefined, undefined, config.excludeFromTraining)
+  ], undefined, 'cv_regenerate', config.excludeFromTraining)
 
   return response.trim()
 }

@@ -113,8 +113,27 @@ const pricing: PricingEntry[] = [
   { prefix: 'gemma-2', input: 0.05, output: 0.15 },
 ]
 
+/** Alias de nombres que algunos proveedores/proxies usan para el mismo modelo. */
+const aliases: Record<string, string> = {
+  'deepseek-flash': 'deepseek-v4-flash',
+  'deepseek-pro': 'deepseek-v4-pro',
+}
+
+/**
+ * Normaliza el id del modelo: minúsculas y sin prefijo de proveedor
+ * (`models/gemini-2.5-flash`, `openrouter/deepseek/deepseek-v4-flash` → último segmento).
+ */
+function normalizeModel(model: string): string {
+  const base = (model || '').trim().toLowerCase().split('/').pop() || ''
+  for (const [alias, target] of Object.entries(aliases)) {
+    if (base === alias || base.startsWith(alias + '-') || base.startsWith(alias + ':')) return target + base.slice(alias.length)
+  }
+  return base
+}
+
 export function calculateCost(model: string, promptTokens: number, completionTokens: number): number {
-  const entry = pricing.find(p => model.startsWith(p.prefix))
+  const id = normalizeModel(model)
+  const entry = pricing.find(p => id.startsWith(p.prefix))
   if (!entry) return 0
   return (promptTokens / 1_000_000) * entry.input + (completionTokens / 1_000_000) * entry.output
 }
@@ -122,7 +141,10 @@ export function calculateCost(model: string, promptTokens: number, completionTok
 export async function getUsage(): Promise<UsageStats> {
   const { usageFile } = await getActiveProfileFiles()
   const records = await readJSON<UsageRecord[]>(usageFile)
-  const list = records ?? []
+  // Registros antiguos guardados con costo 0 por no reconocer el modelo: se recalculan al leer.
+  const list = (records ?? []).map(r =>
+    r.estimatedCost ? r : { ...r, estimatedCost: calculateCost(r.model, r.promptTokens, r.completionTokens) },
+  )
   const totalPromptTokens = list.reduce((s, r) => s + r.promptTokens, 0)
   const totalCompletionTokens = list.reduce((s, r) => s + r.completionTokens, 0)
   const totalCost = list.reduce((s, r) => s + r.estimatedCost, 0)

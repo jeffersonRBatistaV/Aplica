@@ -1,4 +1,5 @@
 import type { Profile, AppSettings } from '../../shared/types'
+import { profileForPrompt } from '../utils/profile-for-prompt'
 import { completeChatCompletion } from './llm-service'
 import { readJSON, writeJSON } from './storage'
 import { SETTINGS_FILE } from '../utils/paths'
@@ -95,7 +96,7 @@ Devuelve SOLO un JSON valido con esta estructura exacta, sin markdown ni delimit
   "planAccion": "Pasos concretos y recomendaciones para mejorar su perfil y aumentar sus oportunidades laborales en ${country}."
 }`
 
-  const userMessage = `## PERFIL DEL USUARIO\n\`\`\`json\n${JSON.stringify(profile, null, 2)}\n\`\`\`${researchedContext}\n\nGenera los consejos de carrera para ${country} en formato JSON. Usa el CONTEXTO INVESTIGADO (si está disponible) como fuente de datos actualizados sobre salarios, demanda y tendencias.`
+  const userMessage = `## PERFIL DEL USUARIO\n\`\`\`json\n${JSON.stringify(profileForPrompt(profile), null, 2)}\n\`\`\`${researchedContext}\n\nGenera los consejos de carrera para ${country} en formato JSON. Usa el CONTEXTO INVESTIGADO (si está disponible) como fuente de datos actualizados sobre salarios, demanda y tendencias.`
 
   try {
     const response = await completeChatCompletion(config, [

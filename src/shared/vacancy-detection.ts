@@ -46,16 +46,22 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
     'programador', 'programadora', 'programadores', 'soporte técnico',
     'soporte tecnico', 'soporte ti', 'soporte it', 'técnico de soporte',
     'tecnico de soporte', 'help desk', 'helpdesk', 'mesa de ayuda',
-    'código', 'codigo', 'programación', 'programacion', 'analista de sistemas',
-    'analista de datos', 'ciencia de datos', 'ciberseguridad', 'base de datos',
-    'bases de datos', 'ingeniero de software', 'ingeniería de software',
+    'programación', 'programacion', 'analista de sistemas',
+    'analista de datos', 'ciencia de datos', 'ciberseguridad',
+    'ingeniero de software', 'ingeniería de software',
     'ingeniero en sistemas', 'ingeniería en sistemas', 'ingenieria en sistemas',
     'licenciado en sistemas', 'infraestructura tecnológica', 'infraestructura ti',
-    'redes y servidores', 'servidores', 'qa', 'sql', 'javascript', 'typescript',
+    'redes y servidores', 'sql', 'javascript', 'typescript',
     'python', 'java', 'react', 'node.js', 'angular', '.net', 'php', 'kotlin',
-    'android', 'ios', 'aws', 'azure', 'api', 'apis', 'noc', 'tic',
+    'aws', 'azure', 'api', 'apis', 'noc', 'tic',
     'páginas web', 'paginas web', 'sitios web', 'desarrollo web', 'desarrollo de software',
     'equipo de desarrollo', 'field engineer', 'ingeniero de soporte', 'soporte de campo',
+    'html', 'html5', 'css', 'css3', 'wordpress', 'linux', 'docker', 'kubernetes',
+    'active directory',
+    // QA de software. "QA" a secas también es control de calidad en manufactura (zonas francas).
+    'tester', 'testing', 'qa tester', 'qa engineer', 'qa analyst', 'qa automation',
+    'analista qa', 'analista de qa', 'ingeniero qa', 'ingeniero de qa', 'pruebas de software',
+    'automatización de pruebas', 'automatizacion de pruebas',
   ],
   'Salud / Medicina': [
     'médico', 'medico', 'doctor', 'doctora', 'enfermero', 'enfermera', 'salud',
@@ -67,6 +73,7 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
     'finanzas', 'contador', 'contadora', 'contabilidad', 'auditor', 'auditoría',
     'auditoria', 'banca', 'inversiones', 'tesorería', 'tesoreria', 'controller',
     'contable', 'fiscal', 'dgi', 'estados financieros', 'cuentas por pagar',
+    'financiero', 'financiera', 'analista de crédito', 'analista de credito', 'impuestos',
   ],
   'Educación / Docencia': [
     'profesor', 'profesora', 'docente', 'educación', 'educacion', 'enseñanza',
@@ -91,6 +98,10 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
     'aires acondicionados', 'electromecánica', 'electromecanica', 'electricista',
     'técnico eléctrico', 'tecnico electrico', 'mecánico', 'mecanico', 'soldador',
     'control de calidad', 'técnico de calidad', 'tecnico de calidad',
+    'inspector de calidad', 'supervisor de calidad', 'dispositivos médicos', 'dispositivos medicos',
+    'buenas prácticas de manufactura', 'buenas practicas de manufactura',
+    'técnico en electrónica', 'tecnico en electronica', 'ingeniería electrónica', 'ingenieria electronica',
+    'reparación de celulares', 'reparacion de celulares', 'técnico de celulares', 'tecnico de celulares',
   ],
   'Legal / Jurídico': [
     'abogado', 'abogada', 'abogados', 'legal', 'jurídico', 'juridico', 'derecho',
@@ -115,6 +126,9 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
     'repositor', 'despacho', 'inventario', 'bodega', 'empaque', 'producción',
     'produccion', 'planta', 'fábrica', 'fabrica', 'operario de', 'lider de equipo',
     'encargado de tienda', 'dependiente', 'vendedor de tienda', 'retail', 'tienda',
+    // "Data entry" es trabajo de digitación, no de datos/IT.
+    'data entry', 'digitación', 'digitacion', 'digitadora', 'captura de datos', 'entrada de datos',
+    'promotora', 'promotoras', 'promotores',
   ],
   'Arte / Diseño': [
     'diseñador', 'disenador', 'diseñadora', 'diseño', 'diseno', 'ilustrador',
@@ -130,6 +144,9 @@ const WEAK_CATEGORY_KEYWORDS: Record<string, string[]> = {
     'sistemas', 'data', 'datos', 'tech', 'tecnología', 'tecnologia', 'digital',
     'analista', 'soporte', 'técnico', 'tecnico', 'informática', 'informatica',
     'hardware', 'redes', 'ux', 'ui', 'web', 'apps', 'aplicaciones',
+    // Ambiguas fuera de IT: "base de datos de clientes", "servidores públicos",
+    // "código de vestimenta", "QA" de manufactura, "reparación de celulares Android".
+    'base de datos', 'bases de datos', 'servidores', 'código', 'codigo', 'qa', 'android', 'ios',
   ],
   'Ingeniería': ['proyectos', 'calidad', 'técnica', 'tecnica'],
   'Administrativo / Oficina': ['seguridad', 'producción', 'produccion', 'office', 'personal'],
@@ -207,6 +224,9 @@ function normalizeArea(area: string | undefined | null): string | null {
   return trimmed
 }
 
+/** Área que devuelve el clasificador cuando no reconoce ninguna (o hay empate). */
+export const GENERAL_CATEGORY = 'General / Otra'
+
 export function isVacancyInArea(
   vacancyCategory: string | undefined,
   profileArea: string | undefined | null,
@@ -214,7 +234,7 @@ export function isVacancyInArea(
 ): boolean {
   const areaName = normalizeArea(profileArea)
   if (!areaName) return true
-  if (!vacancyCategory || vacancyCategory === 'General / Otra') return !strict
+  if (!vacancyCategory || vacancyCategory === GENERAL_CATEGORY) return !strict
   return vacancyCategory.toLowerCase() === areaName.toLowerCase()
 }
 
@@ -255,7 +275,18 @@ const TITLE_MULTIPLIER = 3
 /** Puntuación mínima para asignar un área (≈ una palabra fuerte). */
 const MIN_CATEGORY_SCORE = 3
 
-function scoreText(text: string, cat: CompiledCategory): number {
+/**
+ * Quita enlaces antes de puntuar: en "https://empleosryp.blogspot.com/…/heladeria.html" el
+ * ".html" contaba como palabra fuerte de IT y cualquier oferta con enlace salía como Tecnología.
+ */
+const URL_RE = /\b(?:https?:\/\/|www\.)\S+|\b[\w-]+(?:\.[\w-]+)*\.(?:com|org|do|ly|gl|site|info|biz)(?:\.[a-z]{2})?(?:\/\S*)?/gi
+
+export function stripUrls(text: string): string {
+  return text.replace(URL_RE, ' ')
+}
+
+function scoreText(raw: string, cat: CompiledCategory): number {
+  const text = stripUrls(raw)
   let score = 0
   for (const re of cat.strong) score += countMatches(re, text) * STRONG_WEIGHT
   for (const re of cat.weak) score += countMatches(re, text) * WEAK_WEIGHT
@@ -264,20 +295,27 @@ function scoreText(text: string, cat: CompiledCategory): number {
 }
 
 /**
- * Clasifica el área de una vacante. El título pesa x3; si ninguna categoría supera
- * el mínimo o hay empate en cabeza → 'General / Otra' (antes el empate lo ganaba
- * siempre Tecnología por ser la primera de la lista).
+ * Áreas con la puntuación más alta (varias si empatan). Vacío si ninguna llega al mínimo.
+ * El título pesa x3.
  */
-export function classifyCategory(text: string, title?: string): string {
+export function topCategories(text: string, title?: string): string[] {
   const scores = getCompiledCategories().map((cat) => ({
     name: cat.name,
     score: scoreText(text, cat) + (title ? scoreText(title, cat) * (TITLE_MULTIPLIER - 1) : 0),
   }))
-  scores.sort((a, b) => b.score - a.score)
-  const [first, second] = scores
-  if (!first || first.score < MIN_CATEGORY_SCORE) return 'General / Otra'
-  if (second && second.score === first.score) return 'General / Otra'
-  return first.name
+  const max = Math.max(...scores.map((s) => s.score))
+  if (max < MIN_CATEGORY_SCORE) return []
+  return scores.filter((s) => s.score === max).map((s) => s.name)
+}
+
+/**
+ * Clasifica el área de una vacante. Si ninguna categoría supera el mínimo o hay empate
+ * en cabeza → 'General / Otra' (antes el empate lo ganaba siempre Tecnología por ser la
+ * primera de la lista).
+ */
+export function classifyCategory(text: string, title?: string): string {
+  const top = topCategories(text, title)
+  return top.length === 1 ? top[0] : GENERAL_CATEGORY
 }
 
 // ── ¿Es realmente una oferta de empleo? ──
@@ -323,8 +361,10 @@ const DM_CONTACT_RE =
 /**
  * Versión del detector. Al cambiarla, los mensajes ya revisados y descartados se vuelven
  * a evaluar una vez (antes quedaban marcados para siempre aunque el detector mejorase).
+ * v4: whatsapp-web.js 1.34.7 no podía descargar imágenes desde la actualización de WhatsApp
+ * Web (id._serialized → id.$1) y los flyers quedaban marcados como revisados sin OCR.
  */
-export const DETECTOR_VERSION = 3
+export const DETECTOR_VERSION = 4
 
 /** Mensaje "dudoso": tiene pinta de oferta pero la heurística no basta para confirmarla. */
 export function isVacancyCandidate(text: string): boolean {
@@ -337,7 +377,7 @@ export function isVacancyCandidate(text: string): boolean {
 }
 
 /** Áreas válidas que puede devolver el clasificador (para la IA). */
-export const VACANCY_CATEGORIES = [...Object.keys(CATEGORY_KEYWORDS), 'General / Otra']
+export const VACANCY_CATEGORIES = [...Object.keys(CATEGORY_KEYWORDS), GENERAL_CATEGORY]
 
 /**
  * Extrae un teléfono de contacto del texto de una vacante (para enviar el CV por WhatsApp).

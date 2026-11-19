@@ -1,4 +1,6 @@
 import type { Message, Profile, InvestigateResult, JobApplication, Roadmap, UsageStats } from '../../shared/types'
+import { profileForPrompt } from '../utils/profile-for-prompt'
+import { postCompletion } from './reasoning'
 
 const DEFAULT_MAX_INPUT_TOKENS = 32768
 const ESTIMATE_FACTOR = 4
@@ -216,7 +218,7 @@ function buildSystemPrompt(userPrompt?: string, profile?: Profile | null): strin
 ## PERFIL PROFESIONAL
 
 \`\`\`json
-${JSON.stringify(profile, null, 2)}
+${JSON.stringify(profileForPrompt(profile), null, 2)}
 \`\`\`
 
 Cuando te pregunten sobre tu experiencia, proyectos, educación o habilidades, responde SIEMPRE en PRIMERA PERSONA (Yo / Mi / Me) usando la información de este perfil. No inventes datos que no estén aquí.`)
@@ -240,12 +242,7 @@ async function fetchCompletion(
   if (temperature !== undefined) body.temperature = temperature
   if (tools && tools.length > 0) body.tools = tools
 
-  return fetch(`${config.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body),
-    signal,
-  })
+  return postCompletion(`${config.baseUrl.replace(/\/+$/, '')}/chat/completions`, headers, body, signal)
 }
 
 export async function streamChatCompletion(
