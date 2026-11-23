@@ -8,7 +8,7 @@ AI Desktop Assistant — Chat + Job Application Hub (Electron app).
 - `vite-plugin-electron` v1.1.0: Electron entry (`src/main/main.ts`) built alongside the renderer; main-process deps stay external via the `notBundle()` plugin. Preload is a plain `.js` file copied directly (not built).
 - `electron-builder` 26 + `electron-updater`: distributables (NSIS / AppImage / dmg) published to GitHub (`jeffersonRBatistaV/Aplica`), output dir `release/`
 - TypeScript: `strict`, `moduleResolution: "bundler"`, paths `@shared/*` → `src/shared/*`, `@renderer/*` → `src/renderer/*`
-- Runtime deps of note: `i18next` + `react-i18next` + `i18next-browser-languagedetector` (es/en), `tesseract.js` (OCR), `xlsx` (data export/import), `driver.js` (onboarding tutorial), `react-markdown` + `remark-gfm` + `highlight.js` + `marked` (markdown rendering), `jimp`, `lucide-react`, `nodemailer` (SMTP email), `@mozilla/readability` + `turndown` (+ `turndown-plugin-gfm`) + `jsdom` (web content extraction)
+- Runtime deps of note: `i18next` + `react-i18next` + `i18next-browser-languagedetector` (es/en), `tesseract.js` (OCR), `xlsx` (data export/import), `driver.js` (onboarding tutorial), `react-markdown` + `remark-gfm` + `highlight.js` + `marked` (markdown rendering), `jimp`, `lucide-react`, `nodemailer` (SMTP email), `pdf-lib` (appends certificate pages to CV PDFs), `@mozilla/readability` + `turndown` (+ `turndown-plugin-gfm`) + `jsdom` (web content extraction)
 
 ## Commands
 
@@ -113,7 +113,7 @@ All storage is file-based JSON (no database), in `{userData}/data/`:
 - `profiles.json` (all profiles + `activeId`), `settings.json`, `cv-templates.json`, `device-id.txt`
 
 **Per-profile** in `{userData}/data/profiles-data/{profileId}/`:
-- `chats.json`, `jobs.json`, `usage.json`, `career-advice.json`, `roadmap.json`, `roadmap-goal.json` (the user's "norte", survives regeneration), `categories.json`, `folders.json`, `cv-versions.json`, `email-config.json`, `whatsapp.json`
+- `chats.json`, `jobs.json`, `usage.json`, `career-advice.json`, `roadmap.json`, `roadmap-goal.json` (the user's "norte", survives regeneration), `categories.json`, `folders.json`, `cv-versions.json`, `email-config.json`, `whatsapp.json`, `certificates.json` + `certificates/` (uploaded certificate PDFs/images)
 
 WhatsApp session (`{userData}/whatsapp-session`, LocalAuth) is **global** (one phone = one device), not per-profile.
 
@@ -135,7 +135,7 @@ Channels grouped in `src/main/ipc/index.ts`, exposed in `src/preload/preload.js`
 - **llm**: chat, abort, listModels
 - **investigate**: query, health, discover
 - **whatsapp**: status/connect/disconnect/getGroups/scan/getQueue/markImported/getConfig/setConfig/send (`whatsapp:send`: text + PDF document to a phone; used by CVGenerator when the job has `recipientPhone`) — events `whatsapp:event` (`status` | `vacancy` | `phase`)
-- **email**: presets, test, send — via `email:presets`/`email:test`/`email:send`
+- **certificates**: list/add/update/delete (`certificates:*`; `add` opens the file dialog in main). `cv:downloadPdf` / `cv:renderPdfBase64` accept `{ includeCertificates }` to append one A4 page per checked certificate (`certificate-service.ts`) — via `email:presets`/`email:test`/`email:send`
 - **data**: exportAll, saveExportFile (JSON | XLSX), importFromFile, processImportData
 - **other**: usage, currency, clipboard (incl. image), OCR (`ocr:imageToText`), update download/install, `system:getTheme` + change events, `app:getVersion`
 
@@ -155,6 +155,7 @@ OpenAI-compatible chat completions API, default endpoint `http://localhost:11434
 - **Preload is plain JS**: `src/preload/preload.js` is plain CJS (no TypeScript), copied to `dist-electron/preload.cjs` by the custom `copy-preload` Vite plugin (watched in dev). Building it through `vite-plugin-electron`'s `entry` fails (esbuild wraps CJS in ESM `__commonJS` + `export default` → `SyntaxError: Cannot use import statement outside a module` in a `.cjs` file).
 - **Email config lives per-profile, not in settings**: stored in `profiles-data/{id}/email-config.json`. `AppSettings.emailConfig` is a legacy field that `migrateLegacyEmailConfig()` removes on startup — don't reintroduce it.
 - **`type: 'single'` questions store arrays**: despite being single-select, wizard answers are `string[]` (e.g., `['Frontend']`). `buildProfile` handles both via `firstString()`/`Array.isArray()`. Apply `setAnswer(q.id, [opt])`, not a raw string.
+- **CV PDFs are one A4 page**: `renderCvPdf` (`cv-pdf.ts`) zooms `.cv-content` down to fit (min 0.8) and prints with `pageRanges: '1'`; only if it still overflows does it allow a 2nd page (never truncates). The interview PDF (`'entrevista'`) is exempt. Seed CV templates are print documents — no chips/cards/gradients; bump `SEED_VERSION` when changing them.
 - **No lint/typecheck in CI**: the only verification is `npm run build`. Type errors aren't caught unless asked for (`npx tsc --noEmit`).
 - **Question data is purely in `src/renderer/data/questions.ts`**: adding an area/option requires editing that file and the `buildProfile` logic in `ProfileWizard.tsx`.
 - **i18n**: fallback language is `en`, detected from localStorage key `i18nextLng`. New UI strings must be added to both `src/renderer/i18n/es.json` and `en.json`.

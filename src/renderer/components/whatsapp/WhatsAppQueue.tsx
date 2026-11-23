@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Inbox, Briefcase, Loader2, Building2, Image, Mail, MessageCircle, Phone, Link2, Trash2, X } from 'lucide-react'
+import { Inbox, Briefcase, Loader2, Building2, Image, Mail, MessageCircle, Phone, Link2, Trash2, X, Send } from 'lucide-react'
+import { WhatsAppBulkSend } from './WhatsAppBulkSend'
 import type { WhatsAppVacancy } from '../../../shared/types'
 import { useNavigation } from '../../contexts/AppContext'
 import { useNotification } from '../../contexts/NotificationContext'
@@ -33,6 +34,8 @@ export function WhatsAppQueue({ vacancies, onImported }: WhatsAppQueueProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [confirmBulk, setConfirmBulk] = useState(false)
   const [expandedSnippet, setExpandedSnippet] = useState<Set<string>>(new Set())
+  // Vacantes fijadas al abrir el envío: la lista no cambia aunque la cola se refresque durante el envío.
+  const [bulkVacancies, setBulkVacancies] = useState<WhatsAppVacancy[] | null>(null)
 
   const targetType = (gid: string): 'group' | 'channel' => (gid.endsWith('@newsletter') ? 'channel' : 'group')
   const matchesContact = (v: WhatsAppVacancy): boolean => {
@@ -205,10 +208,14 @@ export function WhatsAppQueue({ vacancies, onImported }: WhatsAppQueueProps) {
       </div>
 
       {selectedIds.size > 0 && (
-        <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800">
-          <span className="text-xs font-medium text-red-700 dark:text-red-300 flex-1">
+        <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 flex-wrap">
+          <span className="text-xs font-medium text-gray-700 dark:text-gray-300 flex-1">
             {t('whatsapp.selectedCount', { count: selectedIds.size })}
           </span>
+          <Button size="sm" variant="primary" onClick={() => setBulkVacancies(vacancies.filter((v) => selectedIds.has(v.id)))} title={t('whatsapp.bulk.buttonHint')}>
+            <Send className="w-3.5 h-3.5" />
+            {t('whatsapp.bulk.button')}
+          </Button>
           <Button size="sm" variant="secondary" onClick={() => setConfirmBulk(true)}>
             <Trash2 className="w-3.5 h-3.5" />
             {t('whatsapp.deleteSelected')}
@@ -380,6 +387,17 @@ export function WhatsAppQueue({ vacancies, onImported }: WhatsAppQueueProps) {
         }}
         onCancel={() => setDeletingId(null)}
       />
+
+      {bulkVacancies && bulkVacancies.length > 0 && (
+        <WhatsAppBulkSend
+          vacancies={bulkVacancies}
+          onClose={() => setBulkVacancies(null)}
+          onFinished={() => {
+            setSelectedIds(new Set())
+            onImported()
+          }}
+        />
+      )}
 
       <ConfirmDialog
         open={confirmBulk}

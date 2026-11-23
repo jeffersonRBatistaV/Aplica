@@ -20,6 +20,9 @@ import { testEmailConnection, sendEmail, SMTP_PRESETS } from '../services/email-
 import type { BrowserAgentEvent, BrowserFillEntry, EmailConfig, EmailPayload } from '../../shared/types'
 import { getSeedTemplates, upgradeSeedTemplates, wrapHtml } from '../services/cv-templates-seed'
 import { renderCvPdf } from '../services/cv-pdf'
+import type { RenderCvOptions } from '../services/cv-pdf'
+import { listCertificates, addCertificates, updateCertificate, deleteCertificate, CERTIFICATE_EXTENSIONS } from '../services/certificate-service'
+import type { CertificateFile } from '../../shared/types'
 import { searchLinkedInJobs, fetchLinkedInJob } from '../services/linkedin-service'
 import { findJobsForProfile } from '../services/job-finder'
 import { getAutomationConfig, saveAutomationConfig } from '../services/automation-service'
@@ -970,12 +973,12 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
   })
 
   // ── CV Download as PDF ──
-  safeHandle('cv:downloadPdf', async (_event, htmlContent: string, styleName: string): Promise<string | null> => {
+  safeHandle('cv:downloadPdf', async (_event, htmlContent: string, styleName: string, opts?: RenderCvOptions): Promise<string | null> => {
     const { dialog, shell } = await import('electron')
     const fs = await import('fs/promises')
 
     try {
-      const pdfBuffer = await renderCvPdf(htmlContent, styleName)
+      const pdfBuffer = await renderCvPdf(htmlContent, styleName, { includeCertificates: !!opts?.includeCertificates })
       const isInterview = styleName === 'entrevista'
       const { filePath, canceled } = await dialog.showSaveDialog({
         title: isInterview ? 'Guardar PDF' : 'Guardar CV',
@@ -992,14 +995,31 @@ export function registerAllHandlers(mainWindow: BrowserWindow): void {
   })
 
   // ── CV Render PDF in memory (base64) for email attachments ──
-  safeHandle('cv:renderPdfBase64', async (_event, htmlContent: string, styleName: string): Promise<string | null> => {
+  safeHandle('cv:renderPdfBase64', async (_event, htmlContent: string, styleName: string, opts?: RenderCvOptions): Promise<string | null> => {
     try {
-      const pdfBuffer = await renderCvPdf(htmlContent, styleName)
+      const pdfBuffer = await renderCvPdf(htmlContent, styleName, { includeCertificates: !!opts?.includeCertificates })
       return pdfBuffer.toString('base64')
     } catch {
       return null
     }
   })
+
+  // ── Certificados (PDF/imagen) anexos al CV, por perfil ──
+  safeHandle('certificates:list', async (): Promise<CertificateFile[]> => listCertificates())
+  safeHandle('certificates:add', async (): Promise<{ certificates: CertificateFile[]; rejected: string[] } | null> => {
+    const { dialog } = await import('electron')
+    const { filePaths, canceled } = await dialog.showOpenDialog(mainWindow, {
+      title: 'Agregar certificados',
+      properties: ['openFile', 'multiSelections'],
+      filters: [{ name: 'PDF o imagen', extensions: CERTIFICATE_EXTENSIONS }],
+    })
+    if (canceled || filePaths.length === 0) return null
+    return addCertificates(filePaths)
+  })
+  safeHandle('certificates:update', async (_event, id: string, patch: { name?: string; includeInCv?: boolean }): Promise<CertificateFile[]> =>
+    updateCertificate(String(id), patch ?? {}),
+  )
+  safeHandle('certificates:delete', async (_event, id: string): Promise<CertificateFile[]> => deleteCertificate(String(id)))
 
   // ── Navegador integrado ──
   safeHandle('browser:getState', async () => getBrowserState())

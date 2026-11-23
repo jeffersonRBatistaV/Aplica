@@ -59,6 +59,18 @@ export interface EmailPayload {
   attachments?: EmailAttachment[]
 }
 
+/** Archivo de certificado (PDF o imagen) del perfil; se anexa como página extra al PDF del CV. */
+export interface CertificateFile {
+  id: string
+  /** Nombre visible (por defecto, el nombre del archivo sin extensión). */
+  name: string
+  mime: 'application/pdf' | 'image/png' | 'image/jpeg' | 'image/webp'
+  /** Nombre del archivo dentro de la carpeta `certificates/` del perfil. */
+  filename: string
+  addedAt: number
+  includeInCv: boolean
+}
+
 export interface EmailResult {
   ok: boolean
   error?: string

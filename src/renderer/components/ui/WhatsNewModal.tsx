@@ -2,6 +2,14 @@ import { Sparkles, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 const CHANGELOG: Record<string, { title: string; items: string[] }> = {
+  '1.4.0': {
+    title: 'Aplica 1.4.0',
+    items: [
+      'Certificados en tu CV: sube el PDF o la imagen de cada certificado en tu perfil y se anexan al CV, una pagina por certificado',
+      'Plantillas de CV redisenadas: las 15 plantillas ahora se ven como CVs reales, con letra legible y siempre en una sola pagina',
+      'WhatsApp: envia tu CV por correo o WhatsApp a varias vacantes seleccionadas a la vez, con un mensaje editable y el estilo de tu automatizacion',
+    ],
+  },
   '1.3.0': {
     title: 'Aplica 1.3.0',
     items: [

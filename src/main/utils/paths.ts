@@ -75,6 +75,15 @@ export function profileBrowserFile(profileId: string): string {
   return path.join(profileScopeDir(profileId), 'browser.json')
 }
 
+/** Archivos de certificados (PDF/imagen) que se anexan al CV. */
+export function profileCertificatesDir(profileId: string): string {
+  return path.join(profileScopeDir(profileId), 'certificates')
+}
+
+export function profileCertificatesFile(profileId: string): string {
+  return path.join(profileScopeDir(profileId), 'certificates.json')
+}
+
 export const WHATSAPP_SESSION_DIR = path.join(DATA_DIR, 'whatsapp-session')
 
 export function profileWhatsAppFile(profileId: string): string {

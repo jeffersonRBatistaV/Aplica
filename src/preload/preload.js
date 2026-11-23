@@ -98,8 +98,14 @@ const api = {
 
   // ── CV ──
   generateSummaryOptions: (vacancyText, atsReport) => ipcRenderer.invoke('cv:generateSummaryOptions', vacancyText, atsReport),
-  downloadCvPdf: (htmlContent, styleName) => ipcRenderer.invoke('cv:downloadPdf', htmlContent, styleName),
-  renderCvPdfBase64: (htmlContent, styleName) => ipcRenderer.invoke('cv:renderPdfBase64', htmlContent, styleName),
+  downloadCvPdf: (htmlContent, styleName, opts) => ipcRenderer.invoke('cv:downloadPdf', htmlContent, styleName, opts),
+  renderCvPdfBase64: (htmlContent, styleName, opts) => ipcRenderer.invoke('cv:renderPdfBase64', htmlContent, styleName, opts),
+
+  // ── Certificados anexos al CV ──
+  listCertificates: () => ipcRenderer.invoke('certificates:list'),
+  addCertificates: () => ipcRenderer.invoke('certificates:add'),
+  updateCertificate: (id, patch) => ipcRenderer.invoke('certificates:update', id, patch),
+  deleteCertificate: (id) => ipcRenderer.invoke('certificates:delete', id),
   regenerateCV: (params) => ipcRenderer.invoke('job:regenerateCV', params),
   generateCV: (vacancyText, atsReport, style, customPrompt, chosenSummary) => ipcRenderer.invoke('job:generateCV', vacancyText, atsReport, style, customPrompt, chosenSummary),
 

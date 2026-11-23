@@ -10,6 +10,7 @@ import type { ATSReport, CvTemplate, CvVersion, EmailConfig } from '../../../sha
 import { friendlyMessage } from '../../lib/friendly-error'
 import { getShowAdvanced } from '../../lib/ui-prefs'
 import { TemplateDesigner } from './TemplateDesigner'
+import { useCertificates } from '../profile/CertificateFiles'
 
 interface SummaryOption {
   id: string
@@ -97,6 +98,11 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
   const editRef = useRef<HTMLDivElement>(null)
   const lastEditedHtmlRef = useRef<string>('')
   const [editMode, setEditMode] = useState(false)
+  // Certificados del perfil marcados para anexar (una página extra por certificado).
+  const certificates = useCertificates()
+  const certCount = certificates.filter((c) => c.includeInCv).length
+  const [attachCerts, setAttachCerts] = useState(true)
+  const pdfOpts = { includeCertificates: attachCerts && certCount > 0 }
 
   const [customTemplates, setCustomTemplates] = useState<CvTemplate[]>([])
   // Las plantillas seed-ats/moderno/tradicional ya se muestran como estilos integrados.
@@ -175,7 +181,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
     setWaResult(null)
     try {
       if (waPhone.trim() !== (recipientPhone || '').trim()) onPhoneChange?.(waPhone.trim())
-      const pdfBase64 = await window.api.renderCvPdfBase64(withPhoto(content), selectedStyle || 'ats')
+      const pdfBase64 = await window.api.renderCvPdfBase64(withPhoto(content), selectedStyle || 'ats', pdfOpts)
       if (!pdfBase64) {
         setWaResult({ ok: false, message: t('sendCv.pdfError') })
         return
@@ -261,7 +267,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
       const config = buildCfgConfig()
       await updateSettings({ emailConfig: config })
 
-      const pdfBase64 = await window.api.renderCvPdfBase64(withPhoto(content), selectedStyle || 'ats')
+      const pdfBase64 = await window.api.renderCvPdfBase64(withPhoto(content), selectedStyle || 'ats', pdfOpts)
       if (!pdfBase64) {
         setSendResult({ ok: false, message: t('sendCv.pdfError') })
         return
@@ -515,12 +521,19 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const certToggle = certCount > 0 ? (
+    <label className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 cursor-pointer shrink-0" title={t('cvGenerator.attachCertsHint')}>
+      <input type="checkbox" checked={attachCerts} onChange={(e) => setAttachCerts(e.target.checked)} />
+      {t('cvGenerator.attachCerts', { count: certCount })}
+    </label>
+  ) : null
+
   const handleDownloadPdf = async () => {
     if (!window.api || downloading) return
     setDownloading(true)
     setSavedPath(null)
     try {
-      const path = await window.api.downloadCvPdf(withPhoto(content), selectedStyle!)
+      const path = await window.api.downloadCvPdf(withPhoto(content), selectedStyle!, pdfOpts)
       if (path) setSavedPath(path)
     } catch (err) {
       const msg = err instanceof Error ? friendlyMessage(err) : t('cvGenerator.errorDownloading')
@@ -911,6 +924,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
                   {t('sendCvWhatsapp.sendButton')}
                 </Button>
               )}
+              {certToggle}
               <Button variant="primary" size="sm" onClick={handleDownloadPdf} disabled={downloading}>
                 {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                 {downloading ? t('cvGenerator.generatingPdf') : t('cvGenerator.download')}
@@ -1162,6 +1176,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
                 <FileText className="w-4 h-4 text-gray-400 shrink-0" />
                 <span className="text-sm text-gray-700 dark:text-gray-300 flex-1">CV.pdf</span>
                 <span className="text-xs text-gray-400">{t('sendCv.attachment')}</span>
+                    {certToggle}
               </div>
 
               {waResult && (
@@ -1330,6 +1345,7 @@ export function CVGenerator({ vacancyText, atsReport, currentStyle, currentConte
                     <FileText className="w-4 h-4 text-gray-400 shrink-0" />
                     <span className="text-sm text-gray-700 dark:text-gray-300 flex-1">CV.pdf</span>
                     <span className="text-xs text-gray-400">{t('sendCv.attachment')}</span>
+                    {certToggle}
                   </div>
                 </>
               )}

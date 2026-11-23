@@ -1,4 +1,4 @@
-import type { Conversation, AppSettings, StreamParams, Profile, JobApplication, ATSReport, CvTemplate, InterviewQuestion, UsageStats, ImportResult, Roadmap, RoadmapGoal, JobCategory, InvestigateResult, CvVersion, EmailConfig, EmailPayload, EmailPreset, EmailResult, WhatsAppConfig, WhatsAppGroup, WhatsAppScanResult, WhatsAppStatus, WhatsAppVacancy, LinkedInJob, LinkedInJobDetail, FoundJob, JobFinderOptions, JobFinderProgress, AutomationConfig, BrowserAgentEvent, BrowserAttachResult, BrowserCvOption, BrowserFillEntry, BrowserFillResult, BrowserPageSnapshot, BrowserState, FollowUpDraft } from '../../shared/types'
+import type { CertificateFile, Conversation, AppSettings, StreamParams, Profile, JobApplication, ATSReport, CvTemplate, InterviewQuestion, UsageStats, ImportResult, Roadmap, RoadmapGoal, JobCategory, InvestigateResult, CvVersion, EmailConfig, EmailPayload, EmailPreset, EmailResult, WhatsAppConfig, WhatsAppGroup, WhatsAppScanResult, WhatsAppStatus, WhatsAppVacancy, LinkedInJob, LinkedInJobDetail, FoundJob, JobFinderOptions, JobFinderProgress, AutomationConfig, BrowserAgentEvent, BrowserAttachResult, BrowserCvOption, BrowserFillEntry, BrowserFillResult, BrowserPageSnapshot, BrowserState, FollowUpDraft } from '../../shared/types'
 
 export interface UpdateInfo {
   version: string
@@ -51,12 +51,12 @@ export interface ElectronAPI {
   getSettings: () => Promise<AppSettings | null>
   setSettings: (settings: AppSettings) => Promise<void>
 
-  // Investigación en línea
+  // InvestigaciÃ³n en lÃ­nea
   investigate: (userQuery: string, country: string, language: string) => Promise<InvestigateResult>
   investigateHealth: () => Promise<{ ok: boolean; message: string }>
   investigateDiscover: () => Promise<{ baseUrl: string; found: boolean; message: string }>
 
-  // WhatsApp (detección de vacantes)
+  // WhatsApp (detecciÃ³n de vacantes)
   whatsappStatus: () => Promise<WhatsAppStatusEvent>
   whatsappConnect: () => Promise<WhatsAppStatusEvent>
   whatsappDisconnect: () => Promise<void>
@@ -112,8 +112,12 @@ export interface ElectronAPI {
 
   // CV
   generateSummaryOptions: (vacancyText: string, atsReport: ATSReport | null) => Promise<{ id: string; label: string; summary: string }[]>
-  downloadCvPdf: (htmlContent: string, styleName: string) => Promise<string | null>
-  renderCvPdfBase64: (htmlContent: string, styleName: string) => Promise<string | null>
+  downloadCvPdf: (htmlContent: string, styleName: string, opts?: { includeCertificates?: boolean }) => Promise<string | null>
+  renderCvPdfBase64: (htmlContent: string, styleName: string, opts?: { includeCertificates?: boolean }) => Promise<string | null>
+  listCertificates: () => Promise<CertificateFile[]>
+  addCertificates: () => Promise<{ certificates: CertificateFile[]; rejected: string[] } | null>
+  updateCertificate: (id: string, patch: { name?: string; includeInCv?: boolean }) => Promise<CertificateFile[]>
+  deleteCertificate: (id: string) => Promise<CertificateFile[]>
   generateCV: (vacancyText: string, atsReport: ATSReport | null, style: string, customPrompt?: string, chosenSummary?: string) => Promise<string>
   regenerateCV: (params: {
     currentCv: string
@@ -141,7 +145,7 @@ export interface ElectronAPI {
   getAutomationConfig: () => Promise<AutomationConfig>
   saveAutomationConfig: (config: Partial<AutomationConfig>) => Promise<AutomationConfig>
 
-  // Job Categories (CV por categoría)
+  // Job Categories (CV por categorÃ­a)
   getCategories: (areaId?: string) => Promise<JobCategory[]>
   saveCategory: (category: JobCategory) => Promise<JobCategory[]>
   deleteCategory: (id: string) => Promise<JobCategory[]>

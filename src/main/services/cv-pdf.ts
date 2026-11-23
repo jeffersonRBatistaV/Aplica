@@ -1,6 +1,7 @@
 import { BrowserWindow } from 'electron'
 import type { Profile } from '../../shared/types'
 import { getActiveProfile } from './profile-scope'
+import { appendCertificatesToPdf } from './certificate-service'
 
 const PHOTO_TOKEN = '{{FOTO-PERFIL}}'
 
@@ -13,20 +14,61 @@ async function resolvePhotoToken(bodyHtml: string): Promise<string> {
   return bodyHtml.replace(/<img\b[^>]*\{\{FOTO-PERFIL\}\}[^>]*>/gi, '')
 }
 
-/** Renderiza un CV (HTML) a un buffer PDF de una página A4 usando una ventana oculta. */
-export async function renderCvPdf(bodyHtml: string, styleName: string): Promise<Buffer> {
+/** Reducción mínima permitida al ajustar un CV largo a una sola página. */
+const MIN_FIT_ZOOM = 0.8
+
+/**
+ * Script que se ejecuta en la ventana oculta: si el CV no cabe en una hoja A4,
+ * reduce `.cv-content` con zoom proporcional (nunca por debajo de MIN_FIT_ZOOM).
+ * Devuelve si el resultado cabe en una hoja.
+ */
+const FIT_ONE_PAGE_SCRIPT = `(() => {
+  const el = document.querySelector('.cv-content');
+  if (!el) return true;
+  const pageH = 297 * 96 / 25.4;
+  const h = el.getBoundingClientRect().height;
+  if (h <= pageH) return true;
+  const z = Math.max(${MIN_FIT_ZOOM}, Math.floor((pageH / h) * 1000) / 1000);
+  el.style.zoom = String(z);
+  return el.getBoundingClientRect().height <= pageH + 1;
+})()`
+
+export interface RenderCvOptions {
+  /** Anexa una página por cada certificado marcado con "incluir en CV". */
+  includeCertificates?: boolean
+}
+
+/**
+ * Renderiza un CV (HTML) a PDF usando una ventana oculta. El CV ocupa siempre una
+ * sola hoja A4 (se reduce si hace falta) y, opcionalmente, lleva detrás una página
+ * por certificado. El PDF de preguntas de entrevista ('entrevista') no se limita.
+ */
+export async function renderCvPdf(bodyHtml: string, styleName: string, opts: RenderCvOptions = {}): Promise<Buffer> {
+  const isCv = styleName !== 'entrevista'
   const html = buildCvHtml(await resolvePhotoToken(bodyHtml), styleName)
-  const pdfWindow = new BrowserWindow({ show: false, width: 800, height: 1056, webPreferences: { sandbox: false } })
+  const pdfWindow = new BrowserWindow({ show: false, width: 794, height: 1123, webPreferences: { sandbox: false } })
+  let pdf: Buffer
   try {
     await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
-    return await pdfWindow.webContents.printToPDF({
+    // Si ni con el zoom mínimo cabe, no se corta: preferible una 2ª hoja a perder contenido.
+    const fitsOnePage = isCv && (await pdfWindow.webContents.executeJavaScript(FIT_ONE_PAGE_SCRIPT).catch(() => false)) === true
+    pdf = await pdfWindow.webContents.printToPDF({
       printBackground: true,
       margins: { top: 0, bottom: 0, left: 0, right: 0 },
       pageSize: 'A4',
+      ...(fitsOnePage ? { pageRanges: '1' } : {}),
     })
   } finally {
     pdfWindow.close()
   }
+  if (isCv && opts.includeCertificates) {
+    try {
+      pdf =await appendCertificatesToPdf(pdf)
+    } catch {
+      // Si falla el anexo, se entrega el CV solo.
+    }
+  }
+  return pdf
 }
 
 export function buildCvHtml(bodyHtml: string, styleName: string): string {

@@ -26,6 +26,8 @@ import {
   profileWhatsAppFile,
   profileAutomationFile,
   profileBrowserFile,
+  profileCertificatesDir,
+  profileCertificatesFile,
 } from '../utils/paths'
 import { getActiveProfileId } from './profile-scope'
 import type { AppSettings, EmailConfig } from '../../shared/types'
@@ -43,6 +45,8 @@ export interface ActiveProfileFiles {
   whatsappFile: string
   automationFile: string
   browserFile: string
+  certificatesFile: string
+  certificatesDir: string
 }
 
 const SCOPED_FILE_NAMES = [
@@ -74,6 +78,8 @@ export async function getActiveProfileFiles(): Promise<ActiveProfileFiles> {
       whatsappFile: profileWhatsAppFile(pid),
       automationFile: profileAutomationFile(pid),
       browserFile: profileBrowserFile(pid),
+      certificatesFile: profileCertificatesFile(pid),
+      certificatesDir: profileCertificatesDir(pid),
     }
   }
   return {
@@ -89,6 +95,8 @@ export async function getActiveProfileFiles(): Promise<ActiveProfileFiles> {
     whatsappFile: path.join(DATA_DIR, 'whatsapp.json'),
     automationFile: path.join(DATA_DIR, 'automation.json'),
     browserFile: BROWSER_FILE,
+    certificatesFile: path.join(DATA_DIR, 'certificates.json'),
+    certificatesDir: path.join(DATA_DIR, 'certificates'),
   }
 }
 

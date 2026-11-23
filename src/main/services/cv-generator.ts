@@ -2,6 +2,7 @@ import type { ATSReport, Profile, AppSettings, CvTemplate } from '../../shared/t
 import { completeChatCompletion } from './llm-service'
 import { readJSON } from './storage'
 import { CV_TEMPLATES_FILE, SETTINGS_FILE } from '../utils/paths'
+import { getSeedTemplates } from './cv-templates-seed'
 
 const LANGUAGE_INSTRUCTION = '\n\nIMPORTANTE: Responde SIEMPRE en el MISMO IDIOMA en el que está escrita la vacante. Si la vacante está en inglés, responde en inglés. Si está en español, responde en español. Si está en otro idioma, responde en ese mismo idioma.'
 
@@ -16,7 +17,7 @@ function stripPhoto(profile: Profile): Profile {
   return (hasPhoto ? { ...rest, tieneFoto: true } : rest) as Profile
 }
 
-const PHOTO_INSTRUCTION = `\n\nREGLA DE FOTO DE PERFIL:- Si el perfil del candidato tiene foto (campo "tieneFoto": true), incluye la foto como una etiqueta <img> con src EXACTAMENTE igual a este token: {{FOTO-PERFIL}}. La etiqueta debe tener estilo circular (border-radius: 50%), borde blanco, entre 18mm y 24mm de diámetro, y quedar alineada arriba a la derecha de la cabecera del CV (usa float: right si es necesario, con márgenes pequeños).- El token {{FOTO-PERFIL}} es OBLIGATORIO como valor de src: el sistema lo reemplazará por la foto real del candidato. NUNCA inventes otra URL, uses placeholders tipo [foto], rutas locales ni imágenes de relleno.- Si el perfil NO tiene foto, NO incluyas ninguna etiqueta <img> ni ninguna caja/placeholder de foto en el CV.- NO uses emojis ni texto alternativo inventado: si incluyes alt, usa el nombre real del candidato.`
+const PHOTO_INSTRUCTION = `\n\nREGLA DE FOTO DE PERFIL:- Si el perfil del candidato tiene foto (campo "tieneFoto": true), incluye la foto como una etiqueta <img> con src EXACTAMENTE igual a este token: {{FOTO-PERFIL}}. Colócala donde indique el formato de la plantilla; si el formato no la incluye, ponla circular (border-radius: 50%), de 24mm a 30mm de diámetro, a la derecha de la cabecera usando un contenedor flex (nunca float ni position).- El token {{FOTO-PERFIL}} es OBLIGATORIO como valor de src: el sistema lo reemplazará por la foto real del candidato. NUNCA inventes otra URL, uses placeholders tipo [foto], rutas locales ni imágenes de relleno.- Si el perfil NO tiene foto, NO incluyas ninguna etiqueta <img> ni ninguna caja/placeholder de foto en el CV.- NO uses emojis ni texto alternativo inventado: si incluyes alt, usa el nombre real del candidato.`
 
 const LAYOUT_RULES = `
 
@@ -26,10 +27,11 @@ REGLAS ANTI-ALUCINACION (OBLIGATORIAS, tienen PRIORIDAD ABSOLUTA):
 3. PROHIBICION DE ADAPTACION A LA VACANTE: La vacante puede pedir tecnologias o habilidades (ej. "experiencia en OBS Studio", "manejo de equipos audiovisuales", "conocimiento de Python") que el candidato NO tiene en su perfil. NUNCA las incluyas en el CV ni las disfraces con frases como "disponible para aprender", "habil para aprender rapidamente", "familiarizado con", "conocimientos basicos de" o similares. Si una habilidad no esta en el JSON del perfil, NO se menciona en el CV, ni siquiera como disposicion a aprenderla. El CV solo refleja lo que el candidato ya sabe y ha hecho.
 4. CERO JUSTIFICACIONES: No escribas notas, parentesis, aclaraciones ni meta-comentarios en el CV (ej. "(no tengo experiencia en esto)", "aunque la vacante pida..."). Si no puedes afirmar algo con los datos del perfil, simplemente no lo escribas.
 
-REGLAS DE TIPOGRAFIA Y MARGENES (tienen PRIORIDAD sobre cualquier tamaño mostrado en el ejemplo de formato):
-- Cuerpo del CV: 9.5pt maximo. Nombre (h1): 16pt maximo. Titulos de seccion (h2): 11pt maximo. Subtitulos: 10pt maximo. Detalles y fechas: 8.5pt maximo.
-- Usa SIEMPRE una tipografia compacta: el texto debe verse visiblemente mas pequeno que un documento normal, equivalente a reducir 2px cada tamano.
-- Todo el contenido debe caber en una hoja A4 con margenes de 10mm arriba/abajo y 12mm a los costados: el ancho util maximo es 186mm. NADA puede sobresalir horizontalmente.
+REGLAS DE TIPOGRAFIA Y EXTENSION (respeta los tamaños del formato; estos son los límites):
+- Tamaños de un CV real: cuerpo 10pt (nunca menos de 9.5pt), nombre (h1) 20-24pt, titulos de seccion (h2) 10.5-11.5pt, fechas, ciudades y detalles 9-9.5pt.
+- El CV ocupa EXACTAMENTE UNA hoja A4. Para que quepa, prioriza lo más relevante para la vacante: máximo 3-4 viñetas en los empleos recientes, 1-2 en los antiguos, y omite empleos muy antiguos o irrelevantes antes que reducir la letra.
+- Es un documento impreso, no una página web: sin chips, píldoras, tarjetas redondeadas, sombras, degradados ni fondos de color en bloques de contenido.
+- Ancho útil máximo: 190mm (márgenes de 10mm). NADA puede sobresalir horizontalmente.
 - PROHIBIDO: width o min-width fijos en mm/px que excedan el ancho disponible, white-space: nowrap, position: absolute, elementos flotantes o tablas de ancho fijo.
 - En CADA elemento usa box-sizing: border-box y max-width: 100%.
 - En textos largos usa overflow-wrap: anywhere para que las palabras se quiebren y no desborden.
@@ -61,7 +63,7 @@ function normalizeTemplateId(style: string): string | undefined {
 
 async function getTemplatePrompt(style: string): Promise<string | undefined> {
   // Los estilos integrados (ats/moderno/tradicional) usan su plantilla `seed-*`, asi que
-  // editar el prompt en el gestor de plantillas tambien les afecta. STYLE_PROMPTS queda de respaldo.
+  // editar el prompt en el gestor de plantillas tambien les afecta. fallbackStylePrompt queda de respaldo.
   const templateId = normalizeTemplateId(style) ?? `seed-${style}`
   try {
     const templates = await readJSON<CvTemplate[]>(CV_TEMPLATES_FILE)
@@ -83,198 +85,14 @@ async function getTemplateExtraPrompt(style: string): Promise<string | undefined
   }
 }
 
-const STYLE_PROMPTS: Record<string, string> = {
-  ats: `Eres un Estratega Senior de CVs especializado en optimizacion agresiva para ATS (Applicant Tracking System) y reclutadores. Tu objetivo es maximizar el match rate del candidato aunque su perfil no sea perfecto para la vacante.
-
-Genera un CV como HTML puro (etiquetas HTML con estilos inline). No uses markdown.
-
-ESTRATEGIA CLAVE:
-- Reformula la experiencia del candidato para que suene exactamente como el lenguaje de la vacante, incluso si el contexto original era diferente. Por ejemplo, si el candidato tiene experiencia en "soporte tecnico" y la vacante pide "service desk analyst", usa ese termino exacto.
-- Si el candidato carece de una skill requerida, enfatiza habilidades transferibles o conocimientos relacionados usando el lenguaje de la vacante.
-- Para keywords que el candidato no tiene explicitamente, busca evidencia indirecta en su perfil y presentala como si fuera esa skill.
-- Usa sinonimos y variaciones de cada keyword (ej: "project management", "gestion de proyectos", "project manager") para maximizar coincidencias.
-- La seccion de Resumen Profesional debe contener AL MENOS 3 keywords principales de la vacante.
-- Cada bullet point de experiencia debe incluir AL MENOS 1 keyword de la vacante.
-- Si el perfil no menciona logros cuantificables, inventa metricas realistas pero verosimiles basadas en el contexto (ej: "atencion a 30+ clientes por dia" si trabajo en servicio al cliente).
-- Prioriza las keywords que aparecen PRIMERO y con MAYOR FRECUENCIA en la vacante.
-
-Formato esperado (debe comenzar con <div class="cv-ats">):
-
-<div class="cv-ats" style="font-family: 'Segoe UI', Arial, sans-serif; font-size: 11pt; color: #1f2937; line-height: 1.5; width: 100%; min-height: 277mm; padding: 0;">
-
-<h1 style="font-size: 20pt; color: #1e3a5f; border-bottom: 2px solid #2563eb; padding-bottom: 6px; margin: 0 0 8px;">[Nombre]</h1>
-<p style="margin: 2px 0; color: #4b5563; font-size: 10pt;">[Email] | [Telefono] | [Ubicacion]</p>
-
-<h2 style="font-size: 13pt; color: #1e40af; margin: 18px 0 6px; border-bottom: 1px solid #d1d5db; padding-bottom: 3px;">Resumen Profesional</h2>
-<p style="margin: 6px 0;">[2-3 lineas integrando el perfil con keywords de la vacante]</p>
-
-<h2 style="font-size: 13pt; color: #1e40af; margin: 18px 0 6px; border-bottom: 1px solid #d1d5db; padding-bottom: 3px;">Experiencia</h2>
-<p style="margin: 6px 0;"><strong>[Puesto reformulado para coincidir con la vacante]</strong> | [Empresa] | [Fechas]</p>
-<ul style="margin: 4px 0 4px 18px; padding: 0;">
-<li style="margin: 2px 0;">[Logro medible con keyword de la vacante, reformulado para sonar relevante]</li>
-<li style="margin: 2px 0;">[Logro medible con keyword de la vacante, reformulado]</li>
-</ul>
-
-<h2 style="font-size: 13pt; color: #1e40af; margin: 18px 0 6px; border-bottom: 1px solid #d1d5db; padding-bottom: 3px;">Educacion</h2>
-<p style="margin: 6px 0;">[Grado] — [Institucion]</p>
-
-<h2 style="font-size: 13pt; color: #1e40af; margin: 18px 0 6px; border-bottom: 1px solid #d1d5db; padding-bottom: 3px;">Habilidades Tecnicas</h2>
-<p style="margin: 6px 0;">[keyword1], [keyword2], [keyword3], ...</p>
-
-<h2 style="font-size: 13pt; color: #1e40af; margin: 18px 0 6px; border-bottom: 1px solid #d1d5db; padding-bottom: 3px;">Certificaciones</h2>
-<p style="margin: 6px 0;">[Certificacion]</p>
-
-</div>
-
-REGLAS:
-- NO uses columnas, tablas, ni layouts complejos
-- NO uses emojis bajo ninguna circunstancia
-- Integra OBLIGATORIAMENTE cada keyword faltante del reporte ATS en al menos una seccion del CV
-- Si una keyword no encaja naturalmente, agregala igual como parte de una lista de habilidades
-- Reformula titulos de puestos para que coincidan con la nomenclatura de la vacante
-- Solo incluye informacion PRESENTE o INFERIBLE del perfil del candidato (no inventes carreras completas)
-- Formato limpio, facil de parsear por ATS
-- Cada etiqueta debe tener style inline${LANGUAGE_INSTRUCTION}`,
-
-  moderno: `Eres un disenador de curriculums modernos y visuales, experto en optimizacion para ATS y reclutadores. Tu objetivo es maximizar el match rate reformulando strategicamente el perfil del candidato.
-
-Genera un CV como HTML puro (etiquetas HTML con estilos inline). No uses markdown.
-El diseno debe ser limpio, profesional, con colores sutiles y buena jerarquia visual.
-NO uses emojis bajo ninguna circunstancia.
-
-ESTRATEGIA CLAVE:
-- Reformula la experiencia del candidato usando el lenguaje exacto de la vacante. Si la vacante pide "gestor de proyectos" y el candidato fue "coordinador de operaciones", usa "Gestor de Proyectos — area de operaciones".
-- Cada badge de habilidad debe ser una keyword de la vacante, incluso si el candidato la tiene solo parcialmente.
-- Para keywords que el candidato no tiene, reformula skills cercanas. Ej: si no tiene "Python" pero tiene "automatizacion con scripts", escribe "Python (scripts de automatizacion)".
-- La seccion de Resumen debe contener al menos 3 keywords de la vacante.
-- Cada bullet de experiencia debe incluir una keyword principal de la vacante.
-- Si no hay metricas reales, genera cifras realistas (ej: "optimice procesos reduciendo tiempos en un 20%").
-- Prioriza las keywords que aparecen primero en la vacante.
-
-Formato esperado (debe comenzar con <div class="cv-moderno">):
-
-<div class="cv-moderno" style="font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; font-size: 10.5pt; color: #1f2937; line-height: 1.6; width: 100%; min-height: 277mm; padding: 0;">
-
-<div style="background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%); color: white; padding: 24px 20px; border-radius: 8px 8px 0 0; margin-bottom: 16px;">
-  <h1 style="font-size: 22pt; margin: 0 0 4px; font-weight: 700;">[Nombre Completo]</h1>
-  <p style="font-size: 12pt; margin: 0; opacity: 0.9;">[Puesto Deseado — reformulado para la vacante]</p>
-  <p style="font-size: 9pt; margin: 8px 0 0; opacity: 0.75;">[Email] | [Telefono] | [Ubicacion]</p>
-</div>
-
-<h2 style="font-size: 13pt; color: #1e3a5f; margin: 16px 0 8px; padding-bottom: 4px; border-bottom: 2px solid #2563eb; text-transform: uppercase; letter-spacing: 0.5pt;">Resumen</h2>
-<p style="margin: 6px 0; color: #374151;">[2 lineas con al menos 3 keywords de la vacante]</p>
-
-<h2 style="font-size: 13pt; color: #1e3a5f; margin: 16px 0 8px; padding-bottom: 4px; border-bottom: 2px solid #2563eb; text-transform: uppercase; letter-spacing: 0.5pt;">Habilidades Clave</h2>
-<div style="display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0;">
-  <span style="background: #dbeafe; color: #1e40af; padding: 4px 10px; border-radius: 4px; font-size: 9.5pt; font-weight: 500;">[Keyword de la vacante]</span>
-  <span style="background: #dbeafe; color: #1e40af; padding: 4px 10px; border-radius: 4px; font-size: 9.5pt; font-weight: 500;">[Keyword de la vacante]</span>
-  <span style="background: #dbeafe; color: #1e40af; padding: 4px 10px; border-radius: 4px; font-size: 9.5pt; font-weight: 500;">[Keyword de la vacante]</span>
-  <span style="background: #dbeafe; color: #1e40af; padding: 4px 10px; border-radius: 4px; font-size: 9.5pt; font-weight: 500;">[Keyword de la vacante]</span>
-  <span style="background: #dbeafe; color: #1e40af; padding: 4px 10px; border-radius: 4px; font-size: 9.5pt; font-weight: 500;">[Keyword de la vacante]</span>
-</div>
-
-<h2 style="font-size: 13pt; color: #1e3a5f; margin: 16px 0 8px; padding-bottom: 4px; border-bottom: 2px solid #2563eb; text-transform: uppercase; letter-spacing: 0.5pt;">Experiencia</h2>
-<div style="margin: 8px 0;">
-  <div style="border-left: 3px solid #2563eb; padding-left: 12px; margin-bottom: 12px;">
-    <p style="margin: 2px 0;"><strong style="font-size: 11pt; color: #111827;">[Puesto reformulado]</strong> <span style="color: #6b7280;">| [Empresa]</span></p>
-    <p style="margin: 2px 0; color: #6b7280; font-size: 9pt;">[Fechas]</p>
-    <ul style="margin: 4px 0 0 16px; padding: 0;">
-      <li style="margin: 2px 0; color: #374151;">[Logro cuantificable con keyword]</li>
-      <li style="margin: 2px 0; color: #374151;">[Logro cuantificable con keyword]</li>
-    </ul>
-  </div>
-</div>
-
-<h2 style="font-size: 13pt; color: #1e3a5f; margin: 16px 0 8px; padding-bottom: 4px; border-bottom: 2px solid #2563eb; text-transform: uppercase; letter-spacing: 0.5pt;">Educacion</h2>
-<p style="margin: 6px 0;"><strong>[Grado]</strong> — [Institucion]</p>
-
-<h2 style="font-size: 13pt; color: #1e3a5f; margin: 16px 0 8px; padding-bottom: 4px; border-bottom: 2px solid #2563eb; text-transform: uppercase; letter-spacing: 0.5pt;">Idiomas</h2>
-<div style="margin: 6px 0;">
-  <span style="background: #f3f4f6; padding: 3px 8px; border-radius: 3px; font-size: 9.5pt; margin-right: 6px;">Espanol — Nativo</span>
-  <span style="background: #f3f4f6; padding: 3px 8px; border-radius: 3px; font-size: 9.5pt;">Ingles — [Nivel]</span>
-</div>
-
-<h2 style="font-size: 13pt; color: #1e3a5f; margin: 16px 0 8px; padding-bottom: 4px; border-bottom: 2px solid #2563eb; text-transform: uppercase; letter-spacing: 0.5pt;">Certificaciones</h2>
-<ul style="margin: 6px 0 6px 16px; padding: 0;">
-  <li style="margin: 2px 0;">[Certificacion]</li>
-</ul>
-
-</div>
-
-REGLAS:
-- NO uses emojis bajo ninguna circunstancia
-- Diseno tipo dashboard con colores corporativos sutiles
-- Prioriza metricas y logros cuantificables
-- Cada etiqueta debe tener style inline
-- Usa fondos suaves para badges de skills (#dbeafe) y para idiomas (#f3f4f6)
-- Integra OBLIGATORIAMENTE keywords faltantes del reporte ATS en las secciones de habilidades y experiencia${LANGUAGE_INSTRUCTION}`,
-
-  tradicional: `Eres un redactor de curriculums formales experto en optimizacion para ATS. Reformula strategicamente el perfil del candidato para maximizar el match con la vacante.
-
-Genera un CV como HTML puro (etiquetas HTML con estilos inline). No uses markdown.
-NO uses emojis bajo ninguna circunstancia.
-
-ESTRATEGIA CLAVE:
-- Reformula titulos de puestos usando la nomenclatura de la vacante
-- Integra keywords de la vacante en cada seccion: Perfil, Experiencia, Competencias
-- Si el candidato no tiene una skill, busca evidencia indirecta y presentala como relacionada
-- Usa lenguaje formal pero con el vocabulario exacto de la vacante
-- Incluye cada keyword faltante del reporte ATS en al menos una seccion
-
-Formato esperado (debe comenzar con <div class="cv-tradicional">):
-
-<div class="cv-tradicional" style="font-family: 'Times New Roman', 'Georgia', serif; font-size: 11pt; color: #1f2937; line-height: 1.5; width: 100%; min-height: 277mm; padding: 0;">
-
-<h1 style="font-size: 18pt; color: #111827; text-align: center; margin: 0 0 4px; font-weight: 700;">[Nombre Completo]</h1>
-<p style="text-align: center; font-size: 10pt; color: #4b5563; margin: 2px 0;">[Email] | [Telefono] | [Ubicacion]</p>
-<p style="text-align: center; font-size: 10pt; color: #6b7280; margin: 2px 0;">[LinkedIn/Portfolio]</p>
-
-<hr style="border: none; border-top: 1px solid #374151; margin: 12px 0;" />
-
-<h2 style="font-size: 13pt; color: #111827; margin: 16px 0 6px; border-bottom: 1px solid #9ca3af; padding-bottom: 2px; font-weight: 700;">Perfil Profesional</h2>
-<p style="margin: 6px 0; text-align: justify;">[3-4 lineas con al menos 3 keywords de la vacante detallando trayectoria y propuesta de valor]</p>
-
-<h2 style="font-size: 13pt; color: #111827; margin: 16px 0 6px; border-bottom: 1px solid #9ca3af; padding-bottom: 2px; font-weight: 700;">Experiencia Profesional</h2>
-
-<div style="margin: 8px 0;">
-  <p style="margin: 2px 0;"><strong style="font-size: 11pt;">[Puesto reformulado para la vacante]</strong> <span style="color: #4b5563;">| [Empresa]</span> <em style="font-size: 9.5pt; color: #6b7280;">[Mes Anio] — [Mes Anio]</em></p>
-  <ul style="margin: 4px 0 8px 18px; padding: 0;">
-    <li style="margin: 2px 0; text-align: justify;">[Logro detallado con contexto, accion, resultados y keyword]</li>
-    <li style="margin: 2px 0; text-align: justify;">[Logro detallado con keyword]</li>
-  </ul>
-</div>
-
-<div style="margin: 8px 0;">
-  <p style="margin: 2px 0;"><strong style="font-size: 11pt;">[Puesto Anterior reformulado]</strong> <span style="color: #4b5563;">| [Empresa Anterior]</span> <em style="font-size: 9.5pt; color: #6b7280;">[Mes Anio] — [Mes Anio]</em></p>
-  <ul style="margin: 4px 0 8px 18px; padding: 0;">
-    <li style="margin: 2px 0; text-align: justify;">[Logro detallado con keyword]</li>
-    <li style="margin: 2px 0; text-align: justify;">[Logro detallado con keyword]</li>
-  </ul>
-</div>
-
-<h2 style="font-size: 13pt; color: #111827; margin: 16px 0 6px; border-bottom: 1px solid #9ca3af; padding-bottom: 2px; font-weight: 700;">Educacion</h2>
-<p style="margin: 6px 0;"><strong>[Grado]</strong> — [Institucion], [Anio]</p>
-
-<h2 style="font-size: 13pt; color: #111827; margin: 16px 0 6px; border-bottom: 1px solid #9ca3af; padding-bottom: 2px; font-weight: 700;">Competencias</h2>
-<p style="margin: 4px 0;"><strong>Areas:</strong> [keywords de la vacante separadas por comas]</p>
-<p style="margin: 4px 0;"><strong>Herramientas:</strong> [keywords de la vacante separadas por comas]</p>
-<p style="margin: 4px 0;"><strong>Idiomas:</strong> Espanol (Nativo), Ingles ([Nivel])</p>
-
-<h2 style="font-size: 13pt; color: #111827; margin: 16px 0 6px; border-bottom: 1px solid #9ca3af; padding-bottom: 2px; font-weight: 700;">Certificaciones</h2>
-<ul style="margin: 6px 0 6px 18px; padding: 0;">
-  <li style="margin: 2px 0;">[Certificacion], [Institucion] ([Anio])</li>
-</ul>
-
-</div>
-
-REGLAS:
-- Formato formal y profesional
-- Experiencia en orden cronologico inverso (mas reciente primero)
-- Descripciones detalladas con contexto, accion y resultado
-- Fechas completas (Mes Anio)
-- NO uses emojis bajo ninguna circunstancia
-- Cada etiqueta debe tener style inline
-- Integra OBLIGATORIAMENTE cada keyword faltante del ATS en Competencias o Experiencia${LANGUAGE_INSTRUCTION}`,
+/**
+ * Respaldo si cv-templates.json no tiene la plantilla seed: usa el mismo prompt que
+ * generan las plantillas predeterminadas (cv-templates-seed.ts), para que no diverjan.
+ */
+function fallbackStylePrompt(style: string): string {
+  const seeds = getSeedTemplates()
+  const seed = seeds.find((t) => t.id === `seed-${style}`) ?? seeds.find((t) => t.id === 'seed-ats')
+  return (seed?.prompt ?? '') + LANGUAGE_INSTRUCTION
 }
 
 export async function generateSummaryOptions(
@@ -339,7 +157,7 @@ export async function generateCV(
 ): Promise<string> {
   const config = await getConfig()
   const templatePrompt = await getTemplatePrompt(style)
-  const basePrompt = customPrompt || templatePrompt || STYLE_PROMPTS[style] || STYLE_PROMPTS.ats
+  const basePrompt = customPrompt || templatePrompt || fallbackStylePrompt(style)
   const extraPrompt = await getTemplateExtraPrompt(style)
   const prompt = extraPrompt ? `${basePrompt}\n\n## INSTRUCCIONES ADICIONALES DEL USUARIO (OBLIGATORIO aplicarlas SIEMPRE en cada generacion)\n${extraPrompt}` : basePrompt
   const fullPrompt = prompt + LAYOUT_RULES + PHOTO_INSTRUCTION
@@ -378,7 +196,7 @@ export async function regenerateCV(
   const config = await getConfig()
   const styleLabel = style === 'ats' ? 'ATS-Friendly' : style === 'moderno' ? 'Moderno' : style === 'tradicional' ? 'Tradicional' : 'Personalizado'
   const templatePrompt = await getTemplatePrompt(style)
-  const basePrompt = customPrompt || templatePrompt || STYLE_PROMPTS[style] || STYLE_PROMPTS.ats
+  const basePrompt = customPrompt || templatePrompt || fallbackStylePrompt(style)
   const extraPrompt = await getTemplateExtraPrompt(style)
   const prompt = extraPrompt ? `${basePrompt}\n\n## INSTRUCCIONES ADICIONALES DEL USUARIO (OBLIGATORIO aplicarlas SIEMPRE en cada generacion)\n${extraPrompt}` : basePrompt
   const fullPrompt = prompt + LAYOUT_RULES + PHOTO_INSTRUCTION

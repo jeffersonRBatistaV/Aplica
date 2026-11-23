@@ -3,6 +3,7 @@ import { Pencil, Check, X, User, Briefcase, BookOpen, Award, Globe, Mail, Phone,
 import { useTranslation } from 'react-i18next'
 import type { Profile, Project, Reference } from '../../../shared/types'
 import { areas } from '../../data/questions'
+import { CertificateFiles } from './CertificateFiles'
 
 interface ProfileViewProps {
   profile: Profile
@@ -127,6 +128,7 @@ export function ProfileView({ profile, onSave, onEdit }: ProfileViewProps) {
           </div>
           <SkillTagsField label={t('profile.skills')} icon={Award} values={draft.skills} levels={draft.skillLevels ?? {}} onChange={(v) => setDraft({ ...draft, skills: v })} onLevelChange={(skill, level) => setDraft({ ...draft, skillLevels: { ...draft.skillLevels, [skill]: level } })} />
           <TagsField label={t('profile.certifications')} icon={BookOpen} values={draft.certifications} onChange={(v) => setDraft({ ...draft, certifications: v })} />
+          <CertificateFiles />
           <TagsField label={t('profile.languages')} icon={Globe} values={draft.languages} onChange={(v) => setDraft({ ...draft, languages: v })} />
 
           {/* Experience */}
@@ -420,6 +422,7 @@ export function ProfileView({ profile, onSave, onEdit }: ProfileViewProps) {
             </div>
           </div>
         )}
+        <CertificateFiles />
         {profile.languages.length > 0 && (
           <div>
             <span className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1.5">{t('profile.languages')}</span>
